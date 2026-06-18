@@ -43,7 +43,7 @@ export function CommandPalette({ open, onClose, onOpenRepository, onOpenSettings
       { id: 'pull', label: 'Pull Current Branch', detail: 'Pull origin using merge', icon: GitPullRequest, run: () => pull.mutate({ remote: 'origin', strategy: 'merge' } as never), aliases: ['pull', 'pull current branch'] },
       { id: 'push', label: 'Push Current Branch', detail: 'Push origin', icon: Upload, run: () => push.mutate({ remote: 'origin' }), aliases: ['push', 'push current branch'] },
       { id: 'stash', label: 'Stash Changes', detail: 'Create a default stash', icon: GitBranch, run: () => stash.mutate({}), aliases: ['stash', 'stash changes'] },
-      { id: 'log', label: 'Show Operation Log', detail: 'Toggle command log', icon: Terminal, run: () => toggleLogDrawer(true), aliases: ['log', 'operation log', 'show operation log'] },
+      { id: 'terminal', label: 'Show Terminal', detail: 'Toggle interactive terminal', icon: Terminal, run: () => toggleLogDrawer(true), aliases: ['terminal', 'console', 'show terminal', 'command prompt'] },
       { id: 'settings', label: 'Open Settings', detail: 'Preferences and Git path', icon: Settings, run: onOpenSettings, aliases: ['settings', 'open settings'] },
     ];
     for (const branch of branches.data ?? []) {

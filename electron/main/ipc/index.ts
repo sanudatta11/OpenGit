@@ -11,6 +11,7 @@ import { registerStashHandlers } from './stash';
 import { registerOperationsHandlers } from './operations';
 import { registerWorktreeHandlers } from './worktree';
 import { registerSettingsHandlers } from './settings';
+import { registerTerminalHandlers } from './terminal';
 
 export function registerAllHandlers(): void {
   registerRepoHandlers();
@@ -24,4 +25,5 @@ export function registerAllHandlers(): void {
   registerWorktreeHandlers();
   registerSettingsHandlers();
   registerLogHandlers();
+  registerTerminalHandlers();
 }

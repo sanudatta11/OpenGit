@@ -236,6 +236,23 @@ const api = {
     },
   },
 
+  terminal: {
+    run: (command: string): Promise<{ exitCode: number }> =>
+      ipcRenderer.invoke(IPC.TERMINAL_RUN, command),
+    kill: (): Promise<{ success: boolean }> =>
+      ipcRenderer.invoke(IPC.TERMINAL_KILL),
+    onData: (cb: (data: { text: string; isError: boolean }) => void): (() => void) => {
+      const handler = (_e: IpcRendererEvent, data: { text: string; isError: boolean }) => cb(data);
+      ipcRenderer.on('terminal:data', handler);
+      return () => ipcRenderer.off('terminal:data', handler);
+    },
+    onExit: (cb: (data: { exitCode: number }) => void): (() => void) => {
+      const handler = (_e: IpcRendererEvent, data: { exitCode: number }) => cb(data);
+      ipcRenderer.on('terminal:exit', handler);
+      return () => ipcRenderer.off('terminal:exit', handler);
+    },
+  },
+
   dialog: {
     pickRepo: (): Promise<string | null> => ipcRenderer.invoke('dialog:pickRepo'),
     pickDirectory: (): Promise<string | null> => ipcRenderer.invoke('dialog:pickDirectory'),

@@ -108,7 +108,7 @@ export function TopBar({ onOpenSettings }: { onOpenSettings: () => void }) {
       <button
         className={`icon-btn ${logDrawerOpen ? 'text-accent' : ''}`}
         onClick={() => toggleLogDrawer()}
-        title="Toggle operation log (Ctrl/Cmd+L)"
+        title="Toggle terminal (Ctrl/Cmd+L)"
       >
         <Terminal className="w-4 h-4" />
       </button>

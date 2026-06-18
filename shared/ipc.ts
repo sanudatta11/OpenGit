@@ -87,6 +87,9 @@ export const IPC = {
   LOG_UNSUBSCRIBE: 'log:unsubscribe',
 
   WATCH_EVENT: 'watch:event',
+
+  TERMINAL_RUN: 'terminal:run',
+  TERMINAL_KILL: 'terminal:kill',
 } as const;
 
 export type IpcChannel = (typeof IPC)[keyof typeof IPC];
