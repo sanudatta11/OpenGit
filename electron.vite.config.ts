@@ -19,6 +19,9 @@ export default defineConfig({
     build: {
       rollupOptions: {
         input: { index: resolve(__dirname, 'electron/preload/index.ts') },
+        output: {
+          format: 'cjs',
+        },
       },
     },
     resolve: {
