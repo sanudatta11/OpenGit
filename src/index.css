@@ -1,0 +1,60 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html, body, #root {
+    height: 100%;
+    margin: 0;
+    overflow: hidden;
+  }
+  body {
+    @apply bg-bg text-fg font-sans text-sm antialiased;
+    user-select: none;
+  }
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-bg;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-border rounded;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-border-strong;
+  }
+}
+
+@layer components {
+  .btn {
+    @apply inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-medium
+           bg-bg-elevated border border-border text-fg
+           hover:bg-bg-hover hover:border-border-strong transition-colors
+           disabled:opacity-40 disabled:cursor-not-allowed;
+  }
+  .btn-primary {
+    @apply bg-accent text-white border-accent hover:bg-accent-hover hover:border-accent-hover;
+  }
+  .btn-danger {
+    @apply text-git-deleted hover:bg-git-deleted/10 hover:border-git-deleted/50;
+  }
+  .icon-btn {
+    @apply inline-flex items-center justify-center w-7 h-7 rounded text-fg-muted
+           hover:text-fg hover:bg-bg-hover transition-colors;
+  }
+  .panel {
+    @apply bg-bg-panel border-border;
+  }
+  .input {
+    @apply bg-bg-input border border-border rounded px-2 py-1 text-xs text-fg
+           focus:outline-none focus:border-accent transition-colors;
+  }
+  .row-hover {
+    @apply hover:bg-bg-hover cursor-pointer;
+  }
+  .label {
+    @apply text-fg-muted uppercase text-xxs tracking-wider font-semibold;
+  }
+}

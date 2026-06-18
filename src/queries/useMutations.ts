@@ -1,0 +1,246 @@
+// src/queries/useMutations.ts — TanStack Query mutation hooks for write operations.
+
+import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
+import { api } from '../ipc/api';
+import { qk } from './keys';
+import { useRepoStore } from '../stores/repo';
+
+// Input types with optional defaults (renderer-side; main fills in defaults via Zod).
+interface CommitInput { message: string; amend?: boolean; signoff?: boolean; noVerify?: boolean; author?: { name: string; email: string } }
+interface CheckoutInput { ref: string; create?: boolean; force?: boolean }
+interface CreateBranchInput { name: string; start?: string; checkout?: boolean }
+interface DeleteBranchInput { name: string; force?: boolean }
+interface FetchInput { remote?: string; prune?: boolean }
+interface PullInput { remote?: string; branch?: string; ffOnly?: boolean }
+interface PushInput { remote?: string; branch?: string; forceWithLease?: boolean; setUpstream?: boolean }
+
+// Helper: invalidate everything that a write might have changed.
+function useRefreshOnSuccess() {
+  const qc = useQueryClient();
+  return (requiresRefresh?: boolean) => {
+    if (requiresRefresh) {
+      void qc.invalidateQueries({ queryKey: qk.status });
+      void qc.invalidateQueries({ queryKey: qk.branches });
+      void qc.invalidateQueries({ queryKey: qk.state });
+      void qc.invalidateQueries({ queryKey: ['log'] });
+    }
+  };
+}
+
+// ── Working tree ────────────────────────────────────────────────────────────
+
+export function useStage() {
+  const refresh = useRefreshOnSuccess();
+  return useMutation({
+    mutationFn: (paths: string[]) => api.workingTree.stage(paths),
+    onSuccess: (r) => refresh(r.requiresRefresh),
+  });
+}
+
+export function useStageAll() {
+  const refresh = useRefreshOnSuccess();
+  return useMutation({
+    mutationFn: () => api.workingTree.stageAll(),
+    onSuccess: (r) => refresh(r.requiresRefresh),
+  });
+}
+
+export function useUnstage() {
+  const refresh = useRefreshOnSuccess();
+  return useMutation({
+    mutationFn: (paths: string[]) => api.workingTree.unstage(paths),
+    onSuccess: (r) => refresh(r.requiresRefresh),
+  });
+}
+
+export function useUnstageAll() {
+  const refresh = useRefreshOnSuccess();
+  return useMutation({
+    mutationFn: () => api.workingTree.unstageAll(),
+    onSuccess: (r) => refresh(r.requiresRefresh),
+  });
+}
+
+export function useDiscard() {
+  const refresh = useRefreshOnSuccess();
+  return useMutation({
+    mutationFn: ({ paths, untracked }: { paths: string[]; untracked?: boolean }) =>
+      untracked ? api.workingTree.discardUntracked(paths) : api.workingTree.discard(paths),
+    onSuccess: (r) => refresh(r.requiresRefresh),
+  });
+}
+
+// ── Commit ──────────────────────────────────────────────────────────────────
+
+export function useCommit() {
+  const refresh = useRefreshOnSuccess();
+  return useMutation({
+    mutationFn: (input: CommitInput) => api.commit.create(input as never),
+    onSuccess: (r) => refresh(r.requiresRefresh),
+  });
+}
+
+// ── Branch ──────────────────────────────────────────────────────────────────
+
+export function useCheckout() {
+  const refresh = useRefreshOnSuccess();
+  return useMutation({
+    mutationFn: (input: CheckoutInput) => api.branch.checkout(input as never),
+    onSuccess: (r) => refresh(r.requiresRefresh),
+  });
+}
+
+export function useCreateBranch() {
+  const refresh = useRefreshOnSuccess();
+  return useMutation({
+    mutationFn: (input: CreateBranchInput) => api.branch.create(input as never),
+    onSuccess: (r) => refresh(r.requiresRefresh),
+  });
+}
+
+export function useDeleteBranch() {
+  const refresh = useRefreshOnSuccess();
+  return useMutation({
+    mutationFn: (input: DeleteBranchInput) => api.branch.delete(input as never),
+    onSuccess: (r) => refresh(r.requiresRefresh),
+  });
+}
+
+// ── Remote ──────────────────────────────────────────────────────────────────
+
+export function useFetch() {
+  const refresh = useRefreshOnSuccess();
+  return useMutation({
+    mutationFn: (input: FetchInput) => api.remote.fetch(input as never),
+    onSuccess: (r) => refresh(r.requiresRefresh),
+  });
+}
+
+export function usePull() {
+  const refresh = useRefreshOnSuccess();
+  return useMutation({
+    mutationFn: (input: PullInput) => api.remote.pull(input as never),
+    onSuccess: (r) => refresh(r.requiresRefresh),
+  });
+}
+
+export function usePush() {
+  const refresh = useRefreshOnSuccess();
+  return useMutation({
+    mutationFn: (input: PushInput) => api.remote.push(input as never),
+    onSuccess: (r) => refresh(r.requiresRefresh),
+  });
+}
+
+// ── Stash ────────────────────────────────────────────────────────────────────
+
+export function useStashList() {
+  return useQuery({
+    queryKey: ['stash'],
+    queryFn: () => api.stash.list(),
+    enabled: !!useRepoStore.getState().repo,
+    staleTime: 10_000,
+    refetchOnWindowFocus: false,
+  });
+}
+
+export function useStashCreate() {
+  const refresh = useRefreshOnSuccess();
+  return useMutation({
+    mutationFn: (input: { message?: string; includeUntracked?: boolean; keepIndex?: boolean }) =>
+      api.stash.create(input as never),
+    onSuccess: (r) => refresh(r.requiresRefresh),
+  });
+}
+
+export function useStashApply() {
+  const refresh = useRefreshOnSuccess();
+  return useMutation({
+    mutationFn: (input: { ref?: string; keepIndex?: boolean }) =>
+      api.stash.apply(input as never),
+    onSuccess: (r) => refresh(r.requiresRefresh),
+  });
+}
+
+export function useStashPop() {
+  const refresh = useRefreshOnSuccess();
+  return useMutation({
+    mutationFn: (input: { ref?: string; keepIndex?: boolean }) =>
+      api.stash.pop(input as never),
+    onSuccess: (r) => refresh(r.requiresRefresh),
+  });
+}
+
+export function useStashDrop() {
+  const refresh = useRefreshOnSuccess();
+  return useMutation({
+    mutationFn: (input: { ref?: string }) =>
+      api.stash.drop(input as never),
+    onSuccess: (r) => refresh(r.requiresRefresh),
+  });
+}
+
+// ── Operations (merge/rebase/cherry-pick/revert + abort/continue/skip) ───────
+
+export function useMerge() {
+  const refresh = useRefreshOnSuccess();
+  return useMutation({
+    mutationFn: (input: { ref: string; noFf?: boolean; noCommit?: boolean; squash?: boolean }) =>
+      api.operations.merge(input as never),
+    onSuccess: (r) => refresh(r.requiresRefresh),
+  });
+}
+
+export function useRebase() {
+  const refresh = useRefreshOnSuccess();
+  return useMutation({
+    mutationFn: (input: { onto: string; interactive?: boolean }) =>
+      api.operations.rebase(input as never),
+    onSuccess: (r) => refresh(r.requiresRefresh),
+  });
+}
+
+export function useCherryPick() {
+  const refresh = useRefreshOnSuccess();
+  return useMutation({
+    mutationFn: (input: { shas: string[]; noCommit?: boolean }) =>
+      api.operations.cherryPick(input as never),
+    onSuccess: (r) => refresh(r.requiresRefresh),
+  });
+}
+
+export function useRevert() {
+  const refresh = useRefreshOnSuccess();
+  return useMutation({
+    mutationFn: (input: { shas: string[]; noCommit?: boolean }) =>
+      api.operations.revert(input.shas, input.noCommit),
+    onSuccess: (r) => refresh(r.requiresRefresh),
+  });
+}
+
+export function useAbortOperation() {
+  const refresh = useRefreshOnSuccess();
+  return useMutation({
+    mutationFn: (kind: import('@shared/git').OperationKind) =>
+      api.operations.abort({ kind }),
+    onSuccess: (r) => refresh(r.requiresRefresh),
+  });
+}
+
+export function useContinueOperation() {
+  const refresh = useRefreshOnSuccess();
+  return useMutation({
+    mutationFn: (kind: import('@shared/git').OperationKind) =>
+      api.operations.continue({ kind }),
+    onSuccess: (r) => refresh(r.requiresRefresh),
+  });
+}
+
+export function useSkipOperation() {
+  const refresh = useRefreshOnSuccess();
+  return useMutation({
+    mutationFn: (kind: import('@shared/git').OperationKind) =>
+      api.operations.skip({ kind }),
+    onSuccess: (r) => refresh(r.requiresRefresh),
+  });
+}
