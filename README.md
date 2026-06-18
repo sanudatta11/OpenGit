@@ -1,9 +1,8 @@
 # OpenGit
 
-<img width="1254" height="1254" alt="OpenGit" src="https://github.com/user-attachments/assets/a2d93071-8c81-4b92-8191-7cec7aec9a65" />
-
-
-
+<p align="center">
+  <img width="400" alt="OpenGit" src="https://github.com/user-attachments/assets/a2d93071-8c81-4b92-8191-7cec7aec9a65" />
+</p>
 
 A lightweight desktop Git client for local repository workflows, built with Electron, React, Vite, and TypeScript.
 
@@ -27,11 +26,9 @@ A lightweight desktop Git client for local repository workflows, built with Elec
 
 ## Screenshot
 
-```
-<img width="1776" height="1110" alt="OpenGit Intro" src="https://github.com/user-attachments/assets/84618bc9-385b-4177-906f-8a0032154f0d" />
-
-
-```
+<p align="center">
+  <img width="800" alt="OpenGit Intro" src="https://github.com/user-attachments/assets/84618bc9-385b-4177-906f-8a0032154f0d" />
+</p>
 
 ## Quick Start
 
