@@ -9,6 +9,7 @@ import App from './App';
 import './index.css';
 import { useLogStore } from './stores/log';
 import { api } from './ipc/api';
+import { RebaseEditor } from './components/rebase/RebaseEditor';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -47,6 +48,7 @@ root.render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
       <App />
+      <RebaseEditor />
     </QueryClientProvider>
   </React.StrictMode>,
 );

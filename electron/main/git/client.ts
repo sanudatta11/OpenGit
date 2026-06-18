@@ -18,6 +18,8 @@ export interface GitRunOptions {
   channel: string;
   /** Hide argv from logs (e.g. for tokens). Default false. */
   redactArgv?: boolean;
+  /** Extra environment variables to set for this git call. Merged after defaults. */
+  env?: Record<string, string>;
 }
 
 export interface GitRunResult {
@@ -135,6 +137,7 @@ export async function gitRun(opts: GitRunOptions): Promise<GitRunResult> {
         GIT_PAGER: 'cat', // never invoke a pager
         LC_ALL: 'C', // stable parser output
         GIT_OPTIONAL_LOCKS: '0', // don't block concurrent git processes
+        ...opts.env, // caller env overrides win — used for GIT_SEQUENCE_EDITOR etc.
       },
       encoding: 'utf8',
       maxBuffer: 64 * 1024 * 1024,

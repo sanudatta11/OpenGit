@@ -55,6 +55,8 @@ import type {
   PullPreview,
   PushPreview,
   RebasePlan,
+  BranchCompareInput,
+  BranchCompareResult,
 } from '@shared/ipc';
 
 export interface FileContentResult {
@@ -190,6 +192,15 @@ const api = {
       ipcRenderer.invoke(IPC.CONFLICT_FILE, { path }),
     resolve: (path: string, content: string): Promise<{ success: boolean; stdout: string; stderr: string }> =>
       ipcRenderer.invoke(IPC.CONFLICT_RESOLVE, { path, content }),
+    versions: (path: string): Promise<import('@shared/ipc').ConflictVersionsResult> =>
+      ipcRenderer.invoke(IPC.CONFLICT_VERSIONS, { path }),
+  },
+
+  rebaseInteractive: {
+    plan: (input: { onto: string }): Promise<import('@shared/ipc').RebaseInteractivePlan> =>
+      ipcRenderer.invoke(IPC.BRANCH_REBASE_INTERACTIVE, input),
+    apply: (input: { onto: string; items: { action: string; sha: string }[] }): Promise<import('@shared/ipc').WriteResult<import('@shared/ipc').RebaseResultData>> =>
+      ipcRenderer.invoke(IPC.REBASE_INTERACTIVE_APPLY, input),
   },
 
   worktree: {
@@ -251,6 +262,11 @@ const api = {
       ipcRenderer.on('terminal:exit', handler);
       return () => ipcRenderer.off('terminal:exit', handler);
     },
+  },
+
+  compare: {
+    branches: (input: BranchCompareInput): Promise<BranchCompareResult> =>
+      ipcRenderer.invoke(IPC.BRANCH_COMPARE, input),
   },
 
   dialog: {

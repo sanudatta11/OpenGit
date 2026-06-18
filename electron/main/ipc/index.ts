@@ -12,6 +12,8 @@ import { registerOperationsHandlers } from './operations';
 import { registerWorktreeHandlers } from './worktree';
 import { registerSettingsHandlers } from './settings';
 import { registerTerminalHandlers } from './terminal';
+import { registerCompareHandlers } from './compare';
+import { registerRebaseHandlers } from './rebase';
 
 export function registerAllHandlers(): void {
   registerRepoHandlers();
@@ -26,4 +28,6 @@ export function registerAllHandlers(): void {
   registerSettingsHandlers();
   registerLogHandlers();
   registerTerminalHandlers();
+  registerCompareHandlers();
+  registerRebaseHandlers();
 }

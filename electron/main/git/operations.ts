@@ -2,9 +2,12 @@
 // Each returns a WriteResult. See shared/ipc.ts for the envelope.
 
 import { gitRun, gitText } from './client';
-import type { WriteResult } from '@shared/ipc';
+import type { ConflictVersionsResult, WriteResult, RebaseResultData } from '@shared/ipc';
+import type { RebaseInteractivePlanItem, RebaseInteractivePlan } from '@shared/ipc';
 import type { InProgressState, StashEntry, OperationKind, Worktree } from '@shared/git';
 import { parseInProgressState, withConflicts, parseStashList, STASH_LIST_FORMAT, parseWorktrees } from './parse';
+import { readFileSync, writeFileSync, rmSync, mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Working tree
@@ -239,9 +242,35 @@ export async function checkoutBranch(
     success: r.ok,
     stdout: r.stdout,
     stderr: r.stderr,
-    changedRefs: ['HEAD'],
+    changedRefs: [],
     requiresRefresh: r.ok,
   };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Conflict versions (Phase 2)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function getConflictVersions(
+  workTree: string,
+  path: string,
+): Promise<ConflictVersionsResult> {
+  const [ours, theirs] = await Promise.all([
+    gitShowStage(workTree, 2, path),
+    gitShowStage(workTree, 3, path),
+  ]);
+  const merged = readFileSync(join(workTree, path), 'utf8');
+  return { ours, theirs, merged };
+}
+
+async function gitShowStage(workTree: string, stage: number, path: string): Promise<string> {
+  const r = await gitRun({
+    cwd: workTree,
+    args: ['show', `:${stage}:${path}`],
+    channel: 'conflict:versions',
+    reject: false,
+  });
+  return r.ok ? r.stdout : '';
 }
 
 export async function createBranch(
@@ -708,6 +737,93 @@ export async function rebaseBranch(
     requiresRefresh: true,
     state: hasConflicts ? await probeState(workTree, join(workTree, '.git')) : undefined,
   };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Interactive rebase (Phase 3)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function rebaseInteractivePlan(
+  workTree: string,
+  onto: string,
+): Promise<RebaseInteractivePlan> {
+  const r = await gitRun({
+    cwd: workTree,
+    args: ['log', `--pretty=format:%H%x1f%an%x1f%s`, `${onto}..HEAD`],
+    channel: 'rebase:interactive',
+    reject: false,
+  });
+
+  const lines = r.stdout.trim().split('\n').filter(Boolean).reverse();
+  const items: RebaseInteractivePlanItem[] = lines.map((line, i) => {
+    const [sha = '', author = '', subject = ''] = line.split('\x1f');
+    return { id: `todo-${i}`, action: 'pick', sha, subject, author };
+  });
+
+  const branchR = await gitRun({
+    cwd: workTree,
+    args: ['branch', '--show-current'],
+    channel: 'rebase:interactive',
+    reject: false,
+  });
+  const currentBranch = branchR.ok ? branchR.stdout.trim() : null;
+
+  return { onto, currentBranch, items };
+}
+
+export async function applyRebaseInteractive(
+  workTree: string,
+  onto: string,
+  items: { action: string; sha: string }[],
+): Promise<WriteResult<RebaseResultData>> {
+  const tmpDir = mkdtempSync(join(tmpdir(), 'opengit-rebase-'));
+  const todoPath = join(tmpDir, 'git-rebase-todo');
+  const todoContent = items.map((item) => `${item.action} ${item.sha}`).join('\n') + '\n';
+  writeFileSync(todoPath, todoContent, 'utf8');
+
+  const bridgeScript = `#!/bin/sh\ncp "${todoPath}" "$1"\n`;
+  const bridgePath = join(tmpDir, 'opengit-sequence-editor.sh');
+  writeFileSync(bridgePath, bridgeScript, { mode: 0o755 });
+
+  try {
+    const r = await gitRun({
+      cwd: workTree,
+      args: ['rebase', '-i', onto],
+      channel: 'branch:rebaseInteractive',
+      reject: false,
+      env: {
+        GIT_SEQUENCE_EDITOR: bridgePath,
+        GIT_EDITOR: bridgePath,
+      },
+    });
+
+    const hasConflicts = /CONFLICT|could not apply|Merge conflict/i.test(r.stderr) || /CONFLICT|could not apply/i.test(r.stdout);
+    let conflicts: string[] = [];
+    let step: number | null = null;
+    let total: number | null = null;
+
+    if (hasConflicts) {
+      const cr = await gitRun({
+        cwd: workTree,
+        args: ['diff', '--name-only', '--diff-filter=U', '-z'],
+        channel: 'branch:rebaseInteractive',
+        reject: false,
+      });
+      if (cr.ok) conflicts = cr.stdout.split('\0').filter((p) => p.length > 0);
+    }
+
+    return {
+      success: r.ok,
+      data: { conflicts, step, total },
+      stdout: r.stdout,
+      stderr: r.stderr,
+      changedRefs: r.ok ? ['HEAD'] : [],
+      requiresRefresh: true,
+      state: hasConflicts ? await probeState(workTree, join(workTree, '.git')) : undefined,
+    };
+  } finally {
+    rmSync(tmpDir, { recursive: true, force: true });
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

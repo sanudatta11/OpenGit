@@ -73,6 +73,12 @@ export const IPC = {
 
   CONFLICT_FILE: 'conflict:file',
   CONFLICT_RESOLVE: 'conflict:resolve',
+  CONFLICT_VERSIONS: 'conflict:versions',
+
+  BRANCH_COMPARE: 'branch:compare',
+
+  BRANCH_REBASE_INTERACTIVE: 'branch:rebaseInteractive',
+  REBASE_INTERACTIVE_APPLY: 'rebase:interactiveApply',
 
   AUTH_STATUS: 'auth:status',
   AUTH_TEST_REMOTE: 'auth:testRemote',
@@ -331,6 +337,17 @@ export const RebasePlanInput = z.object({
 });
 export type RebasePlanInput = z.infer<typeof RebasePlanInput>;
 
+export const BranchCompareInput = z.object({
+  branchA: z.string().min(1),
+  branchB: z.string().min(1),
+});
+export type BranchCompareInput = z.infer<typeof BranchCompareInput>;
+
+export const ConflictVersionsInput = z.object({
+  path: z.string().min(1),
+});
+export type ConflictVersionsInput = z.infer<typeof ConflictVersionsInput>;
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Output envelope (writes)
 // ─────────────────────────────────────────────────────────────────────────────
@@ -424,6 +441,56 @@ export interface RebasePlan {
   readonly currentBranch: string | null;
   readonly commits: readonly OperationPreviewCommit[];
   readonly files: readonly OperationPreviewFile[];
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Branch Compare types (Phase 1)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface BranchCompareFile {
+  readonly path: string;
+  readonly status: 'added' | 'modified' | 'deleted' | 'renamed' | 'copied';
+  readonly additions: number;
+  readonly deletions: number;
+  readonly oldPath: string | null;
+}
+
+export interface BranchCompareResult {
+  readonly aheadCount: number;
+  readonly behindCount: number;
+  readonly aheadCommits: readonly OperationPreviewCommit[];
+  readonly behindCommits: readonly OperationPreviewCommit[];
+  readonly files: readonly BranchCompareFile[];
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Conflict versions (Phase 2)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface ConflictVersionsResult {
+  readonly ours: string;
+  readonly theirs: string;
+  readonly merged: string;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Interactive rebase types (Phase 3)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type RebaseInteractiveAction = 'pick' | 'reword' | 'edit' | 'squash' | 'fixup' | 'exec' | 'drop';
+
+export interface RebaseInteractivePlanItem {
+  readonly id: string;
+  readonly action: RebaseInteractiveAction;
+  readonly sha: string;
+  readonly subject: string;
+  readonly author: string;
+}
+
+export interface RebaseInteractivePlan {
+  readonly onto: string;
+  readonly currentBranch: string | null;
+  readonly items: readonly RebaseInteractivePlanItem[];
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

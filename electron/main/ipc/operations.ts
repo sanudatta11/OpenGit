@@ -5,6 +5,7 @@ import {
   IPC, GitError,
   BranchMergeInput, BranchRebaseInput, CherryPickInput, OperationInput,
   MergePreviewInput, PullPreviewInput, PushPreviewInput, RebasePlanInput,
+  ConflictVersionsInput,
 } from '@shared/ipc';
 import {
   mergeBranch, rebaseBranch, cherryPick, revertCommits,
@@ -170,6 +171,14 @@ export function registerOperationsHandlers(): void {
     const content = readFileSync(fsPath, 'utf8');
     const blocks = parseConflictContent(content);
     return { path, blocks };
+  });
+
+  ipcMain.handle(IPC.CONFLICT_VERSIONS, async (_e, raw) => {
+    const parsed = ConflictVersionsInput.safeParse(raw);
+    if (!parsed.success) throw badInput(parsed.error.message);
+    const r = requireCurrentRepo();
+    const { getConflictVersions } = await import('../git/operations');
+    return getConflictVersions(r.workTreeRoot, parsed.data.path);
   });
 
   ipcMain.handle(IPC.CONFLICT_RESOLVE, async (_e, raw) => {

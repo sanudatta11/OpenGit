@@ -104,6 +104,16 @@ export function useDiff(input: DiffFileInput | null) {
   });
 }
 
+export function useBranchCompare(branchA: string | null, branchB: string | null) {
+  return useQuery({
+    queryKey: qk.branchCompare(branchA, branchB),
+    queryFn: () => api.compare.branches({ branchA: branchA!, branchB: branchB! }),
+    enabled: !!branchA && !!branchB && !!useRepoStore.getState().repo,
+    staleTime: 10_000,
+    refetchOnWindowFocus: false,
+  });
+}
+
 export function useFileContent(input: { path: string; ref?: string; maxBytes?: number } | null) {
   return useQuery({
     queryKey: input ? qk.fileContent(input.path, input.ref) : ['fileContent', 'none'],

@@ -7,6 +7,7 @@ import { useBranches, useRemotes } from '../../queries/useRepo';
 import { useMerge, useRebase, usePull, usePush } from '../../queries/useMutations';
 import { ArrowDown, ArrowUp, GitMerge, GitPullRequest, AlertTriangle, Loader2 } from 'lucide-react';
 import type { MergePreview, PullPreview, PushPreview, RebasePlan } from '@shared/ipc';
+import { useRebaseStore } from '../../stores/rebase';
 
 type OpType = 'merge' | 'pull' | 'push' | 'rebase';
 
@@ -105,6 +106,15 @@ export function OperationPreviewPanel() {
       });
     }
     void qc.invalidateQueries();
+  };
+
+  const handleInteractiveRebase = async () => {
+    try {
+      const plan = await api.rebaseInteractive.plan({ onto: targetBranch });
+      useRebaseStore.getState().setActive(plan.onto, plan.currentBranch, [...plan.items]);
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   const isPending = mergeMutation.isPending || rebaseMutation.isPending || pullMutation.isPending || pushMutation.isPending;
@@ -261,6 +271,14 @@ export function OperationPreviewPanel() {
             )}
           </div>
 
+          {op === 'rebase' && rebasePlanQuery.data && (
+            <button
+              className="btn w-full justify-center mt-2 h-7 text-xs"
+              onClick={handleInteractiveRebase}
+            >
+              Edit Interactive Rebase
+            </button>
+          )}
           <button
             className="btn btn-primary w-full justify-center mt-3 h-8 text-sm"
             onClick={handleExecute}

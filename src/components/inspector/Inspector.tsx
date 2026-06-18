@@ -7,8 +7,9 @@ import { CommitDetails, CommitFileDiff } from './CommitDetails';
 import { WorkingTree, WorkingTreeDiff } from './WorkingTree';
 import { OperationPreviewPanel } from './OperationPreviewPanel';
 import { ConflictEditor } from './ConflictEditor';
+import { BranchCompare } from '../compare/BranchCompare';
 
-type Tab = 'changes' | 'details' | 'diff' | 'actions';
+type Tab = 'changes' | 'details' | 'diff' | 'actions' | 'compare';
 
 export function Inspector() {
   const selectedSha = useRepoStore((s) => s.selectedCommitSha);
@@ -40,6 +41,7 @@ export function Inspector() {
     { id: 'changes', label: 'Changes' },
     { id: 'details', label: 'Details' },
     { id: 'diff', label: 'Diff' },
+    { id: 'compare', label: 'Compare' },
     { id: 'actions', label: 'Actions' },
   ] as const;
 
@@ -104,6 +106,7 @@ export function Inspector() {
             <div className="p-4 text-center text-fg-dim">No file selected. Select a file in the Changes or Details tab to view its diff.</div>
           )
         )}
+        {activeTab === 'compare' && <BranchCompare />}
         {activeTab === 'actions' && (
           hasConflicts ? <ConflictEditor /> : <OperationPreviewPanel />
         )}
