@@ -1,6 +1,6 @@
 # OpenGit
 
-A lightweight GitKraken-inspired desktop Git client for local repository workflows, built with Electron, React, Vite, and TypeScript.
+A lightweight desktop Git client for local repository workflows, built with Electron, React, Vite, and TypeScript.
 
 ![Dark graph-first workspace](https://img.shields.io/badge/status-alpha-orange)
 ![Tests](https://img.shields.io/badge/tests-44%20passing-brightgreen)

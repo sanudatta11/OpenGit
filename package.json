@@ -1,7 +1,7 @@
 {
   "name": "opengit",
   "version": "0.1.0",
-  "description": "Lightweight GitKraken-inspired desktop Git UI for local repository workflows.",
+  "description": "Lightweight desktop Git UI for local repository workflows.",
   "private": true,
   "type": "module",
   "author": "OpenGit",

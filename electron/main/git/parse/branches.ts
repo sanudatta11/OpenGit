@@ -57,7 +57,6 @@ export function parseBranches(
     const label: RefLabel = { kind: 'HEAD', shortName: 'HEAD', isHead: true };
     const existing = refsBySha.get(headSha);
     if (existing) {
-      // HEAD first to match GitKraken ordering.
       existing.unshift(label);
     } else {
       refsBySha.set(headSha, [label]);
