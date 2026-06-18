@@ -1,5 +1,10 @@
 # OpenGit
 
+<img width="1254" height="1254" alt="OpenGit" src="https://github.com/user-attachments/assets/a2d93071-8c81-4b92-8191-7cec7aec9a65" />
+
+
+
+
 A lightweight desktop Git client for local repository workflows, built with Electron, React, Vite, and TypeScript.
 
 ![Dark graph-first workspace](https://img.shields.io/badge/status-alpha-orange)
@@ -23,25 +28,9 @@ A lightweight desktop Git client for local repository workflows, built with Elec
 ## Screenshot
 
 ```
-┌──────────────────────────────────────────────────────────────────┐
-│ 📁 my-repo  /home/user/my-repo    ↙Fetch ↓Pull ↑Push  main  ⬤△  │
-├────┬───────────────────────────────┬────────────────────────────┤
-│ 📋 │  ●─ Merge branch 'feature'   │ Commit details              │
-│ 🌿 │  ├─● Feature commit          │ SHA: abc1234                │
-│ ☁  │  │ └─● Second commit        │ Author: Jane <jane@...>     │
-│ 📦 │  ●─● First commit            │ Parents: def5678, 1234567   │
-│ 🌲 │                              │                              │
-│    │                              │ Files changed (3)            │
-│    │                              │ +12 -3  src/foo.ts          │
-│    │                              │ +5 -0   src/bar.ts  binary  │
-│    │                              │ ┌──────────────────────┐   │
-│    │                              │ │ Monaco Diff Editor    │   │
-│    │                              │ │ + added line          │   │
-│    │                              │ │ - removed line        │   │
-│    │                              │ └──────────────────────┘   │
-├────┴───────────────────────────────┴────────────────────────────┤
-│ ● repo:status  git status --porcelain=v2  42ms    exit 0       │
-└──────────────────────────────────────────────────────────────────┘
+<img width="1776" height="1110" alt="OpenGit Intro" src="https://github.com/user-attachments/assets/84618bc9-385b-4177-906f-8a0032154f0d" />
+
+
 ```
 
 ## Quick Start
