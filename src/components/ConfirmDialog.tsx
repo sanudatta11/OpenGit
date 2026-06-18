@@ -13,6 +13,7 @@ export interface ConfirmDialogProps {
   danger?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
+  children?: React.ReactNode;
 }
 
 export function ConfirmDialog({
@@ -25,6 +26,7 @@ export function ConfirmDialog({
   danger,
   onConfirm,
   onCancel,
+  children,
 }: ConfirmDialogProps) {
   useEffect(() => {
     if (!open) return;
@@ -54,6 +56,7 @@ export function ConfirmDialog({
           <div className="flex-1 min-w-0">
             <h3 className="text-sm font-semibold text-fg">{title}</h3>
             <p className="mt-1 text-xs text-fg-muted">{message}</p>
+            {children}
           </div>
         </div>
         {details && (

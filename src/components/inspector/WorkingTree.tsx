@@ -14,11 +14,13 @@ import { DiffViewer } from '../diff/DiffViewer';
 import { languageForFile } from '../../monaco/language';
 import type { DiffView } from '../diff/DiffViewer';
 import { ConfirmDialog } from '../ConfirmDialog';
+import { HunkStagingView } from './HunkStagingView';
+import { useRepoStore } from '../../stores/repo';
 
 export function WorkingTree() {
   const status = useStatus();
   const [selectedEntry, setSelectedEntry] = useState<StatusEntry | null>(null);
-  const [diffView, setDiffView] = useState<DiffView>('side-by-side');
+  const [diffView, setDiffView] = useState<DiffView | 'hunks'>('side-by-side');
   const [confirmEntry, setConfirmEntry] = useState<StatusEntry | null>(null);
   const discard = useDiscard();
 
@@ -72,7 +74,7 @@ export function WorkingTree() {
       {selectedEntry && (
         <>
           <div className="h-8 px-3 flex items-center gap-2 border-b border-border shrink-0">
-            <button className="icon-btn" onClick={() => setSelectedEntry(null)} title="Back">
+            <button className="icon-btn" onClick={() => { setSelectedEntry(null); useRepoStore.getState().selectFile(null); }} title="Back">
               <ChevronRight className="w-3 h-3 rotate-180" />
             </button>
             <span className="text-xs text-fg truncate flex-1 font-mono">{selectedEntry.path}</span>
@@ -89,9 +91,19 @@ export function WorkingTree() {
               >
                 Unified
               </button>
+              <button
+                className={`text-xxs px-1.5 py-0.5 rounded ${diffView === 'hunks' ? 'bg-accent/20 text-accent' : 'text-fg-muted hover:bg-bg-hover'}`}
+                onClick={() => setDiffView('hunks')}
+              >
+                Hunks
+              </button>
             </div>
           </div>
-          <WorkingTreeDiff entry={selectedEntry} view={diffView} />
+          {diffView === 'hunks' ? (
+            <HunkStagingView path={selectedEntry.path} staged={selectedEntry.staged} />
+          ) : (
+            <WorkingTreeDiff entry={selectedEntry} view={diffView as DiffView} />
+          )}
         </>
       )}
 
@@ -237,6 +249,16 @@ function FileRow({ entry, selected, onClick, onDiscard }: { entry: StatusEntry; 
     onDiscard();
   };
 
+  const handleClick = () => {
+    onClick();
+    useRepoStore.getState().selectFile({
+      path: entry.path,
+      staged: entry.staged,
+      isCommit: false,
+      oldPath: entry.oldPath,
+    });
+  };
+
   const showStage = !entry.staged;
   const showUnstage = entry.staged;
   const showDiscard = entry.unstaged || entry.kind === 'untracked';
@@ -245,7 +267,7 @@ function FileRow({ entry, selected, onClick, onDiscard }: { entry: StatusEntry; 
     <div
       className={`w-full text-left px-3 py-1 flex items-center gap-2 ${selected ? 'bg-accent/10' : 'row-hover'}`}
       title={entry.path}
-      onClick={onClick}
+      onClick={handleClick}
     >
       <Icon className={`w-3.5 h-3.5 shrink-0 ${color}`} />
       <span className="text-xs truncate flex-1">{label}</span>
@@ -284,7 +306,7 @@ function FileRow({ entry, selected, onClick, onDiscard }: { entry: StatusEntry; 
   );
 }
 
-function WorkingTreeDiff({ entry, view }: { entry: StatusEntry; view: DiffView }) {
+export function WorkingTreeDiff({ entry, view }: { entry: StatusEntry; view: DiffView }) {
   const headContent = useFileContent({ path: entry.oldPath ?? entry.path, ref: 'HEAD' });
   const worktreeContent = useFileContent({ path: entry.path });
 

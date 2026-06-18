@@ -11,11 +11,17 @@ export function StashTab() {
   const [showCreate, setShowCreate] = useState(false);
   const [confirmDrop, setConfirmDrop] = useState<StashEntry | null>(null);
   const [confirmPop, setConfirmPop] = useState<StashEntry | null>(null);
+  const [filter, setFilter] = useState('');
   const drop = useStashDrop();
   const pop = useStashPop();
 
   if (isLoading) return <div className="p-3 text-fg-muted text-xs">Loading…</div>;
   if (error) return <div className="p-3 text-git-deleted text-xs">{(error as Error).message}</div>;
+
+  const filtered = data?.filter((s) =>
+    s.subject.toLowerCase().includes(filter.toLowerCase()) ||
+    s.ref.toLowerCase().includes(filter.toLowerCase())
+  ) ?? [];
 
   return (
     <div className="py-1 text-xs">
@@ -26,13 +32,22 @@ export function StashTab() {
         </button>
       </div>
 
+      <div className="px-3 py-1">
+        <input
+          className="input w-full"
+          placeholder="Filter stashes..."
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+        />
+      </div>
+
       {showCreate && <CreateStashForm onClose={() => setShowCreate(false)} />}
 
-      {(!data || data.length === 0) && !showCreate && (
-        <div className="px-3 py-2 text-fg-dim">No stashes.</div>
+      {filtered.length === 0 && !showCreate && (
+        <div className="px-3 py-2 text-fg-dim">No stashes found.</div>
       )}
 
-      {data?.map((s) => (
+      {filtered.map((s) => (
         <StashRow
           key={s.ref}
           entry={s}

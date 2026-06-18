@@ -13,9 +13,12 @@ const isDev = !app.isPackaged;
 
 function resolvePreload(): string {
   const dir = join(__dirname, '../preload');
-  const js = join(dir, 'index.js');
-  if (existsSync(js)) return js;
-  return join(dir, 'index.mjs');
+  for (const file of ['index.js', 'index.cjs', 'index.mjs']) {
+    const preload = join(dir, file);
+    if (existsSync(preload)) return preload;
+  }
+
+  return join(dir, 'index.js');
 }
 
 async function createWindow(): Promise<BrowserWindow> {

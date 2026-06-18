@@ -60,10 +60,10 @@ export function useState() {
   });
 }
 
-export function useLog(range: string | undefined, skip: number, limit: number) {
+export function useLog(range: string | undefined, skip: number, limit: number, paths?: string[]) {
   return useQuery({
-    queryKey: qk.log(range, skip, limit),
-    queryFn: () => api.repo.log({ range, skip, limit }),
+    queryKey: qk.log(range, skip, limit, paths),
+    queryFn: () => api.repo.log({ range, skip, limit, paths }),
     enabled: !!useRepoStore.getState().repo,
     staleTime: 10_000,
     refetchOnWindowFocus: false,

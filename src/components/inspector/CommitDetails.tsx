@@ -9,6 +9,7 @@ import { DiffViewer } from '../diff/DiffViewer';
 import { languageForFile } from '../../monaco/language';
 import type { DiffView } from '../diff/DiffViewer';
 import { ConfirmDialog } from '../ConfirmDialog';
+import { useRepoStore } from '../../stores/repo';
 
 type ActionKind = 'cherry-pick' | 'revert' | 'merge' | 'rebase';
 
@@ -74,7 +75,16 @@ export function CommitDetails({ commit }: { commit: Commit }) {
             key={f.path}
             file={f}
             selected={selectedFile?.path === f.path}
-            onClick={() => setSelectedFile(f)}
+            onClick={() => {
+              setSelectedFile(f);
+              useRepoStore.getState().selectFile({
+                path: f.path,
+                staged: false,
+                isCommit: true,
+                sha: commit.sha,
+                oldPath: f.oldPath,
+              });
+            }}
           />
         ))}
       </div>
@@ -84,7 +94,9 @@ export function CommitDetails({ commit }: { commit: Commit }) {
         {selectedFile && (
           <>
             <div className="h-8 px-3 flex items-center gap-2 border-b border-border shrink-0">
-              <ChevronRight className="w-3 h-3 text-fg-dim" />
+              <button className="icon-btn" onClick={() => { setSelectedFile(null); useRepoStore.getState().selectFile(null); }} title="Back">
+                <ChevronRight className="w-3 h-3 rotate-180" />
+              </button>
               <span className="text-xs text-fg truncate flex-1 font-mono">{selectedFile.path}</span>
               <div className="flex items-center gap-1">
                 <button
@@ -135,7 +147,7 @@ function FileRow({ file, selected, onClick }: { file: DiffFile; selected: boolea
   );
 }
 
-function CommitFileDiff({ commit, file, view }: { commit: Commit; file: DiffFile; view: DiffView }) {
+export function CommitFileDiff({ commit, file, view }: { commit: Commit; file: DiffFile; view: DiffView }) {
   // Fetch original (parent:sha) and modified (sha) file content.
   const parentRef = commit.parents[0] ?? `${commit.sha}^`;
   const originalContent = useFileContent({

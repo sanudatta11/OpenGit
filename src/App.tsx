@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRepoStore } from './stores/repo';
 import { useRepoHead } from './queries/useRepo';
 import { Workspace } from './components/Workspace';
-import { EmptyState } from './components/EmptyState';
+import { LaunchPanel } from './components/LaunchPanel';
 import { SettingsPanel } from './components/SettingsPanel';
 
 export default function App() {
@@ -33,7 +33,7 @@ export default function App() {
   return (
     <>
       {!repo ? (
-        <EmptyState onOpenSettings={() => setSettingsOpen(true)} />
+        <LaunchPanel onOpenSettings={() => setSettingsOpen(true)} />
       ) : (
         <Workspace onOpenSettings={() => setSettingsOpen(true)} />
       )}

@@ -6,8 +6,8 @@ export const qk = {
   branches: ['branches'] as const,
   remotes: ['remotes'] as const,
   state: ['state'] as const,
-  log: (range: string | undefined, skip: number, limit: number) =>
-    ['log', { range, skip, limit }] as const,
+  log: (range: string | undefined, skip: number, limit: number, paths?: string[]) =>
+    ['log', { range, skip, limit, paths }] as const,
   commitFiles: (sha: string) => ['commitFiles', sha] as const,
   diff: (path: string, ref: string | undefined, base: string | undefined) =>
     ['diff', { path, ref, base }] as const,

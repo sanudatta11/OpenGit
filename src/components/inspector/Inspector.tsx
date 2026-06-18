@@ -1,28 +1,113 @@
-// src/components/inspector/Inspector.tsx — right pane: commit details or working-tree editor.
+// src/components/inspector/Inspector.tsx — right pane: commit details or working-tree editor with 4 tabs.
 
+import { useState, useEffect } from 'react';
 import { useRepoStore, getCachedCommit } from '../../stores/repo';
 import { useStatus } from '../../queries/useRepo';
-import { CommitDetails } from './CommitDetails';
-import { WorkingTree } from './WorkingTree';
+import { CommitDetails, CommitFileDiff } from './CommitDetails';
+import { WorkingTree, WorkingTreeDiff } from './WorkingTree';
+import { OperationPreviewPanel } from './OperationPreviewPanel';
+import { ConflictEditor } from './ConflictEditor';
+
+type Tab = 'changes' | 'details' | 'diff' | 'actions';
 
 export function Inspector() {
   const selectedSha = useRepoStore((s) => s.selectedCommitSha);
+  const selectedFile = useRepoStore((s) => s.selectedFile);
   const status = useStatus();
-  const dirty = !status.data?.isClean;
-  const commit = selectedSha ? getCachedCommit(selectedSha) : undefined;
 
-  // If working tree is dirty and nothing is selected, default to working tree view.
-  if (dirty && !selectedSha) {
-    return (
-      <div className="w-[420px] border-l border-border bg-bg-panel shrink-0 flex flex-col min-h-0">
-        <WorkingTree />
-      </div>
-    );
-  }
+  const [activeTab, setActiveTab] = useState<Tab>('changes');
+  const [diffView, setDiffView] = useState<'side-by-side' | 'unified'>('side-by-side');
+
+  // Automatically switch tabs when selections change
+  useEffect(() => {
+    if (selectedFile) {
+      setActiveTab('diff');
+    }
+  }, [selectedFile]);
+
+  useEffect(() => {
+    if (selectedSha) {
+      setActiveTab('details');
+    } else {
+      setActiveTab('changes');
+    }
+  }, [selectedSha]);
+
+  const commit = selectedSha ? getCachedCommit(selectedSha) : undefined;
+  const hasConflicts = (status.data?.entries ?? []).some((e) => e.kind === 'unmerged');
+
+  const tabs = [
+    { id: 'changes', label: 'Changes' },
+    { id: 'details', label: 'Details' },
+    { id: 'diff', label: 'Diff' },
+    { id: 'actions', label: 'Actions' },
+  ] as const;
 
   return (
-    <div className="w-[420px] border-l border-border bg-bg-panel shrink-0 flex flex-col min-h-0">
-      {commit ? <CommitDetails commit={commit} /> : <WorkingTree />}
+    <div className="w-[360px] 2xl:w-[420px] border-l border-border bg-bg-panel shrink-0 flex flex-col min-h-0 text-xs">
+      {/* Tabs Header */}
+      <div className="flex border-b border-border bg-bg/25 shrink-0 select-none">
+        {tabs.map((t) => (
+          <button
+            key={t.id}
+            className={`flex-1 py-2 text-center font-medium border-b-2 transition-colors ${
+              activeTab === t.id
+                ? 'border-accent text-accent bg-accent/5'
+                : 'border-transparent text-fg-muted hover:text-fg hover:bg-bg-hover/30'
+            }`}
+            onClick={() => setActiveTab(t.id)}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Tab Contents */}
+      <div className="flex-1 min-h-0 flex flex-col">
+        {activeTab === 'changes' && <WorkingTree />}
+        {activeTab === 'details' && (
+          commit ? <CommitDetails commit={commit} /> : (
+            <div className="p-4 text-center text-fg-dim">No commit selected. Click a commit in the graph to view details.</div>
+          )
+        )}
+        {activeTab === 'diff' && (
+          selectedFile ? (
+            <div className="flex-1 flex flex-col min-h-0">
+              <div className="h-8 px-3 flex items-center gap-2 border-b border-border shrink-0 bg-bg/10">
+                <span className="text-xs text-fg truncate flex-1 font-mono">{selectedFile.path}</span>
+                <div className="flex items-center gap-1">
+                  <button
+                    className={`text-xxs px-1.5 py-0.5 rounded ${diffView === 'side-by-side' ? 'bg-accent/20 text-accent' : 'text-fg-muted hover:bg-bg-hover'}`}
+                    onClick={() => setDiffView('side-by-side')}
+                  >
+                    Split
+                  </button>
+                  <button
+                    className={`text-xxs px-1.5 py-0.5 rounded ${diffView === 'unified' ? 'bg-accent/20 text-accent' : 'text-fg-muted hover:bg-bg-hover'}`}
+                    onClick={() => setDiffView('unified')}
+                  >
+                    Unified
+                  </button>
+                </div>
+              </div>
+              <div className="flex-1 min-h-0">
+                {selectedFile.isCommit ? (
+                  commit ? (
+                    <CommitFileDiff commit={commit} file={selectedFile as any} view={diffView} />
+                  ) : null
+                ) : (
+                  <WorkingTreeDiff entry={selectedFile as any} view={diffView} />
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="p-4 text-center text-fg-dim">No file selected. Select a file in the Changes or Details tab to view its diff.</div>
+          )
+        )}
+        {activeTab === 'actions' && (
+          hasConflicts ? <ConflictEditor /> : <OperationPreviewPanel />
+        )}
+      </div>
     </div>
   );
 }

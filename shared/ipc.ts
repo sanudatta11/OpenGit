@@ -9,8 +9,12 @@ import { z } from 'zod';
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const IPC = {
+  REPO_CREATE: 'repo:create',
+  REPO_CLONE: 'repo:clone',
   REPO_OPEN: 'repo:open',
   REPO_CLOSE: 'repo:close',
+  REPO_REMOVE_FROM_APP: 'repo:removeFromApp',
+  REPO_SEARCH: 'repo:search',
   REPO_STATUS: 'repo:status',
   REPO_LOG: 'repo:log',
   REPO_BRANCHES: 'repo:branches',
@@ -62,6 +66,16 @@ export const IPC = {
   OPERATION_ABORT: 'operation:abort',
   OPERATION_CONTINUE: 'operation:continue',
   OPERATION_SKIP: 'operation:skip',
+  OPERATION_MERGE_PREVIEW: 'operation:mergePreview',
+  OPERATION_PULL_PREVIEW: 'operation:pullPreview',
+  OPERATION_PUSH_PREVIEW: 'operation:pushPreview',
+  OPERATION_REBASE_PLAN: 'operation:rebasePlan',
+
+  CONFLICT_FILE: 'conflict:file',
+  CONFLICT_RESOLVE: 'conflict:resolve',
+
+  AUTH_STATUS: 'auth:status',
+  AUTH_TEST_REMOTE: 'auth:testRemote',
 
   DIFF_FILE: 'diff:file',
   DIFF_COMMITS: 'diff:commits',
@@ -85,6 +99,32 @@ export const RepoOpenInput = z.object({
   path: z.string().min(1),
 });
 export type RepoOpenInput = z.infer<typeof RepoOpenInput>;
+
+export const RepoCreateInput = z.object({
+  path: z.string().min(1),
+  repoName: z.string().min(1).optional(),
+  defaultBranch: z.string().min(1).default('main'),
+  bare: z.boolean().default(false),
+  readme: z.boolean().default(false),
+  gitignore: z.string().optional(),
+  license: z.enum(['MIT', 'Apache-2.0', 'GPL-3.0']).optional(),
+});
+export type RepoCreateInput = z.infer<typeof RepoCreateInput>;
+
+export const RepoCloneInput = z.object({
+  url: z.string().min(1),
+  destinationParent: z.string().min(1),
+  repoName: z.string().min(1).optional(),
+  recursiveSubmodules: z.boolean().default(false),
+  shallowDepth: z.number().int().positive().max(100000).optional(),
+});
+export type RepoCloneInput = z.infer<typeof RepoCloneInput>;
+
+export const RepoSearchInput = z.object({
+  query: z.string().default(''),
+  limit: z.number().int().positive().max(200).default(50),
+});
+export type RepoSearchInput = z.infer<typeof RepoSearchInput>;
 
 export const RepoLogInput = z.object({
   range: z.string().optional(),
@@ -176,6 +216,7 @@ export const RemotePullInput = z.object({
   remote: z.string().default('origin'),
   branch: z.string().optional(),
   ffOnly: z.boolean().default(false),
+  strategy: z.enum(['merge', 'rebase', 'ff-only']).optional(),
 });
 export type RemotePullInput = z.infer<typeof RemotePullInput>;
 
@@ -206,6 +247,14 @@ export const SettingsSetInput = z.object({
   defaultDiffView: z.enum(['side-by-side', 'unified']).optional(),
   showUntracked: z.boolean().optional(),
   contextLines: z.number().int().nonnegative().max(20).optional(),
+  theme: z.enum(['system', 'dark', 'light']).optional(),
+  fontSize: z.number().int().min(10).max(22).optional(),
+  defaultBranch: z.string().min(1).optional(),
+  pullStrategy: z.enum(['merge', 'rebase', 'ff-only']).optional(),
+  commitSubjectLength: z.number().int().min(40).max(120).optional(),
+  conventionalCommitValidation: z.boolean().optional(),
+  signingMode: z.enum(['none', 'gpg', 'ssh']).optional(),
+  defaultExternalEditor: z.string().nullable().optional(),
 });
 export type SettingsSetInput = z.infer<typeof SettingsSetInput>;
 
@@ -215,6 +264,14 @@ export interface SettingsData {
   defaultDiffView: 'side-by-side' | 'unified';
   showUntracked: boolean;
   contextLines: number;
+  theme: 'system' | 'dark' | 'light';
+  fontSize: number;
+  defaultBranch: string;
+  pullStrategy: 'merge' | 'rebase' | 'ff-only';
+  commitSubjectLength: number;
+  conventionalCommitValidation: boolean;
+  signingMode: 'none' | 'gpg' | 'ssh';
+  defaultExternalEditor: string | null;
 }
 
 export const DiffFileInput = z.object({
@@ -248,6 +305,28 @@ export const OperationInput = z.object({
   kind: z.enum(['merge', 'rebase', 'cherry-pick', 'revert', 'bisect']),
 });
 export type OperationInput = z.infer<typeof OperationInput>;
+
+export const MergePreviewInput = z.object({
+  ref: z.string().min(1),
+});
+export type MergePreviewInput = z.infer<typeof MergePreviewInput>;
+
+export const PullPreviewInput = z.object({
+  remote: z.string().default('origin'),
+  branch: z.string().optional(),
+});
+export type PullPreviewInput = z.infer<typeof PullPreviewInput>;
+
+export const PushPreviewInput = z.object({
+  remote: z.string().default('origin'),
+  branch: z.string().optional(),
+});
+export type PushPreviewInput = z.infer<typeof PushPreviewInput>;
+
+export const RebasePlanInput = z.object({
+  onto: z.string().min(1),
+});
+export type RebasePlanInput = z.infer<typeof RebasePlanInput>;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Output envelope (writes)
@@ -287,6 +366,61 @@ export interface PushResultData {
   readonly pushed: number;
   readonly rejected: boolean;
   readonly remoteHead: string | null;
+}
+
+export type RepoSearchResultKind = 'repository' | 'branch' | 'commit' | 'file' | 'tag' | 'stash';
+
+export interface RepoSearchResult {
+  readonly kind: RepoSearchResultKind;
+  readonly label: string;
+  readonly detail: string;
+  readonly ref?: string;
+  readonly path?: string;
+  readonly sha?: string;
+}
+
+export interface OperationPreviewCommit {
+  readonly sha: string;
+  readonly subject: string;
+  readonly author: string;
+}
+
+export interface OperationPreviewFile {
+  readonly path: string;
+  readonly additions: number;
+  readonly deletions: number;
+}
+
+export interface MergePreview {
+  readonly source: string;
+  readonly target: string | null;
+  readonly fastForward: boolean;
+  readonly commits: readonly OperationPreviewCommit[];
+  readonly files: readonly OperationPreviewFile[];
+}
+
+export interface PullPreview {
+  readonly remote: string;
+  readonly branch: string;
+  readonly upstream: string;
+  readonly incoming: readonly OperationPreviewCommit[];
+  readonly local: readonly OperationPreviewCommit[];
+  readonly recommendedStrategy: 'merge' | 'rebase' | 'ff-only';
+}
+
+export interface PushPreview {
+  readonly remote: string;
+  readonly branch: string;
+  readonly upstream: string;
+  readonly outgoing: readonly OperationPreviewCommit[];
+  readonly behind: number;
+}
+
+export interface RebasePlan {
+  readonly onto: string;
+  readonly currentBranch: string | null;
+  readonly commits: readonly OperationPreviewCommit[];
+  readonly files: readonly OperationPreviewFile[];
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

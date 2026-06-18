@@ -11,6 +11,7 @@ export function BranchesTab() {
   const { data, isLoading, error } = useBranches();
   const [confirmDelete, setConfirmDelete] = useState<Branch | null>(null);
   const [showCreate, setShowCreate] = useState(false);
+  const [filter, setFilter] = useState('');
   const del = useDeleteBranch();
 
   if (isLoading) return <div className="p-3 text-fg-muted text-xs">Loading…</div>;
@@ -25,12 +26,25 @@ export function BranchesTab() {
     </div>
   );
 
-  const locals = data.filter((b) => b.kind === 'local');
-  const remotes = data.filter((b) => b.kind === 'remote');
-  const tags = data.filter((b) => b.kind === 'tag');
+  const filtered = data.filter((b) =>
+    b.shortName.toLowerCase().includes(filter.toLowerCase())
+  );
+
+  const locals = filtered.filter((b) => b.kind === 'local');
+  const remotes = filtered.filter((b) => b.kind === 'remote');
+  const tags = filtered.filter((b) => b.kind === 'tag');
 
   return (
     <div className="py-1 text-xs">
+      <div className="px-3 py-1">
+        <input
+          className="input w-full"
+          placeholder="Filter branches & tags..."
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+        />
+      </div>
+
       <Section title="Local" count={locals.length} actions={
         <button className="icon-btn !w-5 !h-5" onClick={() => setShowCreate(!showCreate)} title="New branch">
           <Plus className="w-3 h-3" />
@@ -83,6 +97,22 @@ function Section({ title, count, actions, children }: { title: string; count: nu
   );
 }
 
+function formatRelative(d: Date): string {
+  const diff = Date.now() - d.getTime();
+  const s = Math.floor(diff / 1000);
+  if (isNaN(s)) return 'unknown';
+  if (s < 60) return `${s}s`;
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m}m`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h`;
+  const days = Math.floor(h / 24);
+  if (days < 30) return `${days}d`;
+  const months = Math.floor(days / 30);
+  if (months < 12) return `${months}mo`;
+  return `${Math.floor(months / 12)}y`;
+}
+
 function BranchRow({ branch, onDelete }: { branch: Branch; onDelete?: (b: Branch) => void }) {
   const Icon = iconFor(branch.kind);
   const checkout = useCheckout();
@@ -100,39 +130,50 @@ function BranchRow({ branch, onDelete }: { branch: Branch; onDelete?: (b: Branch
 
   return (
     <div
-      className="w-full text-left px-3 py-1 row-hover flex items-center gap-2"
+      className="w-full text-left px-3 py-1 row-hover flex items-start gap-2"
       title={branch.name}
     >
-      <Icon className={`w-3.5 h-3.5 shrink-0 ${colorFor(branch.kind)}`} />
-      <button
-        className="truncate flex-1 text-left hover:text-accent"
-        onClick={handleCheckout}
-        title={branch.kind === 'tag' ? 'Tags cannot be checked out directly' : `Checkout ${branch.shortName}`}
-        disabled={checkout.isPending || branch.kind === 'tag'}
-      >
-        {branch.shortName}
-      </button>
-      {branch.isHead && <Check className="w-3 h-3 text-git-head shrink-0" />}
-      {branch.upstreamTrack && (branch.upstreamTrack.ahead > 0 || branch.upstreamTrack.behind > 0) && (
-        <span className="text-xxs text-fg-dim shrink-0">
-          {branch.upstreamTrack.ahead > 0 && `↑${branch.upstreamTrack.ahead}`}
-          {branch.upstreamTrack.ahead > 0 && branch.upstreamTrack.behind > 0 && ' '}
-          {branch.upstreamTrack.behind > 0 && `↓${branch.upstreamTrack.behind}`}
-        </span>
-      )}
-      {checkout.isPending && checkout.variables?.ref === branch.shortName && (
-        <Loader2 className="w-3 h-3 animate-spin shrink-0" />
-      )}
-      {branch.kind === 'local' && !branch.isHead && onDelete && (
-        <button
-          className="icon-btn !w-5 !h-5 hover:text-git-deleted opacity-60 hover:opacity-100"
-          onClick={(e) => { e.stopPropagation(); onDelete(branch); }}
-          disabled={del.isPending}
-          title="Delete branch"
-        >
-          <Trash2 className="w-3 h-3" />
-        </button>
-      )}
+      <Icon className={`w-3.5 h-3.5 shrink-0 mt-0.5 ${colorFor(branch.kind)}`} />
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-1.5 justify-between">
+          <button
+            className={`truncate text-left hover:text-accent font-medium ${branch.isHead ? 'text-fg font-semibold' : 'text-fg-muted'}`}
+            onClick={handleCheckout}
+            title={branch.kind === 'tag' ? 'Tags cannot be checked out directly' : `Checkout ${branch.shortName}`}
+            disabled={checkout.isPending || branch.kind === 'tag'}
+          >
+            {branch.shortName}
+          </button>
+          <div className="flex items-center gap-1 shrink-0">
+            {branch.isHead && <Check className="w-3 h-3 text-git-head" />}
+            {branch.upstreamTrack && (branch.upstreamTrack.ahead > 0 || branch.upstreamTrack.behind > 0) && (
+              <span className="text-xxs text-fg-dim">
+                {branch.upstreamTrack.ahead > 0 && `↑${branch.upstreamTrack.ahead}`}
+                {branch.upstreamTrack.ahead > 0 && branch.upstreamTrack.behind > 0 && ' '}
+                {branch.upstreamTrack.behind > 0 && `↓${branch.upstreamTrack.behind}`}
+              </span>
+            )}
+            {checkout.isPending && checkout.variables?.ref === branch.shortName && (
+              <Loader2 className="w-3 h-3 animate-spin" />
+            )}
+            {branch.kind === 'local' && !branch.isHead && onDelete && (
+              <button
+                className="icon-btn !w-5 !h-5 hover:text-git-deleted opacity-60 hover:opacity-100"
+                onClick={(e) => { e.stopPropagation(); onDelete(branch); }}
+                disabled={del.isPending}
+                title="Delete branch"
+              >
+                <Trash2 className="w-3 h-3" />
+              </button>
+            )}
+          </div>
+        </div>
+        <div className="text-xxs text-fg-dim flex items-center gap-1.5 truncate mt-0.5 font-mono">
+          <span>{branch.sha.slice(0, 7)}</span>
+          <span>·</span>
+          <span>{formatRelative(new Date(branch.date))}</span>
+        </div>
+      </div>
     </div>
   );
 }

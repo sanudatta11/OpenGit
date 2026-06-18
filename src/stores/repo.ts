@@ -10,6 +10,9 @@ interface RepoStore {
   selectedCommitSha: string | null;
   selectCommit: (sha: string | null) => void;
 
+  selectedFile: { path: string; staged: boolean; isCommit: boolean; sha?: string; oldPath?: string | null } | null;
+  selectFile: (file: { path: string; staged: boolean; isCommit: boolean; sha?: string; oldPath?: string | null } | null) => void;
+
   logDrawerOpen: boolean;
   toggleLogDrawer: (open?: boolean) => void;
 
@@ -24,7 +27,10 @@ export const useRepoStore = create<RepoStore>((set) => ({
   setRepo: (r) => set({ repo: r }),
 
   selectedCommitSha: null,
-  selectCommit: (sha) => set({ selectedCommitSha: sha }),
+  selectCommit: (sha) => set({ selectedCommitSha: sha, selectedFile: null }), // Clear file when commit changes
+
+  selectedFile: null,
+  selectFile: (file) => set({ selectedFile: file }),
 
   logDrawerOpen: false,
   toggleLogDrawer: (open) =>

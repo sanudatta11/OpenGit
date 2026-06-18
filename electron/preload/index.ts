@@ -19,6 +19,9 @@ import type {
 } from '@shared/git';
 import type {
   RepoOpenInput,
+  RepoCreateInput,
+  RepoCloneInput,
+  RepoSearchInput,
   RepoLogInput,
   DiffFileInput,
   CommitFilesInput,
@@ -47,6 +50,11 @@ import type {
   WorktreeRemoveInput,
   SettingsSetInput,
   SettingsData,
+  RepoSearchResult,
+  MergePreview,
+  PullPreview,
+  PushPreview,
+  RebasePlan,
 } from '@shared/ipc';
 
 export interface FileContentResult {
@@ -58,10 +66,18 @@ export interface FileContentResult {
 
 const api = {
   repo: {
+    create: (input: RepoCreateInput): Promise<WriteResult<{ path: string }>> =>
+      ipcRenderer.invoke(IPC.REPO_CREATE, input),
+    clone: (input: RepoCloneInput): Promise<WriteResult<{ path: string }>> =>
+      ipcRenderer.invoke(IPC.REPO_CLONE, input),
     open: (path: string): Promise<RepoInfo> =>
       ipcRenderer.invoke(IPC.REPO_OPEN, { path } satisfies RepoOpenInput),
     close: (): Promise<{ success: boolean }> =>
       ipcRenderer.invoke(IPC.REPO_CLOSE),
+    removeFromApp: (path: string): Promise<{ success: boolean }> =>
+      ipcRenderer.invoke(IPC.REPO_REMOVE_FROM_APP, path),
+    search: (input: RepoSearchInput): Promise<RepoSearchResult[]> =>
+      ipcRenderer.invoke(IPC.REPO_SEARCH, input),
     status: (): Promise<RepoStatus> =>
       ipcRenderer.invoke(IPC.REPO_STATUS),
     log: (input: RepoLogInput): Promise<{ commits: Commit[]; hasMore: boolean }> =>
@@ -153,12 +169,27 @@ const api = {
       ipcRenderer.invoke(IPC.COMMIT_CHERRY_PICK, input),
     revert: (shas: string[], noCommit?: boolean): Promise<WriteResult> =>
       ipcRenderer.invoke(IPC.COMMIT_REVERT, { shas, noCommit }),
+    mergePreview: (input: { ref: string }): Promise<MergePreview> =>
+      ipcRenderer.invoke(IPC.OPERATION_MERGE_PREVIEW, input),
+    pullPreview: (input: { remote?: string; branch?: string }): Promise<PullPreview> =>
+      ipcRenderer.invoke(IPC.OPERATION_PULL_PREVIEW, input),
+    pushPreview: (input: { remote?: string; branch?: string }): Promise<PushPreview> =>
+      ipcRenderer.invoke(IPC.OPERATION_PUSH_PREVIEW, input),
+    rebasePlan: (input: { onto: string }): Promise<RebasePlan> =>
+      ipcRenderer.invoke(IPC.OPERATION_REBASE_PLAN, input),
     abort: (input: OperationInput): Promise<WriteResult> =>
       ipcRenderer.invoke(IPC.OPERATION_ABORT, input),
     continue: (input: OperationInput): Promise<WriteResult> =>
       ipcRenderer.invoke(IPC.OPERATION_CONTINUE, input),
     skip: (input: OperationInput): Promise<WriteResult> =>
       ipcRenderer.invoke(IPC.OPERATION_SKIP, input),
+  },
+
+  conflict: {
+    file: (path: string): Promise<{ path: string; blocks: any[] }> =>
+      ipcRenderer.invoke(IPC.CONFLICT_FILE, { path }),
+    resolve: (path: string, content: string): Promise<{ success: boolean; stdout: string; stderr: string }> =>
+      ipcRenderer.invoke(IPC.CONFLICT_RESOLVE, { path, content }),
   },
 
   worktree: {
@@ -207,6 +238,7 @@ const api = {
 
   dialog: {
     pickRepo: (): Promise<string | null> => ipcRenderer.invoke('dialog:pickRepo'),
+    pickDirectory: (): Promise<string | null> => ipcRenderer.invoke('dialog:pickDirectory'),
   },
 
   // Re-hydrate GitError from serialized form. Renderer imports this.

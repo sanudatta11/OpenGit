@@ -11,6 +11,14 @@ export interface Settings {
   defaultDiffView: 'side-by-side' | 'unified';
   showUntracked: boolean;
   contextLines: number;
+  theme: 'system' | 'dark' | 'light';
+  fontSize: number;
+  defaultBranch: string;
+  pullStrategy: 'merge' | 'rebase' | 'ff-only';
+  commitSubjectLength: number;
+  conventionalCommitValidation: boolean;
+  signingMode: 'none' | 'gpg' | 'ssh';
+  defaultExternalEditor: string | null;
 }
 
 const DEFAULTS: Settings = {
@@ -19,6 +27,14 @@ const DEFAULTS: Settings = {
   defaultDiffView: 'side-by-side',
   showUntracked: true,
   contextLines: 3,
+  theme: 'system',
+  fontSize: 13,
+  defaultBranch: 'main',
+  pullStrategy: 'merge',
+  commitSubjectLength: 72,
+  conventionalCommitValidation: false,
+  signingMode: 'none',
+  defaultExternalEditor: null,
 };
 
 const MAX_RECENT = 10;

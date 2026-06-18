@@ -17,7 +17,7 @@ export function registerRemoteHandlers(): void {
     const parsed = RemotePullInput.safeParse(raw);
     if (!parsed.success) throw badInput(parsed.error.message);
     const r = requireCurrentRepo();
-    return pullRemote(r.workTreeRoot, parsed.data.remote, parsed.data.branch, parsed.data.ffOnly);
+    return pullRemote(r.workTreeRoot, parsed.data.remote, parsed.data.branch, parsed.data.ffOnly, parsed.data.strategy);
   });
 
   ipcMain.handle(IPC.REMOTE_PUSH, async (_e, raw) => {

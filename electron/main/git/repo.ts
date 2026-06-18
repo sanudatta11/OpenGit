@@ -17,6 +17,7 @@ import {
   isBinaryContent,
 } from './parse';
 import type { RepoInfo, RepoStatus, Commit, Branch, RemoteInfo, RefLabel, DiffFile, DiffResult } from '@shared/git';
+import type { RepoSearchResult } from '@shared/ipc';
 
 export interface OpenedRepo {
   info: RepoInfo;
@@ -205,6 +206,62 @@ export async function getRemotes(workTree: string): Promise<RemoteInfo[]> {
   });
   if (!r.ok) return [];
   return parseRemotes(r.stdout);
+}
+
+export async function searchRepository(
+  workTree: string,
+  gitDir: string,
+  query: string,
+  limit: number,
+): Promise<RepoSearchResult[]> {
+  const q = query.trim().toLowerCase();
+  const matches = (value: string) => !q || value.toLowerCase().includes(q);
+  const results: RepoSearchResult[] = [];
+
+  const { branches } = await getBranches(workTree, gitDir);
+  for (const branch of branches) {
+    if (results.length >= limit) break;
+    if (!matches(branch.shortName) && !matches(branch.name)) continue;
+    results.push({
+      kind: branch.kind === 'tag' ? 'tag' : 'branch',
+      label: branch.shortName,
+      detail: branch.kind,
+      ref: branch.shortName,
+      sha: branch.sha,
+    });
+  }
+
+  if (results.length < limit) {
+    const log = await getLog(workTree, { skip: 0, limit: Math.min(50, limit), refsBySha: undefined });
+    for (const commit of log.commits) {
+      if (results.length >= limit) break;
+      if (!matches(commit.subject) && !matches(commit.sha) && !matches(commit.author.name)) continue;
+      results.push({
+        kind: 'commit',
+        label: commit.subject,
+        detail: `${commit.author.name} ${commit.sha.slice(0, 7)}`,
+        sha: commit.sha,
+      });
+    }
+  }
+
+  if (results.length < limit) {
+    const files = await gitRun({
+      cwd: workTree,
+      args: ['ls-files', '-z'],
+      channel: 'repo:search',
+      reject: false,
+    });
+    if (files.ok) {
+      for (const path of files.stdout.split('\0').filter(Boolean)) {
+        if (results.length >= limit) break;
+        if (!matches(path)) continue;
+        results.push({ kind: 'file', label: path, detail: 'tracked file', path });
+      }
+    }
+  }
+
+  return results;
 }
 
 export async function getState(workTree: string, gitDir: string): Promise<RepoStatus['states']> {

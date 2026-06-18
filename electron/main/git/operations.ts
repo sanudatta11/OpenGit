@@ -378,9 +378,13 @@ export async function pullRemote(
   remote: string,
   branch: string | undefined,
   ffOnly: boolean,
+  strategy?: 'merge' | 'rebase' | 'ff-only',
 ): Promise<WriteResult> {
   const args = ['pull'];
-  if (ffOnly) args.push('--ff-only');
+  const resolvedStrategy = strategy ?? (ffOnly ? 'ff-only' : undefined);
+  if (resolvedStrategy === 'ff-only') args.push('--ff-only');
+  if (resolvedStrategy === 'rebase') args.push('--rebase');
+  if (resolvedStrategy === 'merge') args.push('--no-rebase');
   args.push(remote);
   if (branch) args.push(branch);
 
