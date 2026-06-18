@@ -3,12 +3,20 @@
 
 import { app, BrowserWindow, shell } from 'electron';
 import { join } from 'node:path';
+import { existsSync } from 'node:fs';
 import { discoverGitBin, cancelAll } from './git/client';
 import { registerAllHandlers } from './ipc';
 import { stopWatching } from './watcher';
 import { GitError } from '@shared/ipc';
 
 const isDev = !app.isPackaged;
+
+function resolvePreload(): string {
+  const dir = join(__dirname, '../preload');
+  const mjs = join(dir, 'index.mjs');
+  if (existsSync(mjs)) return mjs;
+  return join(dir, 'index.js');
+}
 
 async function createWindow(): Promise<BrowserWindow> {
   const win = new BrowserWindow({
@@ -22,10 +30,10 @@ async function createWindow(): Promise<BrowserWindow> {
     autoHideMenuBar: true,
     titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
     webPreferences: {
-      preload: join(__dirname, '../preload/index.js'),
+      preload: resolvePreload(),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: true,
+      sandbox: !process.env['OPENGIT_NO_SANDBOX'],
       webviewTag: false,
       spellcheck: false,
     },
