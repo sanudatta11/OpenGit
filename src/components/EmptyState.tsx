@@ -4,6 +4,7 @@ import { FolderOpen, Loader2, AlertTriangle, Clock, Settings } from 'lucide-reac
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../ipc/api';
+import { useToastStore } from '../stores/toast';
 import { GitError } from '@shared/ipc';
 
 export function EmptyState({ onOpenSettings }: { onOpenSettings: () => void }) {
@@ -26,7 +27,7 @@ export function EmptyState({ onOpenSettings }: { onOpenSettings: () => void }) {
     try {
       await openRepo.mutateAsync(path);
     } catch (err) {
-      console.error(err);
+      useToastStore.getState().addToast(`Failed to open repository: ${err instanceof Error ? err.message : String(err)}`, 'error');
     } finally {
       setBusy(false);
     }
@@ -37,7 +38,7 @@ export function EmptyState({ onOpenSettings }: { onOpenSettings: () => void }) {
     try {
       await openRepo.mutateAsync(path);
     } catch (err) {
-      console.error(err);
+      useToastStore.getState().addToast(`Failed to open repository: ${err instanceof Error ? err.message : String(err)}`, 'error');
     } finally {
       setBusy(false);
     }

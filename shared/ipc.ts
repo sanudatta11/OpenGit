@@ -301,6 +301,8 @@ export const SettingsSetInput = z.object({
   conventionalCommitValidation: z.boolean().optional(),
   signingMode: z.enum(['none', 'gpg', 'ssh']).optional(),
   defaultExternalEditor: z.string().nullable().optional(),
+  sidebarWidth: z.number().int().min(200).max(480).optional(),
+  inspectorWidth: z.number().int().min(280).max(600).optional(),
 });
 export type SettingsSetInput = z.infer<typeof SettingsSetInput>;
 
@@ -318,6 +320,8 @@ export interface SettingsData {
   conventionalCommitValidation: boolean;
   signingMode: 'none' | 'gpg' | 'ssh';
   defaultExternalEditor: string | null;
+  sidebarWidth: number;
+  inspectorWidth: number;
 }
 
 export const DiffFileInput = z.object({

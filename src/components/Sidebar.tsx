@@ -13,12 +13,15 @@ const TABS: ReadonlyArray<{ id: SidebarTab; label: string; icon: typeof GitBranc
   { id: 'worktrees', label: 'Worktrees', icon: FolderTree },
 ];
 
-export function Sidebar() {
+export function Sidebar({ sidebarWidth }: { sidebarWidth?: number }) {
   const tab = useRepoStore((s) => s.sidebarTab);
   const setTab = useRepoStore((s) => s.setSidebarTab);
 
   return (
-    <aside className="h-full shrink-0 flex bg-bg-panel border-r border-border">
+    <aside
+      className="h-full shrink-0 flex bg-bg-panel border-r border-border"
+      style={sidebarWidth != null ? { width: sidebarWidth + 48 } : undefined}
+    >
       <nav className="w-12 shrink-0 border-r border-border flex flex-col items-center pt-2 gap-1">
         {TABS.map((t) => {
           const Icon = t.icon;
@@ -104,7 +107,7 @@ function RepositoryOverview() {
 function SidebarPanel({ tab }: { tab: SidebarTab }) {
   return (
     <div
-      className="w-64 shrink-0 bg-bg-panel flex flex-col min-h-0"
+      className="flex-1 shrink-0 bg-bg-panel flex flex-col min-h-0"
       data-tab={tab}
     >
       <div className="h-9 px-3 flex items-center justify-between border-b border-border shrink-0">
@@ -116,6 +119,11 @@ function SidebarPanel({ tab }: { tab: SidebarTab }) {
         {tab === 'remotes' && <RemotesTab />}
         {tab === 'stash' && <StashTab />}
         {tab === 'worktrees' && <WorktreesTab />}
+        {tab === 'actions' && (
+          <div className="p-3 text-xs text-fg-muted">
+            Use the Actions tab in the right pane to resolve conflicts or execute operations.
+          </div>
+        )}
       </div>
     </div>
   );

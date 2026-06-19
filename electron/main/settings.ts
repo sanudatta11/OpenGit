@@ -19,6 +19,8 @@ export interface Settings {
   conventionalCommitValidation: boolean;
   signingMode: 'none' | 'gpg' | 'ssh';
   defaultExternalEditor: string | null;
+  sidebarWidth: number;
+  inspectorWidth: number;
 }
 
 const DEFAULTS: Settings = {
@@ -35,6 +37,8 @@ const DEFAULTS: Settings = {
   conventionalCommitValidation: false,
   signingMode: 'none',
   defaultExternalEditor: null,
+  sidebarWidth: 256,
+  inspectorWidth: 360,
 };
 
 const MAX_RECENT = 10;

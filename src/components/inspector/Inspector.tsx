@@ -46,7 +46,7 @@ export function Inspector() {
   ] as const;
 
   return (
-    <div className="w-[360px] 2xl:w-[420px] border-l border-border bg-bg-panel shrink-0 flex flex-col min-h-0 text-xs">
+    <div className="h-full border-l border-border bg-bg-panel shrink-0 flex flex-col min-h-0 text-xs w-full">
       {/* Tabs Header */}
       <div className="flex border-b border-border bg-bg/25 shrink-0 select-none">
         {tabs.map((t) => (

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { Search, X, GitBranch, GitCommit, FileText, Tag, Archive, Folder } from 'lucide-react';
 import { api } from '../ipc/api';
 import { useRepoStore } from '../stores/repo';
+import { useToastStore } from '../stores/toast';
 import { useCheckout } from '../queries/useMutations';
 import type { RepoSearchResult, RepoSearchResultKind } from '@shared/ipc';
 
@@ -38,7 +39,7 @@ export function RepositorySearch({ open, onClose }: RepositorySearchProps) {
       setResults(res);
       setSelectedIndex(0);
     } catch (err) {
-      console.error('Search failed:', err);
+      useToastStore.getState().addToast(`Search failed: ${err instanceof Error ? err.message : String(err)}`, 'error');
     } finally {
       setIsPending(false);
     }
@@ -57,6 +58,9 @@ export function RepositorySearch({ open, onClose }: RepositorySearchProps) {
         selectCommit(item.sha);
       }
     } else if (item.kind === 'file') {
+      if (item.path) {
+        useRepoStore.getState().selectFile({ path: item.path, staged: false, isCommit: false });
+      }
     } else if (item.kind === 'stash') {
       setSidebarTab('stash');
     }

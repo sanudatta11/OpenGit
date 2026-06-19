@@ -8,6 +8,7 @@ import { useMerge, useRebase, usePull, usePush } from '../../queries/useMutation
 import { ArrowDown, ArrowUp, GitMerge, GitPullRequest, AlertTriangle, Loader2 } from 'lucide-react';
 import type { MergePreview, PullPreview, PushPreview, RebasePlan, RemotePullInput } from '@shared/ipc';
 import { useRebaseStore } from '../../stores/rebase';
+import { useToastStore } from '../../stores/toast';
 
 type OpType = 'merge' | 'pull' | 'push' | 'rebase';
 
@@ -114,7 +115,7 @@ export function OperationPreviewPanel() {
       const plan = await api.rebaseInteractive.plan({ onto: targetBranch });
       useRebaseStore.getState().setActive(plan.onto, plan.currentBranch, [...plan.items]);
     } catch (err) {
-      console.error(err);
+      useToastStore.getState().addToast(`Interactive rebase failed: ${err instanceof Error ? err.message : String(err)}`, 'error');
     }
   };
 
