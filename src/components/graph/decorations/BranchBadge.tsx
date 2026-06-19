@@ -14,11 +14,21 @@ export function BranchBadge({ label, onContextMenu }: BranchBadgeProps) {
   const style = refBadgeStyle(label.kind);
   return (
     <span
-      className={`px-1.5 py-0 rounded text-xxs font-mono shrink-0 cursor-pointer ${style}`}
+      className={`inline-flex max-w-full min-w-0 items-center px-1.5 py-0 rounded text-xxs font-mono shrink cursor-pointer overflow-hidden ${style}`}
       title={`${label.shortName} (right-click to solo/mute)`}
       onContextMenu={onContextMenu}
     >
-      {label.shortName}
+      <span
+        className="block min-w-0 break-words leading-tight text-left"
+        style={{
+          display: '-webkit-box',
+          WebkitBoxOrient: 'vertical',
+          WebkitLineClamp: 2,
+          overflow: 'hidden',
+        }}
+      >
+        {label.shortName}
+      </span>
     </span>
   );
 }

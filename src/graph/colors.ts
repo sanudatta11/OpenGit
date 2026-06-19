@@ -56,6 +56,26 @@ export function graphColorByKey(key: string): string {
   return '#6e7681';
 }
 
+export function colorWithAlpha(color: string, alpha: number): string {
+  if (color.startsWith('#')) {
+    const hex = color.slice(1);
+    const normalized = hex.length === 3
+      ? hex.split('').map((c) => c + c).join('')
+      : hex;
+    const r = Number.parseInt(normalized.slice(0, 2), 16);
+    const g = Number.parseInt(normalized.slice(2, 4), 16);
+    const b = Number.parseInt(normalized.slice(4, 6), 16);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  }
+
+  const rgbMatch = color.match(/^rgb\(\s*([0-9]+)[,\s]+([0-9]+)[,\s]+([0-9]+)\s*\)$/i);
+  if (rgbMatch) {
+    return `rgba(${rgbMatch[1]}, ${rgbMatch[2]}, ${rgbMatch[3]}, ${alpha})`;
+  }
+
+  return color;
+}
+
 function fnv1a(s: string): number {
   let h = 0x811c9dc5;
   for (let i = 0; i < s.length; i++) {
@@ -66,7 +86,7 @@ function fnv1a(s: string): number {
 }
 
 const FALLBACK_PALETTE = [
-  '#3b82f6', '#f85149', '#3fb950', '#d29922', '#a371f7',
-  '#ec4899', '#14b8a6', '#f97316', '#8b5cf6', '#10b981',
-  '#eab308', '#06b6d4',
+  '#4f8cff', '#ff6b6b', '#3fc98c', '#d9a441', '#9a7bff',
+  '#ff5fa2', '#24c2b2', '#ff8d4d', '#806bff', '#26b873',
+  '#e7c14b', '#3ec5ff',
 ];

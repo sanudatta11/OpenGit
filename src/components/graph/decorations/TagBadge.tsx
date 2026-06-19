@@ -12,11 +12,21 @@ export function TagBadge({ label, onContextMenu }: TagBadgeProps) {
   if (!label) return null;
   return (
     <span
-      className="px-1.5 py-0 rounded text-xxs bg-git-tag/20 text-git-tag font-mono shrink-0 cursor-pointer"
+      className="inline-flex max-w-full min-w-0 items-center px-1.5 py-0 rounded text-xxs border border-git-tag/35 bg-git-tag/15 text-fg font-mono shrink cursor-pointer overflow-hidden"
       title={`tag: ${label.shortName} (right-click to solo/mute)`}
       onContextMenu={onContextMenu}
     >
-      {label.shortName}
+      <span
+        className="block min-w-0 break-words leading-tight text-left"
+        style={{
+          display: '-webkit-box',
+          WebkitBoxOrient: 'vertical',
+          WebkitLineClamp: 2,
+          overflow: 'hidden',
+        }}
+      >
+        {label.shortName}
+      </span>
     </span>
   );
 }

@@ -31,18 +31,18 @@
   --color-git-branch: 163 113 247;
   --color-git-tag: 20 184 166;
   --color-git-head: 63 185 80;
-  --color-lane-0: #3b82f6;
-  --color-lane-1: #f85149;
-  --color-lane-2: #3fb950;
-  --color-lane-3: #d29922;
-  --color-lane-4: #a371f7;
-  --color-lane-5: #ec4899;
-  --color-lane-6: #14b8a6;
-  --color-lane-7: #f97316;
-  --color-lane-8: #8b5cf6;
-  --color-lane-9: #10b981;
-  --color-lane-10: #eab308;
-  --color-lane-11: #06b6d4;
+  --color-lane-0: #4f8cff;
+  --color-lane-1: #ff6b6b;
+  --color-lane-2: #40c98d;
+  --color-lane-3: #d9a441;
+  --color-lane-4: #9b7cff;
+  --color-lane-5: #ff5fa2;
+  --color-lane-6: #25c3b2;
+  --color-lane-7: #ff8d4d;
+  --color-lane-8: #7e6cff;
+  --color-lane-9: #2ab876;
+  --color-lane-10: #e5c14d;
+  --color-lane-11: #3ec4ff;
 }
 
 /* ── Light theme ── */
@@ -74,18 +74,18 @@
   --color-git-branch: 130 80 223;
   --color-git-tag: 10 124 153;
   --color-git-head: 26 127 55;
-  --color-lane-0: #0969da;
-  --color-lane-1: #cf222e;
-  --color-lane-2: #1a7f37;
-  --color-lane-3: #9a6700;
+  --color-lane-0: #1f6feb;
+  --color-lane-1: #d73a49;
+  --color-lane-2: #238b45;
+  --color-lane-3: #a37100;
   --color-lane-4: #8250df;
-  --color-lane-5: #bf3989;
-  --color-lane-6: #0a7c99;
-  --color-lane-7: #bc4c00;
-  --color-lane-8: #6338c4;
-  --color-lane-9: #0a6b55;
-  --color-lane-10: #9a7800;
-  --color-lane-11: #0580a1;
+  --color-lane-5: #c2418f;
+  --color-lane-6: #0f8c8c;
+  --color-lane-7: #c96a1a;
+  --color-lane-8: #6f42c1;
+  --color-lane-9: #167f5b;
+  --color-lane-10: #aa8200;
+  --color-lane-11: #0a84b8;
 }
 
 @layer base {

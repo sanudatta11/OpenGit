@@ -5,7 +5,22 @@ import { useLog } from '../../queries/useRepo';
 import { useRepoStore, cacheCommits } from '../../stores/repo';
 import { useGraphFilterStore } from '../../stores/graphFilter';
 import { compileGraphLayout } from '../../graph/layout';
-import { graphColorByKey, laneColorByIndex } from '../../graph/colors';
+import { colorWithAlpha, graphColorByKey, laneColorByIndex } from '../../graph/colors';
+import { authorVisual } from '../../graph/authorVisual';
+import {
+  applyPendingGraphWidthShrink,
+  computeGraphLeadWidthForLaneCount,
+  computeGraphVisibleWindow,
+  computeVisibleGraphLaneCount,
+  graphRefRailWidth,
+  graphRowHeight,
+  graphRowMaxVisibleRefs,
+  graphRowShowsInlineMeta,
+  graphRowTemplateColumns,
+  GRAPH_LANE_PADDING,
+  GRAPH_LANE_WIDTH,
+  updateGraphWidthStabilization,
+} from '../../graph/rowLayout';
 import { GitCommit, Search, X, EyeOff, Eye, Clock } from 'lucide-react';
 import { useCheckout, useCreateBranch, useCherryPick, useRevert, useReset, useRebase, useMerge } from '../../queries/useMutations';
 import { ConfirmDialog } from '../ConfirmDialog';
@@ -15,10 +30,9 @@ import { HeadIndicator } from './decorations/HeadIndicator';
 
 type Density = 'compact' | 'comfortable' | 'detailed';
 
-const LANE_WIDTH = 20;
-const LANE_PADDING = 18;
 const DOT_RADIUS = 4;
-const BUFFER_ROWS = 30;
+const GRAPH_WIDTH_SHRINK_DELAY_MS = 160;
+const GRAPH_SCROLL_IDLE_MS = 120;
 
 interface ParsedQuery {
   file?: string;
@@ -71,7 +85,12 @@ export function GraphPane() {
   const [zoom, setZoom] = useState(1.0);
   const [scrollTop, setScrollTop] = useState(0);
   const [viewportHeight, setViewportHeight] = useState(600);
+  const [isScrolling, setIsScrolling] = useState(false);
+  const [renderGraphLaneCount, setRenderGraphLaneCount] = useState(1);
   const containerRef = useRef<HTMLDivElement>(null);
+  const scrollIdleTimerRef = useRef<number | null>(null);
+  const shrinkTimerRef = useRef<number | null>(null);
+  const pendingShrinkLaneCountRef = useRef<number | null>(null);
 
   const checkout = useCheckout();
   const createBranch = useCreateBranch();
@@ -99,7 +118,7 @@ export function GraphPane() {
   }, [soloedRefs]);
 
   const log = useLog(logRange, 0, limit, paths);
-  const rowHeight = density === 'compact' ? 24 : density === 'detailed' ? 42 : 32;
+  const rowHeight = graphRowHeight(density);
 
   useEffect(() => {
     if (log.data?.commits) cacheCommits(log.data.commits);
@@ -149,17 +168,19 @@ export function GraphPane() {
   const layout = useMemo(() => compileGraphLayout(filteredCommits), [filteredCommits]);
   const rows = layout.rows;
   const totalHeight = rows.length * rowHeight;
-  const graphWidth = Math.max(88, (layout.maxLane + 1) * LANE_WIDTH + LANE_PADDING * 2);
+  const refRailWidth = graphRefRailWidth(density);
 
   const handleWheel = (e: React.WheelEvent) => {
     if (e.ctrlKey || e.metaKey) {
       e.preventDefault();
+      markScrolling();
       setZoom((prev) => Math.min(2, Math.max(0.5, prev + (e.deltaY > 0 ? -0.1 : 0.1))));
     }
   };
 
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const el = e.currentTarget;
+    markScrolling();
     setScrollTop(el.scrollTop);
     if (el.scrollHeight - el.scrollTop - el.clientHeight < 200) {
       if (log.data?.hasMore && !log.isFetching) {
@@ -168,18 +189,82 @@ export function GraphPane() {
     }
   };
 
+  const windowed = computeGraphVisibleWindow(scrollTop, viewportHeight, rowHeight, zoom, rows.length);
+  const firstRow = windowed.firstRow;
+  const lastRow = windowed.lastRow;
+  const visibleRows = rows.slice(firstRow, lastRow);
+  const offsetY = windowed.offsetY;
+  const targetGraphLaneCount = computeVisibleGraphLaneCount(visibleRows, { selectedSha });
+  const graphWidth = computeGraphLeadWidthForLaneCount(renderGraphLaneCount);
+
+  useEffect(() => {
+    const next = updateGraphWidthStabilization({
+      renderLaneCount: renderGraphLaneCount,
+      pendingShrinkLaneCount: pendingShrinkLaneCountRef.current,
+      targetLaneCount: targetGraphLaneCount,
+    });
+
+    pendingShrinkLaneCountRef.current = next.pendingShrinkLaneCount;
+
+    if (next.renderLaneCount !== renderGraphLaneCount) {
+      setRenderGraphLaneCount(next.renderLaneCount);
+      return;
+    }
+
+    if (shrinkTimerRef.current !== null) {
+      window.clearTimeout(shrinkTimerRef.current);
+      shrinkTimerRef.current = null;
+    }
+
+    if (next.pendingShrinkLaneCount !== null && !isScrolling) {
+      shrinkTimerRef.current = window.setTimeout(() => {
+        const pendingShrinkLaneCount = pendingShrinkLaneCountRef.current;
+        if (pendingShrinkLaneCount === null) return;
+
+        pendingShrinkLaneCountRef.current = null;
+        setRenderGraphLaneCount((current) => (
+          applyPendingGraphWidthShrink({
+            renderLaneCount: current,
+            pendingShrinkLaneCount,
+          }).renderLaneCount
+        ));
+      }, GRAPH_WIDTH_SHRINK_DELAY_MS);
+    }
+  }, [isScrolling, renderGraphLaneCount, targetGraphLaneCount]);
+
+  useEffect(() => () => {
+    if (scrollIdleTimerRef.current !== null) {
+      window.clearTimeout(scrollIdleTimerRef.current);
+    }
+    if (shrinkTimerRef.current !== null) {
+      window.clearTimeout(shrinkTimerRef.current);
+    }
+  }, []);
+
+  function markScrolling() {
+    setIsScrolling(true);
+
+    if (shrinkTimerRef.current !== null) {
+      window.clearTimeout(shrinkTimerRef.current);
+      shrinkTimerRef.current = null;
+    }
+
+    if (scrollIdleTimerRef.current !== null) {
+      window.clearTimeout(scrollIdleTimerRef.current);
+    }
+
+    scrollIdleTimerRef.current = window.setTimeout(() => {
+      setIsScrolling(false);
+      scrollIdleTimerRef.current = null;
+    }, GRAPH_SCROLL_IDLE_MS);
+  }
+
   if (log.isLoading && limit === 200) {
     return <div className="flex-1 flex items-center justify-center text-fg-muted text-sm">Loading commits…</div>;
   }
   if (log.error) {
     return <div className="flex-1 flex items-center justify-center text-git-deleted text-sm">{(log.error as Error).message}</div>;
   }
-
-  const firstRow = Math.max(0, Math.floor(scrollTop / rowHeight) - BUFFER_ROWS);
-  const visibleCount = Math.ceil(viewportHeight / rowHeight) + BUFFER_ROWS * 2;
-  const lastRow = Math.min(rows.length, firstRow + visibleCount);
-  const visibleRows = rows.slice(firstRow, lastRow);
-  const offsetY = firstRow * rowHeight;
 
   return (
     <div className="flex-1 flex flex-col min-h-0 min-w-0 bg-bg">
@@ -256,7 +341,7 @@ export function GraphPane() {
         onScroll={handleScroll}
         onWheel={handleWheel}
       >
-        <div style={{ transform: `scale(${zoom})`, transformOrigin: 'top left' }}>
+        <div style={{ transform: `scale(${zoom})`, transformOrigin: 'top left', width: `${100 / zoom}%` }}>
           {rows.length === 0 ? (
             <div className="absolute inset-0 flex flex-col items-center justify-center text-fg-muted text-sm gap-2">
               <GitCommit className="w-8 h-8 text-fg-dim" />
@@ -264,13 +349,19 @@ export function GraphPane() {
             </div>
           ) : (
             <div style={{ height: totalHeight, position: 'relative' }}>
-              <GraphCanvas
-                rows={visibleRows}
-                offsetY={offsetY}
-                graphWidth={graphWidth}
-                rowHeight={rowHeight}
-                selectedSha={selectedSha ?? undefined}
-              />
+              <div
+                className="sticky z-10 pointer-events-none"
+                style={{ left: refRailWidth, width: graphWidth, transform: `translateY(${offsetY}px)` }}
+              >
+                <GraphCanvas
+                  rows={visibleRows}
+                  offsetY={0}
+                  graphWidth={graphWidth}
+                  rowHeight={rowHeight}
+                  density={density}
+                  selectedSha={selectedSha ?? undefined}
+                />
+              </div>
               <div
                 className="absolute left-0 right-0"
                 style={{ transform: `translateY(${offsetY}px)` }}
@@ -472,10 +563,11 @@ interface GraphCanvasProps {
   offsetY: number;
   graphWidth: number;
   rowHeight: number;
+  density: Density;
   selectedSha?: string;
 }
 
-function GraphCanvas({ rows, offsetY, graphWidth, rowHeight, selectedSha }: GraphCanvasProps) {
+function GraphCanvas({ rows, offsetY, graphWidth, rowHeight, density, selectedSha }: GraphCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [dpr, setDpr] = useState(window.devicePixelRatio || 1);
 
@@ -510,8 +602,9 @@ function GraphCanvas({ rows, offsetY, graphWidth, rowHeight, selectedSha }: Grap
       const yBottom = yTop + rowHeight;
 
       for (const lane of row.activeLanes) {
-        ctx.strokeStyle = colorForLane(row, lane);
-        ctx.lineWidth = 1.5;
+        ctx.strokeStyle = colorWithAlpha(colorForLane(row, lane), 0.72);
+        ctx.lineWidth = 1.75;
+        ctx.lineCap = 'round';
         ctx.beginPath();
         ctx.moveTo(laneX(lane), yTop);
         ctx.lineTo(laneX(lane), yBottom);
@@ -520,8 +613,9 @@ function GraphCanvas({ rows, offsetY, graphWidth, rowHeight, selectedSha }: Grap
 
       for (const edge of row.edges) {
         if (edge.kind === 'vertical') continue;
-        ctx.strokeStyle = graphColorByKey(edge.colorKey);
-        ctx.lineWidth = 1.5;
+        ctx.strokeStyle = colorWithAlpha(graphColorByKey(edge.colorKey), 0.82);
+        ctx.lineWidth = 1.9;
+        ctx.lineCap = 'round';
         ctx.beginPath();
         ctx.moveTo(laneX(edge.fromLane), yCenter);
         ctx.bezierCurveTo(
@@ -539,35 +633,65 @@ function GraphCanvas({ rows, offsetY, graphWidth, rowHeight, selectedSha }: Grap
       const isMerge = row.node.kind === 'merge';
       const isHead = row.node.kind === 'head' || row.node.kind === 'detached-head';
       const isSelected = row.sha === selectedSha;
-      const radius = isMerge ? DOT_RADIUS + 2 : DOT_RADIUS;
       const color = graphColorByKey(row.node.colorKey);
+      const showAuthorAvatar = density !== 'compact' && rowHeight >= 30;
 
-      ctx.beginPath();
-      ctx.arc(nodeX, yCenter, radius, 0, Math.PI * 2);
-      ctx.fillStyle = color;
-      ctx.fill();
+      if (showAuthorAvatar) {
+        const avatar = authorVisual(row.commit.author.name, row.commit.author.email);
+        const avatarRadius = isMerge ? 11 : 10;
 
-      ctx.strokeStyle = bgColor;
-      ctx.lineWidth = 2;
-      ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(nodeX, yCenter, avatarRadius + 2, 0, Math.PI * 2);
+        ctx.fillStyle = bgColor;
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.arc(nodeX, yCenter, avatarRadius + 1, 0, Math.PI * 2);
+        ctx.strokeStyle = colorWithAlpha(color, 0.96);
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.arc(nodeX, yCenter, avatarRadius - 1, 0, Math.PI * 2);
+        ctx.fillStyle = avatar.fill;
+        ctx.fill();
+
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '600 8px ui-sans-serif, system-ui, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(avatar.initials, nodeX, yCenter + 0.5);
+      } else {
+        const radius = isMerge ? DOT_RADIUS + 2 : DOT_RADIUS;
+        ctx.beginPath();
+        ctx.arc(nodeX, yCenter, radius, 0, Math.PI * 2);
+        ctx.fillStyle = color;
+        ctx.fill();
+
+        ctx.strokeStyle = colorWithAlpha(bgColor, 0.96);
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      }
 
       if (isHead) {
+        const ringRadius = showAuthorAvatar ? (isMerge ? 15 : 14) : (isMerge ? 8 : 6);
         ctx.beginPath();
-        ctx.arc(nodeX, yCenter, radius + 2, 0, Math.PI * 2);
-        ctx.strokeStyle = headColor;
+        ctx.arc(nodeX, yCenter, ringRadius, 0, Math.PI * 2);
+        ctx.strokeStyle = colorWithAlpha(headColor, 0.88);
         ctx.lineWidth = 2;
         ctx.stroke();
       }
 
       if (isSelected) {
+        const ringRadius = showAuthorAvatar ? (isMerge ? 17 : 16) : (isMerge ? 10 : 8);
         ctx.beginPath();
-        ctx.arc(nodeX, yCenter, radius + (isHead ? 4 : 2), 0, Math.PI * 2);
-        ctx.strokeStyle = accentColor;
+        ctx.arc(nodeX, yCenter, ringRadius, 0, Math.PI * 2);
+        ctx.strokeStyle = colorWithAlpha(accentColor, 0.7);
         ctx.lineWidth = 2;
         ctx.stroke();
       }
     }
-  }, [rows, graphWidth, dpr, rowHeight, selectedSha]);
+  }, [rows, graphWidth, dpr, rowHeight, density, selectedSha]);
 
   return (
     <canvas
@@ -588,7 +712,7 @@ function colorForLane(row: GraphLayoutRow, lane: number): string {
 }
 
 function laneX(lane: number): number {
-  return LANE_PADDING + lane * LANE_WIDTH + LANE_WIDTH / 2;
+  return GRAPH_LANE_PADDING + lane * GRAPH_LANE_WIDTH + GRAPH_LANE_WIDTH / 2;
 }
 
 interface GraphRowProps {
@@ -609,6 +733,10 @@ function GraphRow({ row, graphWidth, selected, onClick, density, rowHeight }: Gr
 
   const isDetailed = density === 'detailed';
   const isCompact = density === 'compact';
+  const templateColumns = graphRowTemplateColumns(graphWidth, density);
+  const railWidth = graphRefRailWidth(density);
+  const showInlineMeta = graphRowShowsInlineMeta(density);
+  const rowBgClass = selected ? 'bg-accent/10' : 'bg-bg/80 hover:bg-bg-hover/90';
 
   useEffect(() => {
     const close = () => setRefCtx(null);
@@ -619,7 +747,7 @@ function GraphRow({ row, graphWidth, selected, onClick, density, rowHeight }: Gr
   const visibleBranches = row.refs.branches.filter((ref) => !mutedRefs.includes(ref.shortName));
   const visibleTags = row.refs.tags.filter((ref) => !mutedRefs.includes(ref.shortName));
   const visibleRefs = [...visibleBranches, ...visibleTags];
-  const MAX_VISIBLE = 6;
+  const MAX_VISIBLE = graphRowMaxVisibleRefs(density);
   const overflow = visibleRefs.length - MAX_VISIBLE;
 
   const handleRefContext = (e: React.MouseEvent, ref: RefLabel) => {
@@ -632,55 +760,64 @@ function GraphRow({ row, graphWidth, selected, onClick, density, rowHeight }: Gr
     <div
       data-graph-row
       onClick={onClick}
-      className={`flex items-center border-b border-border-subtle/50 cursor-pointer ${selected ? 'bg-accent/10' : 'row-hover'}`}
-      style={{ height: rowHeight }}
+      className={`grid items-center border-b border-border-subtle/50 cursor-pointer ${rowBgClass}`}
+      style={{ height: rowHeight, gridTemplateColumns: templateColumns }}
     >
-      <div style={{ width: graphWidth, flexShrink: 0 }} />
+      <div
+        className={`sticky left-0 z-30 h-full flex items-center justify-end pr-2 ${rowBgClass}`}
+        style={{ width: railWidth }}
+      >
+        <div className="min-w-0 w-full flex flex-wrap items-center justify-end gap-1 overflow-hidden py-1">
+          {row.refs.head && <HeadIndicator label={row.refs.head} />}
+          {visibleRefs.slice(0, MAX_VISIBLE).map((ref) =>
+            ref.kind === 'tag' ? (
+              <TagBadge key={`tag:${ref.shortName}`} label={ref} onContextMenu={(e) => handleRefContext(e, ref)} />
+            ) : (
+              <BranchBadge key={`${ref.kind}:${ref.shortName}`} label={ref} onContextMenu={(e) => handleRefContext(e, ref)} />
+            ),
+          )}
+          {overflow > 0 && (
+            <span className="px-1.5 py-0 rounded text-xxs text-fg-muted bg-bg-elevated font-mono shrink-0">
+              +{overflow}
+            </span>
+          )}
+        </div>
+      </div>
 
-      <div className="flex-1 min-w-0 flex items-center gap-3 pr-3">
+      <div className={`sticky z-20 h-full ${rowBgClass}`} style={{ left: railWidth }} />
+
+      <div className="min-w-0 flex items-center gap-2 pr-2">
         <div className="flex-1 min-w-0 flex flex-col justify-center gap-1">
-          <div className="flex items-center gap-1.5 min-w-0">
-            <span className={`truncate ${isCompact ? 'text-xs' : 'text-sm'} ${selected ? 'text-fg' : 'text-fg font-medium'}`}>
+          <div className="flex items-center gap-1 min-w-0 overflow-hidden">
+            <span className={`truncate min-w-0 ${isCompact ? 'text-xs' : 'text-sm'} text-fg ${selected ? '' : 'font-medium'}`}>
               {commit.subject}
             </span>
-            {row.refs.head && <HeadIndicator label={row.refs.head} />}
-            {visibleRefs.slice(0, MAX_VISIBLE).map((ref) =>
-              ref.kind === 'tag' ? (
-                <TagBadge key={`tag:${ref.shortName}`} label={ref} onContextMenu={(e) => handleRefContext(e, ref)} />
-              ) : (
-                <BranchBadge key={`${ref.kind}:${ref.shortName}`} label={ref} onContextMenu={(e) => handleRefContext(e, ref)} />
-              ),
-            )}
-            {overflow > 0 && (
-              <span className="px-1.5 py-0 rounded text-xxs text-fg-muted bg-bg-elevated font-mono shrink-0">
-                +{overflow}
-              </span>
-            )}
           </div>
 
-          {!isCompact && (
+          {showInlineMeta && (
             <div className="flex items-center gap-2 text-xxs text-fg-muted min-w-0">
               <span className="truncate">{commit.author.name}</span>
               <span>·</span>
               <span className="tabular-nums">{formatDate(date)}</span>
-              {isDetailed && (
-                <>
-                  <span>·</span>
-                  <span className="font-mono text-fg-dim">{shortSha}</span>
-                </>
-              )}
+              <span>·</span>
+              <span className="font-mono text-fg-dim">{shortSha}</span>
             </div>
           )}
         </div>
 
-        {!isDetailed && (
-          <>
-            <div className={`hidden xl:block w-28 shrink-0 px-2 text-fg-muted truncate ${isCompact ? 'text-xxs' : 'text-xs'}`}>{commit.author.name}</div>
-            <div className={`hidden lg:block w-20 shrink-0 px-2 text-fg-dim text-right tabular-nums ${isCompact ? 'text-xxs' : 'text-xs'}`}>{formatDate(date)}</div>
-            <div className={`hidden xl:block w-16 shrink-0 px-2 text-fg-dim font-mono text-right ${isCompact ? 'text-xxs' : 'text-xs'}`}>{shortSha}</div>
-          </>
-        )}
       </div>
+
+      {!isDetailed && !isCompact && (
+        <div className="min-w-0 px-2 text-xs text-fg-muted truncate">{commit.author.name}</div>
+      )}
+
+      {!isDetailed && (
+        <div className={`min-w-0 px-2 text-fg-dim text-right tabular-nums ${isCompact ? 'text-xxs' : 'text-xs'}`}>{formatDate(date)}</div>
+      )}
+
+      {!isDetailed && !isCompact && (
+        <div className="min-w-0 px-2 text-xs text-fg-dim font-mono text-right">{shortSha}</div>
+      )}
 
       {refCtx && (
         <div className="fixed z-50 bg-bg-panel border border-border rounded shadow-xl py-1 w-48 text-xs" style={{ left: refCtx.x, top: refCtx.y }} onClick={(e) => e.stopPropagation()}>
