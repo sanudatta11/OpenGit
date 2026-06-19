@@ -87,6 +87,25 @@ export function useRehydrateRepos() {
   }, [list.data]);
 }
 
+// Listen for repo open requests from CLI (second-instance -> main -> renderer).
+export function useIpcRepoListener() {
+  const openRepoMut = useOpenRepo();
+  const switchRepo = useRepoStore((s) => s.switchRepo);
+
+  useEffect(() => {
+    const unsub = api.onOpenRepo((path) => {
+      // If repo is already open, just switch to it.
+      const existing = useRepoStore.getState().repos.find((r) => r.path === path);
+      if (existing) {
+        switchRepo(path);
+      } else {
+        openRepoMut.mutate(path);
+      }
+    });
+    return unsub;
+  }, []);
+}
+
 export function useStatus() {
   const path = activePath();
   return useQuery({

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRepoStore } from './stores/repo';
-import { useRehydrateRepos } from './queries/useRepo';
+import { useRehydrateRepos, useIpcRepoListener } from './queries/useRepo';
 import { useUpdaterEvents } from './queries/useUpdater';
 import { Workspace } from './components/Workspace';
 import { LaunchPanel } from './components/LaunchPanel';
@@ -14,6 +14,9 @@ export default function App() {
 
   // Rehydrate open repos from main process on mount.
   useRehydrateRepos();
+
+  // Listen for repo open requests from CLI (second-instance).
+  useIpcRepoListener();
 
   // Subscribe to auto-updater events -> toasts (no-op in dev).
   useUpdaterEvents();

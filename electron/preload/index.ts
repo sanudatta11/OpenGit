@@ -346,6 +346,13 @@ const api = {
       ipcRenderer.invoke(IPC.UPDATER_CHECK),
   },
 
+  // CLI: listen for repo open requests from main process (second-instance).
+  onOpenRepo: (cb: (path: string) => void): (() => void) => {
+    const handler = (_e: IpcRendererEvent, path: string) => cb(path);
+    ipcRenderer.on('open-repo', handler);
+    return () => ipcRenderer.off('open-repo', handler);
+  },
+
   // Re-hydrate GitError from serialized form. Renderer imports this.
   rehydrateError: (x: unknown): Error => {
     if (x && typeof x === 'object' && (x as { name?: string }).name === 'GitError') {

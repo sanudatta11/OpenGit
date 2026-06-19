@@ -15,6 +15,39 @@ import { addRepo, getRepo } from './git/session';
 
 const isDev = !app.isPackaged;
 
+// ── CLI: parse --opengit-repo=<path> from argv ──────────────────────────────
+function parseCliRepoArg(argv: string[]): string | null {
+  for (const arg of argv.slice(2)) {
+    if (arg.startsWith('--opengit-repo=')) {
+      const repoPath = arg.slice('--opengit-repo='.length);
+      if (repoPath && existsSync(repoPath)) return repoPath;
+    }
+  }
+  return null;
+}
+
+const cliRepoPath = parseCliRepoArg(process.argv);
+
+// ── Single instance lock ────────────────────────────────────────────────────
+// If another instance is running, focus it and send the repo path there.
+let mainWindow: BrowserWindow | null = null;
+const gotLock = app.requestSingleInstanceLock();
+
+if (!gotLock) {
+  app.quit();
+} else {
+  app.on('second-instance', (_event, argv) => {
+    const repoPath = parseCliRepoArg(argv);
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.focus();
+      if (repoPath) {
+        mainWindow.webContents.send('open-repo', repoPath);
+      }
+    }
+  });
+}
+
 function resolvePreload(): string {
   const dir = join(__dirname, '../preload');
   for (const file of ['index.js', 'index.cjs', 'index.mjs']) {
@@ -109,14 +142,29 @@ app.whenReady().then(async () => {
 
   // 4. Create the main window.
   const win = await createWindow();
+  mainWindow = win;
 
-  // 5. Start watchers for auto-reopened repos.
+  // 5. Open repo from CLI arg (if provided and not already opened above).
+  if (cliRepoPath) {
+    const alreadyOpen = getRepo(cliRepoPath);
+    if (!alreadyOpen) {
+      try {
+        const opened = await openRepo(cliRepoPath);
+        addRepo(opened);
+        startWatching(opened.gitDir, opened.workTreeRoot, win, opened.info.path);
+      } catch (err) {
+        console.warn('[opengit] failed to open CLI repo:', cliRepoPath, (err as Error).message);
+      }
+    }
+  }
+
+  // 6. Start watchers for auto-reopened repos.
   for (const repoPath of settings.openRepos) {
     const r = getRepo(repoPath);
     if (r) startWatching(r.gitDir, r.workTreeRoot, win, repoPath);
   }
 
-  // 6. Start auto-updater (only in packaged builds; dev has no app-update.yml).
+  // 7. Start auto-updater (only in packaged builds; dev has no app-update.yml).
   if (app.isPackaged) {
     try {
       initUpdater();

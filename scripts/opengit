@@ -1,0 +1,6 @@
+#!/bin/sh
+# opengit — launch OpenGit desktop app for a repo.
+# Usage: opengit [/path/to/repo]
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+exec node "$SCRIPT_DIR/opengit.mjs" "$@"

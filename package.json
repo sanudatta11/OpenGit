@@ -7,6 +7,9 @@
   "author": "OpenGit",
   "license": "MIT",
   "main": "out/main/index.js",
+  "bin": {
+    "opengit": "./scripts/opengit.mjs"
+  },
   "scripts": {
     "dev": "electron-vite dev",
     "build": "electron-vite build",
