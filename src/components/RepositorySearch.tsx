@@ -55,7 +55,6 @@ export function RepositorySearch({ open, onClose }: RepositorySearchProps) {
     } else if (item.kind === 'commit') {
       if (item.sha) {
         selectCommit(item.sha);
-        setSidebarTab('history');
       }
     } else if (item.kind === 'file') {
     } else if (item.kind === 'stash') {

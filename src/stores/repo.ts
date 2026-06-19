@@ -20,7 +20,7 @@ interface RepoStore {
   setSidebarTab: (t: SidebarTab) => void;
 }
 
-export type SidebarTab = 'history' | 'branches' | 'remotes' | 'stash' | 'worktrees' | 'actions';
+export type SidebarTab = 'branches' | 'remotes' | 'stash' | 'worktrees' | 'actions';
 
 export const useRepoStore = create<RepoStore>((set) => ({
   repo: null,
@@ -36,7 +36,7 @@ export const useRepoStore = create<RepoStore>((set) => ({
   toggleLogDrawer: (open) =>
     set((s) => ({ logDrawerOpen: open ?? !s.logDrawerOpen })),
 
-  sidebarTab: 'history',
+  sidebarTab: 'branches',
   setSidebarTab: (t) => set({ sidebarTab: t }),
 }));
 

@@ -1,14 +1,12 @@
-import { History, GitBranch, Cloud, Archive, FolderTree, CircleDot } from 'lucide-react';
+import { GitBranch, Cloud, Archive, FolderTree } from 'lucide-react';
 import { useRepoStore, type SidebarTab } from '../stores/repo';
-import { HistoryTab } from './sidebar/HistoryTab';
 import { BranchesTab } from './sidebar/BranchesTab';
 import { RemotesTab } from './sidebar/RemotesTab';
 import { StashTab } from './sidebar/StashTab';
 import { WorktreesTab } from './sidebar/WorktreesTab';
 import { useStatus, useRemotes } from '../queries/useRepo';
 
-const TABS: ReadonlyArray<{ id: SidebarTab; label: string; icon: typeof History }> = [
-  { id: 'history', label: 'History', icon: History },
+const TABS: ReadonlyArray<{ id: SidebarTab; label: string; icon: typeof GitBranch }> = [
   { id: 'branches', label: 'Branches', icon: GitBranch },
   { id: 'remotes', label: 'Remotes', icon: Cloud },
   { id: 'stash', label: 'Stash', icon: Archive },
@@ -51,6 +49,8 @@ export function Sidebar() {
     </aside>
   );
 }
+
+import { CircleDot } from 'lucide-react';
 
 function RepositoryOverview() {
   const repo = useRepoStore((s) => s.repo);
@@ -112,7 +112,6 @@ function SidebarPanel({ tab }: { tab: SidebarTab }) {
       </div>
       <RepositoryOverview />
       <div className="flex-1 min-h-0 overflow-y-auto">
-        {tab === 'history' && <HistoryTab />}
         {tab === 'branches' && <BranchesTab />}
         {tab === 'remotes' && <RemotesTab />}
         {tab === 'stash' && <StashTab />}
