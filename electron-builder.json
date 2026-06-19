@@ -2,10 +2,10 @@
   "$schema": "https://raw.githubusercontent.com/electron-userland/electron-builder/master/packages/app-builder-lib/scheme.json",
   "appId": "com.opengit.app",
   "productName": "OpenGit",
-  "directories": { "output": "release" },
+  "directories": { "output": "release", "buildResources": "build" },
   "files": ["out/**/*", "package.json"],
-  "mac": { "identity": null, "target": ["dmg", "zip"], "category": "public.app-category.developer-tools" },
-  "win": { "target": "nsis" },
-  "linux": { "target": "AppImage", "category": "Development" },
+  "mac": { "icon": "build/icon.icns", "identity": null, "target": ["dmg", "zip"], "category": "public.app-category.developer-tools" },
+  "win": { "icon": "build/icon.ico", "target": "nsis" },
+  "linux": { "icon": "build/icon.png", "target": "AppImage", "category": "Development" },
   "publish": [{ "provider": "github", "owner": "sanudatta11", "repo": "OpenGit" }]
 }
