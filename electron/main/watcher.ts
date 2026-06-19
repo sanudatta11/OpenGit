@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { existsSync } from 'node:fs';
 import { BrowserWindow } from 'electron';
 import { IPC, type WatchEvent, type WatchEventKind } from '@shared/ipc';
+import { invalidateCache } from './git/refsCache';
 
 let watcher: FSWatcher | null = null;
 let workWatcher: FSWatcher | null = null;
@@ -48,10 +49,12 @@ export function startWatching(gitDir: string, workTreeRoot: string, win: Browser
       pendingKinds.add('rebase');
     } else if (path.includes('/refs/')) {
       pendingKinds.add('refs');
+      invalidateCache();
     } else {
       const kind = PATH_TO_KIND[base];
       if (kind) pendingKinds.add(kind);
       else pendingKinds.add('index');
+      if (kind === 'head') invalidateCache();
     }
 
     if (debounceTimer) clearTimeout(debounceTimer);

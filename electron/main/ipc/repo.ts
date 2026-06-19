@@ -13,6 +13,7 @@ import {
   searchRepository,
 } from '../git/repo';
 import { createRepository, cloneRepository } from '../git/lifecycle';
+import { getCachedRefs, fetchRefs } from '../git/refsCache';
 import { setCurrentRepo, getCurrentRepo, requireCurrentRepo } from '../git/session';
 import { addRecentRepo, removeRecentRepo } from '../settings';
 import { startWatching } from '../watcher';
@@ -126,8 +127,12 @@ export function registerRepoHandlers(): void {
       });
     }
     const r = requireCurrentRepo();
-    // Attach branch/tag labels to commits: fetch branches first, then log.
-    const { refsBySha } = await getBranches(r.workTreeRoot, r.gitDir);
+    // Use cached refs if available; otherwise fetch + cache.
+    let refsBySha = getCachedRefs()?.refsBySha ?? null;
+    if (!refsBySha) {
+      const fetched = await fetchRefs(r.workTreeRoot, r.gitDir);
+      refsBySha = fetched.refsBySha;
+    }
     return getLog(r.workTreeRoot, {
       range: parsed.data.range,
       skip: parsed.data.skip,

@@ -2,12 +2,16 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLog } from '../../queries/useRepo';
 import { useRepoStore, cacheCommits } from '../../stores/repo';
 import { useGraphFilterStore } from '../../stores/graphFilter';
+import { useGraphCacheStore } from '../../stores/graphCache';
 import { assignLanes } from '../../graph/lane';
-import { laneColorByIndex } from '../../graph/colors';
+import { laneColorByIndex, branchColorByName } from '../../graph/colors';
 import type { Commit, RefLabel } from '@shared/git';
 import { GitCommit, Search, X, EyeOff, Eye, Clock } from 'lucide-react';
 import { useCheckout, useCreateBranch, useCherryPick, useRevert, useReset, useRebase, useMerge } from '../../queries/useMutations';
 import { ConfirmDialog } from '../ConfirmDialog';
+import { BranchBadge } from './decorations/BranchBadge';
+import { TagBadge } from './decorations/TagBadge';
+import { HeadIndicator } from './decorations/HeadIndicator';
 
 type Density = 'compact' | 'comfortable' | 'detailed';
 
@@ -86,6 +90,10 @@ export function GraphPane() {
   const filterActive = useGraphFilterStore((s) => s.isActive);
   const clearAllFilters = useGraphFilterStore((s) => s.clearAll);
 
+  const branchLanes = useGraphCacheStore((s) => s.branchLanes);
+  const reservedLanes = useGraphCacheStore((s) => s.reservedLanes);
+  const updateGraphCache = useGraphCacheStore((s) => s.update);
+
   const logRange = useMemo(() => {
     if (soloedRefs.length === 0) return undefined;
     return soloedRefs.join(' ');
@@ -140,17 +148,24 @@ export function GraphPane() {
 
   const assigned = useMemo(() => {
     if (filteredCommits.length === 0) return null;
-    const clones = filteredCommits.map((c) => {
-      if (mutedRefs.length === 0) return { ...c, lane: -1, parentLanes: [] };
-      return {
-        ...c,
-        refs: c.refs.filter((r) => !mutedRefs.includes(r.shortName)),
-        lane: -1,
-        parentLanes: [],
-      };
-    });
-    return assignLanes(clones);
-  }, [filteredCommits, mutedRefs]);
+    // Always compute lanes on the FULL set of refs. Muted refs only affect
+    // display (GraphRow hides their badges); they must NOT affect lane
+    // positions — otherwise lanes jump when a user mutes/unmutes a branch.
+    const clones = filteredCommits.map((c) => ({ ...c, lane: -1, parentLanes: [] }));
+    return assignLanes(clones, { branchLanes, reservedLanes });
+  }, [filteredCommits, branchLanes, reservedLanes]);
+
+  useEffect(() => {
+    if (assigned) {
+      const prev = useGraphCacheStore.getState();
+      updateGraphCache({
+        branchLanes: { ...prev.branchLanes, ...assigned.branchLanes },
+        reservedLanes: new Set([...prev.reservedLanes, ...assigned.reservedLanes]),
+        maxLaneUsed: Math.max(prev.maxLaneUsed, assigned.maxLaneUsed),
+        assignedShas: new Set([...prev.assignedShas, ...assigned.assignedShas]),
+      });
+    }
+  }, [assigned, updateGraphCache]);
 
   const [scrollTop, setScrollTop] = useState(0);
   const [viewportHeight, setViewportHeight] = useState(600);
@@ -184,6 +199,7 @@ export function GraphPane() {
 
   const commits = assigned?.commits ?? [];
   const maxLaneUsed = assigned?.maxLaneUsed ?? 0;
+  const laneOwners = assigned?.laneOwners ?? new Map<number, string>();
   const totalHeight = commits.length * rowHeight;
   const graphWidth = (maxLaneUsed + 1) * LANE_WIDTH + LANE_PADDING * 2;
 
@@ -284,6 +300,8 @@ export function GraphPane() {
               graphWidth={graphWidth}
               viewportHeight={viewportHeight}
               rowHeight={rowHeight}
+              laneOwners={laneOwners}
+              selectedSha={selectedSha ?? undefined}
             />
             <div
               className="absolute left-0 right-0"
@@ -493,9 +511,11 @@ interface GraphCanvasProps {
   graphWidth: number;
   viewportHeight: number;
   rowHeight: number;
+  laneOwners: Map<number, string>;
+  selectedSha?: string;
 }
 
-function GraphCanvas({ commits, firstRow, offsetY, graphWidth, viewportHeight, rowHeight }: GraphCanvasProps) {
+function GraphCanvas({ commits, firstRow, offsetY, graphWidth, viewportHeight, rowHeight, laneOwners, selectedSha }: GraphCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [dpr, setDpr] = useState(window.devicePixelRatio || 1);
 
@@ -519,15 +539,21 @@ function GraphCanvas({ commits, firstRow, offsetY, graphWidth, viewportHeight, r
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, graphWidth, height);
 
+    const laneColor = (lane: number): string => {
+      const owner = laneOwners.get(lane);
+      if (owner) return branchColorByName(owner);
+      return laneColorByIndex(lane);
+    };
+
     for (let i = 0; i < commits.length; i++) {
       const c = commits[i]!;
       const y = i * rowHeight + rowHeight / 2;
       const x = laneX(c.lane);
-      const color = laneColorByIndex(c.lane);
+      const color = laneColor(c.lane);
 
       for (let p = 0; p < c.parents.length; p++) {
         const parentLane = c.parentLanes[p]!;
-        const parentColor = laneColorByIndex(parentLane);
+        const parentColor = laneColor(parentLane);
         const childY = y;
         const parentY = (i + 1) * rowHeight + rowHeight / 2;
         const parentX = laneX(parentLane);
@@ -552,20 +578,58 @@ function GraphCanvas({ commits, firstRow, offsetY, graphWidth, viewportHeight, r
       }
     }
 
+    const bgColor = getComputedStyle(document.documentElement).getPropertyValue('--color-bg').trim() || '#0d1117';
+    const accentColor = getComputedStyle(document.documentElement).getPropertyValue('--color-accent').trim() || '#3b82f6';
+    const headColor = getComputedStyle(document.documentElement).getPropertyValue('--color-git-head').trim() || '#3fb950';
+
     for (let i = 0; i < commits.length; i++) {
       const c = commits[i]!;
       const y = i * rowHeight + rowHeight / 2;
       const x = laneX(c.lane);
-      const color = laneColorByIndex(c.lane);
+      const color = laneColor(c.lane);
       const isMerge = c.parents.length > 1;
+      const isHead = c.refs.some((r) => r.isHead);
+      const isSelected = c.sha === selectedSha;
 
-      ctx.fillStyle = color;
-      ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--color-bg').trim() || '#0d1117';
-      ctx.lineWidth = 2;
+      const radius = isMerge ? DOT_RADIUS + 2 : DOT_RADIUS;
+
+      // Dot fill.
       ctx.beginPath();
-      ctx.arc(x, y, isMerge ? DOT_RADIUS + 1.5 : DOT_RADIUS, 0, Math.PI * 2);
+      ctx.arc(x, y, radius, 0, Math.PI * 2);
+      ctx.fillStyle = color;
       ctx.fill();
+
+      // Outline halo (punches through edges).
+      ctx.strokeStyle = bgColor;
+      ctx.lineWidth = 2;
       ctx.stroke();
+
+      // HEAD ring — green outer ring.
+      if (isHead) {
+        ctx.beginPath();
+        ctx.arc(x, y, radius + 2, 0, Math.PI * 2);
+        ctx.strokeStyle = headColor;
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      }
+
+      // Selected ring — accent color.
+      if (isSelected) {
+        ctx.beginPath();
+        ctx.arc(x, y, radius + (isHead ? 4 : 2), 0, Math.PI * 2);
+        ctx.strokeStyle = accentColor;
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      }
+
+      // Merge commit double-ring.
+      if (isMerge && !isHead && !isSelected) {
+        ctx.beginPath();
+        ctx.arc(x, y, radius + 1.5, 0, Math.PI * 2);
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+      }
     }
   }, [commits, graphWidth, viewportHeight, dpr, rowHeight]);
 
@@ -597,6 +661,7 @@ function GraphRow({ commit, graphWidth, selected, onClick, density, rowHeight }:
   const shortSha = commit.sha.slice(0, 7);
   const headRef = commit.refs.find((r) => r.isHead);
   const [refCtx, setRefCtx] = useState<{ x: number; y: number; ref: RefLabel } | null>(null);
+  const mutedRefs = useGraphFilterStore((s) => s.mutedRefs);
 
   const isDetailed = density === 'detailed';
   const isCompact = density === 'compact';
@@ -607,8 +672,20 @@ function GraphRow({ commit, graphWidth, selected, onClick, density, rowHeight }:
     return () => window.removeEventListener('click', close);
   }, []);
 
+  const visibleRefs = commit.refs
+    .filter((r) => !r.isHead && !mutedRefs.includes(r.shortName));
+  const MAX_VISIBLE = 6;
+  const overflow = visibleRefs.length - MAX_VISIBLE;
+
+  const handleRefContext = (e: React.MouseEvent, ref: RefLabel) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setRefCtx({ x: e.clientX, y: e.clientY, ref });
+  };
+
   return (
     <div
+      data-graph-row
       onClick={onClick}
       className={`flex items-center border-b border-border-subtle/50 cursor-pointer ${
         selected ? 'bg-accent/10' : 'row-hover'
@@ -619,21 +696,22 @@ function GraphRow({ commit, graphWidth, selected, onClick, density, rowHeight }:
 
       <div className="flex-1 min-w-0 flex flex-col justify-center pr-3">
         <div className="flex items-center gap-1.5 min-w-0">
-          {headRef && (
-            <span className="px-1.5 py-0 rounded text-xxs bg-git-head/20 text-git-head font-mono shrink-0">
-              HEAD
+          {headRef && <HeadIndicator ref={headRef} />}
+
+          {visibleRefs.slice(0, MAX_VISIBLE).map((r) =>
+            r.kind === 'tag' ? (
+              <TagBadge key={`tag:${r.shortName}`} ref={r} onContextMenu={(e) => handleRefContext(e, r)} />
+            ) : (
+              <BranchBadge key={`${r.kind}:${r.shortName}`} ref={r} onContextMenu={(e) => handleRefContext(e, r)} />
+            ),
+          )}
+
+          {overflow > 0 && (
+            <span className="px-1.5 py-0 rounded text-xxs text-fg-muted bg-bg-elevated font-mono shrink-0">
+              +{overflow}
             </span>
           )}
-          {commit.refs.filter((r) => !r.isHead).slice(0, 3).map((r) => (
-            <span
-              key={`${r.kind}:${r.shortName}`}
-              className={`px-1.5 py-0 rounded text-xxs font-mono shrink-0 cursor-pointer ${refBadgeClass(r.kind)}`}
-              title={`${r.shortName} (right-click to solo/mute)`}
-              onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); setRefCtx({ x: e.clientX, y: e.clientY, ref: r }); }}
-            >
-              {r.shortName}
-            </span>
-          ))}
+
           <span className={`text-fg truncate ${isCompact ? 'text-xxs' : 'text-xs font-medium'}`}>{commit.subject}</span>
         </div>
 
@@ -676,15 +754,6 @@ function GraphRow({ commit, graphWidth, selected, onClick, density, rowHeight }:
       )}
     </div>
   );
-}
-
-function refBadgeClass(kind: Commit['refs'][number]['kind']): string {
-  switch (kind) {
-    case 'local': return 'bg-git-branch/20 text-git-branch';
-    case 'remote': return 'bg-git-remote/20 text-git-remote';
-    case 'tag': return 'bg-git-tag/20 text-git-tag';
-    default: return 'bg-bg-elevated text-fg-muted';
-  }
 }
 
 function formatDate(d: Date): string {
