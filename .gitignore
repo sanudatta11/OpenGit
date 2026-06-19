@@ -1,15 +1,50 @@
+# Dependencies
 node_modules
+
+# Build output
 out
 dist
 release
 .vite
-*.log
-.DS_Store
+*.tsbuildinfo
+
+# Env
 .env
 .env.local
+.env.*.local
+
+# OS
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# Editor
+.vscode
+.idea
+*.sublime-*
+
+# Logs
+*.log
+npm-debug.log*
+
+# Test
 coverage
+.nyc_output
+
+# Electron
+electron-builder.yml
+
+# Tools
 .opencode
 .specify
-AGENTS.md
-docs
 .claude
+.cursor
+
+# Docs (plans/notes)
+docs
+AGENTS.md
+
+# Misc
+*.tgz
