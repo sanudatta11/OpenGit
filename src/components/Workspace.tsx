@@ -16,6 +16,7 @@ import { PushRejectionBanner } from './PushRejectionBanner';
 
 export function Workspace({ onOpenSettings }: { onOpenSettings: () => void }) {
   const logDrawerOpen = useRepoStore((s) => s.logDrawerOpen);
+  const sidebarCollapsed = useRepoStore((s) => s.sidebarCollapsed);
   const status = useStatus();
   const openRepo = useOpenRepo();
 
@@ -122,10 +123,12 @@ export function Workspace({ onOpenSettings }: { onOpenSettings: () => void }) {
       )}
       <div className="flex-1 flex min-h-0 min-w-0">
         <Sidebar sidebarWidth={sidebarWidth} />
-        <div
-          className="w-1 shrink-0 cursor-col-resize hover:bg-accent/30 transition-colors bg-transparent"
-          onMouseDown={handleSidebarDragStart}
-        />
+        {!sidebarCollapsed && (
+          <div
+            className="w-1 shrink-0 cursor-col-resize hover:bg-accent/30 transition-colors bg-transparent"
+            onMouseDown={handleSidebarDragStart}
+          />
+        )}
         <div className="flex-1 flex min-h-0 min-w-0">
           <GraphPane />
           <div

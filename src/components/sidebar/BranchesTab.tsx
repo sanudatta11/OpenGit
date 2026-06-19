@@ -10,6 +10,7 @@ import { ConfirmDialog } from '../ConfirmDialog';
 import { api } from '../../ipc/api';
 import { useToastStore } from '../../stores/toast';
 import { useRepoStore } from '../../stores/repo';
+import { branchNameClassName } from './overflow';
 
 export function BranchesTab() {
   const { data, isLoading, error } = useBranches();
@@ -250,9 +251,9 @@ function BranchRow({ branch, onDelete, onCreateWorktree }: { branch: Branch; onD
       >
         <Icon className={`w-3.5 h-3.5 shrink-0 mt-0.5 ${colorFor(branch.kind)}`} />
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5 justify-between">
+          <div className="flex items-start gap-1.5 justify-between">
             <button
-              className={`truncate text-left hover:text-accent font-medium ${branch.isHead ? 'text-fg font-semibold' : 'text-fg-muted'}`}
+              className={branchNameClassName(branch.isHead)}
               onClick={handleCheckout}
               title={branch.kind === 'tag' ? 'Tags cannot be checked out directly' : `Checkout ${branch.shortName}`}
               disabled={checkout.isPending || branch.kind === 'tag'}

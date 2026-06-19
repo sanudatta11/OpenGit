@@ -1,17 +1,26 @@
 import { describe, expect, it } from 'vitest';
-import { computeGraphLeadWidth, computeGraphVisibleWindow, graphRefRailWidth, graphRowHeight, graphRowMaxVisibleRefs, graphRowShowsInlineMeta, graphRowTemplateColumns } from '../../src/graph/rowLayout';
+import {
+  computeGraphLeadWidth,
+  computeGraphVisibleWindow,
+  graphRefRailInset,
+  graphRefRailWidth,
+  graphRowHeight,
+  graphRowMaxVisibleRefs,
+  graphRowShowsInlineMeta,
+  graphRowTemplateColumns,
+} from '../../src/graph/rowLayout';
 
 describe('graphRowTemplateColumns', () => {
   it('keeps the graph column isolated from commit metadata in comfortable density', () => {
-    expect(graphRowTemplateColumns(96, 'comfortable')).toBe('220px 96px minmax(420px,1fr) 112px 80px 64px');
+    expect(graphRowTemplateColumns(96, 'comfortable')).toBe('240px 96px minmax(420px,1fr) 112px 80px 64px');
   });
 
   it('keeps a dedicated graph column in compact density', () => {
-    expect(graphRowTemplateColumns(96, 'compact')).toBe('180px 96px minmax(280px,1fr) 80px');
+    expect(graphRowTemplateColumns(96, 'compact')).toBe('200px 96px minmax(280px,1fr) 80px');
   });
 
   it('uses a two-column layout in detailed density so message metadata stays stacked', () => {
-    expect(graphRowTemplateColumns(120, 'detailed')).toBe('260px 120px minmax(420px,1fr)');
+    expect(graphRowTemplateColumns(120, 'detailed')).toBe('280px 120px minmax(420px,1fr)');
   });
 
   it('shows inline metadata only in detailed density', () => {
@@ -33,9 +42,15 @@ describe('graphRowTemplateColumns', () => {
   });
 
   it('uses a sticky-friendly ref rail width per density', () => {
-    expect(graphRefRailWidth('compact')).toBe(180);
-    expect(graphRefRailWidth('comfortable')).toBe(220);
-    expect(graphRefRailWidth('detailed')).toBe(260);
+    expect(graphRefRailWidth('compact')).toBe(200);
+    expect(graphRefRailWidth('comfortable')).toBe(240);
+    expect(graphRefRailWidth('detailed')).toBe(280);
+  });
+
+  it('keeps a consistent gutter between the sidebar edge and branch badges', () => {
+    expect(graphRefRailInset('compact')).toBe(12);
+    expect(graphRefRailInset('comfortable')).toBe(12);
+    expect(graphRefRailInset('detailed')).toBe(12);
   });
 
   it('uses taller rows where wrapped refs are expected', () => {

@@ -7,6 +7,7 @@ export const GRAPH_LANE_PADDING = 12;
 export const GRAPH_BUFFER_ROWS = 30;
 export const GRAPH_WIDTH_PERCENTILE = 0.75;
 export const GRAPH_WIDTH_HYSTERESIS_LANES = 1;
+export const GRAPH_REF_RAIL_INSET = 12;
 
 type LaneUsageRow = Pick<GraphRow, 'sha' | 'activeLanes' | 'edges'> & {
   node: Pick<GraphNode, 'lane'>;
@@ -120,13 +121,17 @@ export function applyPendingGraphWidthShrink(
 export function graphRefRailWidth(density: GraphDensity): number {
   switch (density) {
     case 'compact':
-      return 180;
+      return 200;
     case 'detailed':
-      return 260;
+      return 280;
     case 'comfortable':
     default:
-      return 220;
+      return 240;
   }
+}
+
+export function graphRefRailInset(_density: GraphDensity): number {
+  return GRAPH_REF_RAIL_INSET;
 }
 
 export function graphRowTemplateColumns(graphWidth: number, density: GraphDensity): string {

@@ -12,6 +12,7 @@ import {
   computeGraphLeadWidthForLaneCount,
   computeGraphVisibleWindow,
   computeVisibleGraphLaneCount,
+  graphRefRailInset,
   graphRefRailWidth,
   graphRowHeight,
   graphRowMaxVisibleRefs,
@@ -735,6 +736,7 @@ function GraphRow({ row, graphWidth, selected, onClick, density, rowHeight }: Gr
   const isCompact = density === 'compact';
   const templateColumns = graphRowTemplateColumns(graphWidth, density);
   const railWidth = graphRefRailWidth(density);
+  const railInset = graphRefRailInset(density);
   const showInlineMeta = graphRowShowsInlineMeta(density);
   const rowBgClass = selected ? 'bg-accent/10' : 'bg-bg/80 hover:bg-bg-hover/90';
 
@@ -764,8 +766,8 @@ function GraphRow({ row, graphWidth, selected, onClick, density, rowHeight }: Gr
       style={{ height: rowHeight, gridTemplateColumns: templateColumns }}
     >
       <div
-        className={`sticky left-0 z-30 h-full flex items-center justify-end pr-2 ${rowBgClass}`}
-        style={{ width: railWidth }}
+        className={`sticky left-0 z-30 h-full flex items-center justify-end pr-3 ${rowBgClass}`}
+        style={{ width: railWidth, paddingLeft: railInset }}
       >
         <div className="min-w-0 w-full flex flex-wrap items-center justify-end gap-1 overflow-hidden py-1">
           {row.refs.head && <HeadIndicator label={row.refs.head} />}
@@ -786,7 +788,7 @@ function GraphRow({ row, graphWidth, selected, onClick, density, rowHeight }: Gr
 
       <div className={`sticky z-20 h-full ${rowBgClass}`} style={{ left: railWidth }} />
 
-      <div className="min-w-0 flex items-center gap-2 pr-2">
+      <div className="min-w-0 flex items-center gap-2 px-2">
         <div className="flex-1 min-w-0 flex flex-col justify-center gap-1">
           <div className="flex items-center gap-1 min-w-0 overflow-hidden">
             <span className={`truncate min-w-0 ${isCompact ? 'text-xs' : 'text-sm'} text-fg ${selected ? '' : 'font-medium'}`}>

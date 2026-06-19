@@ -30,6 +30,9 @@ interface RepoStore {
 
   sidebarTab: SidebarTab;
   setSidebarTab: (t: SidebarTab) => void;
+
+  sidebarCollapsed: boolean;
+  toggleSidebarCollapsed: () => void;
 }
 
 export type SidebarTab = 'branches' | 'remotes' | 'stash' | 'worktrees' | 'submodules' | 'lfs' | 'actions';
@@ -97,6 +100,9 @@ export const useRepoStore = create<RepoStore>((set) => ({
 
   sidebarTab: 'branches',
   setSidebarTab: (t) => set({ sidebarTab: t }),
+
+  sidebarCollapsed: false,
+  toggleSidebarCollapsed: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
 }));
 
 // Commit cache: sha → Commit.

@@ -1,4 +1,4 @@
-import { GitBranch, Cloud, Archive, FolderTree, FolderGit, Database } from 'lucide-react';
+import { GitBranch, Cloud, Archive, FolderTree, FolderGit, Database, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { useRepoStore, type SidebarTab } from '../stores/repo';
 import { BranchesTab } from './sidebar/BranchesTab';
 import { RemotesTab } from './sidebar/RemotesTab';
@@ -20,11 +20,13 @@ const TABS: ReadonlyArray<{ id: SidebarTab; label: string; icon: typeof GitBranc
 export function Sidebar({ sidebarWidth }: { sidebarWidth?: number }) {
   const tab = useRepoStore((s) => s.sidebarTab);
   const setTab = useRepoStore((s) => s.setSidebarTab);
+  const collapsed = useRepoStore((s) => s.sidebarCollapsed);
+  const toggleCollapsed = useRepoStore((s) => s.toggleSidebarCollapsed);
 
   return (
     <aside
       className="h-full shrink-0 flex bg-bg-panel border-r border-border"
-      style={sidebarWidth != null ? { width: sidebarWidth + 48 } : undefined}
+      style={sidebarWidth != null && !collapsed ? { width: sidebarWidth + 48 } : undefined}
     >
       <nav className="w-12 shrink-0 border-r border-border flex flex-col items-center pt-2 gap-1">
         {TABS.map((t) => {
@@ -36,7 +38,14 @@ export function Sidebar({ sidebarWidth }: { sidebarWidth?: number }) {
               className={`w-9 h-9 flex items-center justify-center rounded transition-colors ${
                 active ? 'bg-accent/15 text-accent' : 'text-fg-muted hover:bg-bg-hover hover:text-fg'
               }`}
-              onClick={() => setTab(t.id)}
+              onClick={() => {
+                if (collapsed && active) {
+                  toggleCollapsed();
+                } else {
+                  setTab(t.id);
+                  if (collapsed) toggleCollapsed();
+                }
+              }}
               title={t.label}
               aria-label={t.label}
               aria-pressed={active}
@@ -46,13 +55,20 @@ export function Sidebar({ sidebarWidth }: { sidebarWidth?: number }) {
           );
         })}
         <div className="flex-1" />
-        <div className="w-full border-t border-border pt-2 pb-2 flex flex-col items-center">
+        <div className="w-full border-t border-border pt-2 pb-2 flex flex-col items-center gap-1">
+          <button
+            className="w-9 h-9 flex items-center justify-center rounded text-fg-muted hover:bg-bg-hover hover:text-fg transition-colors"
+            onClick={toggleCollapsed}
+            title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          >
+            {collapsed ? <PanelLeftOpen className="w-4 h-4" /> : <PanelLeftClose className="w-4 h-4" />}
+          </button>
           <div className="w-9 h-9 flex items-center justify-center text-fg-dim text-xs font-mono select-none">
             OG
           </div>
         </div>
       </nav>
-      <SidebarPanel tab={tab} />
+      {!collapsed && <SidebarPanel tab={tab} />}
     </aside>
   );
 }

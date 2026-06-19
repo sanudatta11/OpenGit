@@ -3,6 +3,7 @@ import { Cloud, Plus, Pencil, Trash2, Loader2 } from 'lucide-react';
 import { useRemotes } from '../../queries/useRepo';
 import { useQueryClient } from '@tanstack/react-query';
 import { api } from '../../ipc/api';
+import { remoteUrlClassName } from './overflow';
 
 export function RemotesTab() {
   const { data, isLoading, error } = useRemotes();
@@ -124,7 +125,7 @@ export function RemotesTab() {
               </button>
             </div>
           ) : (
-            <div className="mt-1 ml-5 text-xxs text-fg-muted truncate" title={r.fetchUrl ?? ''}>
+            <div className={`mt-1 ml-5 ${remoteUrlClassName()}`} title={r.fetchUrl ?? ''}>
               {r.fetchUrl ?? '—'}
             </div>
           )}
