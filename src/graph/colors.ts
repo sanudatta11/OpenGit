@@ -46,6 +46,16 @@ export function laneColorBySha(sha: string | null): string {
   return resolveVar(`--color-lane-${idx}`, FALLBACK_PALETTE[idx]!);
 }
 
+export function graphColorByKey(key: string): string {
+  if (key.startsWith('branch:')) {
+    return branchColorByName(key.slice('branch:'.length));
+  }
+  if (key.startsWith('sha:')) {
+    return laneColorBySha(key.slice('sha:'.length));
+  }
+  return '#6e7681';
+}
+
 function fnv1a(s: string): number {
   let h = 0x811c9dc5;
   for (let i = 0; i < s.length; i++) {

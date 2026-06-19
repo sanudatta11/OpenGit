@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import type { Commit, RefLabel } from '@shared/git';
+import type { GraphRow as GraphLayoutRow } from '../../graph/layout';
 import { useLog } from '../../queries/useRepo';
 import { useRepoStore, cacheCommits } from '../../stores/repo';
 import { useGraphFilterStore } from '../../stores/graphFilter';
-import { useGraphCacheStore } from '../../stores/graphCache';
-import { assignLanes } from '../../graph/lane';
-import { laneColorByIndex, branchColorByName } from '../../graph/colors';
-import type { Commit, RefLabel } from '@shared/git';
+import { compileGraphLayout } from '../../graph/layout';
+import { graphColorByKey, laneColorByIndex } from '../../graph/colors';
 import { GitCommit, Search, X, EyeOff, Eye, Clock } from 'lucide-react';
 import { useCheckout, useCreateBranch, useCherryPick, useRevert, useReset, useRebase, useMerge } from '../../queries/useMutations';
 import { ConfirmDialog } from '../ConfirmDialog';
@@ -15,8 +15,8 @@ import { HeadIndicator } from './decorations/HeadIndicator';
 
 type Density = 'compact' | 'comfortable' | 'detailed';
 
-const LANE_WIDTH = 24;
-const LANE_PADDING = 14;
+const LANE_WIDTH = 20;
+const LANE_PADDING = 18;
 const DOT_RADIUS = 4;
 const BUFFER_ROWS = 30;
 
@@ -69,6 +69,9 @@ export function GraphPane() {
   const [resetMode, setResetMode] = useState<'soft' | 'mixed' | 'hard'>('mixed');
   const [mergeConfirmCommit, setMergeConfirmCommit] = useState<Commit | null>(null);
   const [zoom, setZoom] = useState(1.0);
+  const [scrollTop, setScrollTop] = useState(0);
+  const [viewportHeight, setViewportHeight] = useState(600);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   const checkout = useCheckout();
   const createBranch = useCreateBranch();
@@ -90,16 +93,13 @@ export function GraphPane() {
   const filterActive = useGraphFilterStore((s) => s.isActive);
   const clearAllFilters = useGraphFilterStore((s) => s.clearAll);
 
-  const updateGraphCache = useGraphCacheStore((s) => s.update);
-
   const logRange = useMemo(() => {
     if (soloedRefs.length === 0) return undefined;
     return soloedRefs.join(' ');
   }, [soloedRefs]);
 
   const log = useLog(logRange, 0, limit, paths);
-
-  const rowHeight = density === 'compact' ? 20 : density === 'detailed' ? 36 : 28;
+  const rowHeight = density === 'compact' ? 24 : density === 'detailed' ? 42 : 32;
 
   useEffect(() => {
     if (log.data?.commits) cacheCommits(log.data.commits);
@@ -111,12 +111,14 @@ export function GraphPane() {
     return () => window.removeEventListener('click', close);
   }, []);
 
-  const handleWheel = (e: React.WheelEvent) => {
-    if (e.ctrlKey || e.metaKey) {
-      e.preventDefault();
-      setZoom(prev => Math.min(2, Math.max(0.5, prev + (e.deltaY > 0 ? -0.1 : 0.1))));
-    }
-  };
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setViewportHeight(el.clientHeight));
+    ro.observe(el);
+    setViewportHeight(el.clientHeight);
+    return () => ro.disconnect();
+  }, []);
 
   const filteredCommits = useMemo(() => {
     if (!log.data?.commits) return [];
@@ -144,51 +146,17 @@ export function GraphPane() {
     });
   }, [log.data?.commits, parsed]);
 
-  const assigned = useMemo(() => {
-    if (filteredCommits.length === 0) return null;
-    // Always compute lanes on the FULL set of refs. Muted refs only affect
-    // display (GraphRow hides their badges); they must NOT affect lane
-    // positions — otherwise lanes jump when a user mutes/unmutes a branch.
-    const clones = filteredCommits.map((c) => ({ ...c, lane: -1, parentLanes: [] }));
-    // Read cache imperatively to avoid reactive loop: we write to the store
-    // in the effect below, and reading reactively would re-trigger this memo.
-    const cache = useGraphCacheStore.getState();
-    return assignLanes(clones, { branchLanes: cache.branchLanes, reservedLanes: cache.reservedLanes });
-  }, [filteredCommits]);
+  const layout = useMemo(() => compileGraphLayout(filteredCommits), [filteredCommits]);
+  const rows = layout.rows;
+  const totalHeight = rows.length * rowHeight;
+  const graphWidth = Math.max(88, (layout.maxLane + 1) * LANE_WIDTH + LANE_PADDING * 2);
 
-  useEffect(() => {
-    if (!assigned) return;
-    const prev = useGraphCacheStore.getState();
-    // Avoid infinite loop: only update the store if new branch reservations
-    // or SHAs were actually added during this pass.
-    let hasNew = false;
-    for (const key of Object.keys(assigned.branchLanes)) {
-      if (!(key in prev.branchLanes)) { hasNew = true; break; }
+  const handleWheel = (e: React.WheelEvent) => {
+    if (e.ctrlKey || e.metaKey) {
+      e.preventDefault();
+      setZoom((prev) => Math.min(2, Math.max(0.5, prev + (e.deltaY > 0 ? -0.1 : 0.1))));
     }
-    for (const sha of assigned.assignedShas) {
-      if (!prev.assignedShas.has(sha)) { hasNew = true; break; }
-    }
-    if (!hasNew) return;
-    updateGraphCache({
-      branchLanes: { ...prev.branchLanes, ...assigned.branchLanes },
-      reservedLanes: new Set([...prev.reservedLanes, ...assigned.reservedLanes]),
-      maxLaneUsed: Math.max(prev.maxLaneUsed, assigned.maxLaneUsed),
-      assignedShas: new Set([...prev.assignedShas, ...assigned.assignedShas]),
-    });
-  }, [assigned, updateGraphCache]);
-
-  const [scrollTop, setScrollTop] = useState(0);
-  const [viewportHeight, setViewportHeight] = useState(600);
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    const ro = new ResizeObserver(() => setViewportHeight(el.clientHeight));
-    ro.observe(el);
-    setViewportHeight(el.clientHeight);
-    return () => ro.disconnect();
-  }, []);
+  };
 
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const el = e.currentTarget;
@@ -207,17 +175,10 @@ export function GraphPane() {
     return <div className="flex-1 flex items-center justify-center text-git-deleted text-sm">{(log.error as Error).message}</div>;
   }
 
-  const commits = assigned?.commits ?? [];
-  const maxLaneUsed = assigned?.maxLaneUsed ?? 0;
-  const laneOwners = assigned?.laneOwners ?? new Map<number, string>();
-  const totalHeight = commits.length * rowHeight;
-  const graphWidth = (maxLaneUsed + 1) * LANE_WIDTH + LANE_PADDING * 2;
-
-  // Virtualization window.
   const firstRow = Math.max(0, Math.floor(scrollTop / rowHeight) - BUFFER_ROWS);
   const visibleCount = Math.ceil(viewportHeight / rowHeight) + BUFFER_ROWS * 2;
-  const lastRow = Math.min(commits.length, firstRow + visibleCount);
-  const visible = commits.slice(firstRow, lastRow);
+  const lastRow = Math.min(rows.length, firstRow + visibleCount);
+  const visibleRows = rows.slice(firstRow, lastRow);
   const offsetY = firstRow * rowHeight;
 
   return (
@@ -296,51 +257,45 @@ export function GraphPane() {
         onWheel={handleWheel}
       >
         <div style={{ transform: `scale(${zoom})`, transformOrigin: 'top left' }}>
-        {commits.length === 0 ? (
-          <div className="absolute inset-0 flex flex-col items-center justify-center text-fg-muted text-sm gap-2">
-            <GitCommit className="w-8 h-8 text-fg-dim" />
-            No commits found.
-          </div>
-        ) : (
-          <div style={{ height: totalHeight, position: 'relative' }}>
-            <GraphCanvas
-              commits={visible}
-              offsetY={offsetY}
-              graphWidth={graphWidth}
-              rowHeight={rowHeight}
-              laneOwners={laneOwners}
-              selectedSha={selectedSha ?? undefined}
-            />
-            <div
-              className="absolute left-0 right-0"
-              style={{ transform: `translateY(${offsetY}px)` }}
-            >
-              {visible.map((c, i) => (
-                <div
-                  key={c.sha}
-                  onContextMenu={(e) => {
-                    e.preventDefault();
-                    setContextMenu({
-                      x: e.clientX,
-                      y: e.clientY,
-                      commit: c,
-                    });
-                  }}
-                >
-                  <GraphRow
-                    commit={c}
-                    row={firstRow + i}
-                    graphWidth={graphWidth}
-                    selected={c.sha === selectedSha}
-                    onClick={() => selectCommit(c.sha)}
-                    density={density}
-                    rowHeight={rowHeight}
-                  />
-                </div>
-              ))}
+          {rows.length === 0 ? (
+            <div className="absolute inset-0 flex flex-col items-center justify-center text-fg-muted text-sm gap-2">
+              <GitCommit className="w-8 h-8 text-fg-dim" />
+              No commits found.
             </div>
-          </div>
-        )}
+          ) : (
+            <div style={{ height: totalHeight, position: 'relative' }}>
+              <GraphCanvas
+                rows={visibleRows}
+                offsetY={offsetY}
+                graphWidth={graphWidth}
+                rowHeight={rowHeight}
+                selectedSha={selectedSha ?? undefined}
+              />
+              <div
+                className="absolute left-0 right-0"
+                style={{ transform: `translateY(${offsetY}px)` }}
+              >
+                {visibleRows.map((row) => (
+                  <div
+                    key={row.sha}
+                    onContextMenu={(e) => {
+                      e.preventDefault();
+                      setContextMenu({ x: e.clientX, y: e.clientY, commit: row.commit });
+                    }}
+                  >
+                    <GraphRow
+                      row={row}
+                      graphWidth={graphWidth}
+                      selected={row.sha === selectedSha}
+                      onClick={() => selectCommit(row.sha)}
+                      density={density}
+                      rowHeight={rowHeight}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -513,15 +468,14 @@ export function GraphPane() {
 }
 
 interface GraphCanvasProps {
-  commits: Commit[];
+  rows: GraphLayoutRow[];
   offsetY: number;
   graphWidth: number;
   rowHeight: number;
-  laneOwners: Map<number, string>;
   selectedSha?: string;
 }
 
-function GraphCanvas({ commits, offsetY, graphWidth, rowHeight, laneOwners, selectedSha }: GraphCanvasProps) {
+function GraphCanvas({ rows, offsetY, graphWidth, rowHeight, selectedSha }: GraphCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [dpr, setDpr] = useState(window.devicePixelRatio || 1);
 
@@ -537,7 +491,7 @@ function GraphCanvas({ commits, offsetY, graphWidth, rowHeight, laneOwners, sele
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    const height = commits.length * rowHeight + rowHeight;
+    const height = rows.length * rowHeight + rowHeight;
     canvas.width = graphWidth * dpr;
     canvas.height = height * dpr;
     canvas.style.width = `${graphWidth}px`;
@@ -545,99 +499,75 @@ function GraphCanvas({ commits, offsetY, graphWidth, rowHeight, laneOwners, sele
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, graphWidth, height);
 
-    const laneColor = (lane: number): string => {
-      const owner = laneOwners.get(lane);
-      if (owner) return branchColorByName(owner);
-      return laneColorByIndex(lane);
-    };
-
-    for (let i = 0; i < commits.length; i++) {
-      const c = commits[i]!;
-      const y = i * rowHeight + rowHeight / 2;
-      const x = laneX(c.lane);
-      const color = laneColor(c.lane);
-
-      for (let p = 0; p < c.parents.length; p++) {
-        const parentLane = c.parentLanes[p]!;
-        const parentColor = laneColor(parentLane);
-        const childY = y;
-        const parentY = (i + 1) * rowHeight + rowHeight / 2;
-        const parentX = laneX(parentLane);
-
-        if (parentLane === c.lane) {
-          if (i + 1 < commits.length) {
-            ctx.strokeStyle = color;
-            ctx.lineWidth = 1.5;
-            ctx.beginPath();
-            ctx.moveTo(x, childY);
-            ctx.lineTo(x, parentY);
-            ctx.stroke();
-          }
-        } else {
-          ctx.strokeStyle = parentColor;
-          ctx.lineWidth = 1.5;
-          ctx.beginPath();
-          ctx.moveTo(x, childY);
-          ctx.bezierCurveTo(x, childY + rowHeight / 2, parentX, parentY - rowHeight / 2, parentX, parentY);
-          ctx.stroke();
-        }
-      }
-    }
-
     const bgColor = getComputedStyle(document.documentElement).getPropertyValue('--color-bg').trim() || '#0d1117';
     const accentColor = getComputedStyle(document.documentElement).getPropertyValue('--color-accent').trim() || '#3b82f6';
     const headColor = getComputedStyle(document.documentElement).getPropertyValue('--color-git-head').trim() || '#3fb950';
 
-    for (let i = 0; i < commits.length; i++) {
-      const c = commits[i]!;
-      const y = i * rowHeight + rowHeight / 2;
-      const x = laneX(c.lane);
-      const color = laneColor(c.lane);
-      const isMerge = c.parents.length > 1;
-      const isHead = c.refs.some((r) => r.isHead);
-      const isSelected = c.sha === selectedSha;
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i]!;
+      const yTop = i * rowHeight;
+      const yCenter = yTop + rowHeight / 2;
+      const yBottom = yTop + rowHeight;
 
+      for (const lane of row.activeLanes) {
+        ctx.strokeStyle = colorForLane(row, lane);
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(laneX(lane), yTop);
+        ctx.lineTo(laneX(lane), yBottom);
+        ctx.stroke();
+      }
+
+      for (const edge of row.edges) {
+        if (edge.kind === 'vertical') continue;
+        ctx.strokeStyle = graphColorByKey(edge.colorKey);
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(laneX(edge.fromLane), yCenter);
+        ctx.bezierCurveTo(
+          laneX(edge.fromLane),
+          yCenter + rowHeight / 2,
+          laneX(edge.toLane),
+          yBottom - rowHeight / 2,
+          laneX(edge.toLane),
+          yBottom,
+        );
+        ctx.stroke();
+      }
+
+      const nodeX = laneX(row.node.lane);
+      const isMerge = row.node.kind === 'merge';
+      const isHead = row.node.kind === 'head' || row.node.kind === 'detached-head';
+      const isSelected = row.sha === selectedSha;
       const radius = isMerge ? DOT_RADIUS + 2 : DOT_RADIUS;
+      const color = graphColorByKey(row.node.colorKey);
 
-      // Dot fill.
       ctx.beginPath();
-      ctx.arc(x, y, radius, 0, Math.PI * 2);
+      ctx.arc(nodeX, yCenter, radius, 0, Math.PI * 2);
       ctx.fillStyle = color;
       ctx.fill();
 
-      // Outline halo (punches through edges).
       ctx.strokeStyle = bgColor;
       ctx.lineWidth = 2;
       ctx.stroke();
 
-      // HEAD ring — green outer ring.
       if (isHead) {
         ctx.beginPath();
-        ctx.arc(x, y, radius + 2, 0, Math.PI * 2);
+        ctx.arc(nodeX, yCenter, radius + 2, 0, Math.PI * 2);
         ctx.strokeStyle = headColor;
         ctx.lineWidth = 2;
         ctx.stroke();
       }
 
-      // Selected ring — accent color.
       if (isSelected) {
         ctx.beginPath();
-        ctx.arc(x, y, radius + (isHead ? 4 : 2), 0, Math.PI * 2);
+        ctx.arc(nodeX, yCenter, radius + (isHead ? 4 : 2), 0, Math.PI * 2);
         ctx.strokeStyle = accentColor;
         ctx.lineWidth = 2;
         ctx.stroke();
       }
-
-      // Merge commit double-ring.
-      if (isMerge && !isHead && !isSelected) {
-        ctx.beginPath();
-        ctx.arc(x, y, radius + 1.5, 0, Math.PI * 2);
-        ctx.strokeStyle = color;
-        ctx.lineWidth = 1.5;
-        ctx.stroke();
-      }
     }
-  }, [commits, graphWidth, dpr, rowHeight]);
+  }, [rows, graphWidth, dpr, rowHeight, selectedSha]);
 
   return (
     <canvas
@@ -648,13 +578,21 @@ function GraphCanvas({ commits, offsetY, graphWidth, rowHeight, laneOwners, sele
   );
 }
 
+function colorForLane(row: GraphLayoutRow, lane: number): string {
+  if (lane === row.node.lane) return graphColorByKey(row.node.colorKey);
+  const incoming = row.edges.find((edge) => edge.toLane === lane);
+  if (incoming) return graphColorByKey(incoming.colorKey);
+  const outgoing = row.edges.find((edge) => edge.fromLane === lane);
+  if (outgoing) return graphColorByKey(outgoing.colorKey);
+  return laneColorByIndex(lane);
+}
+
 function laneX(lane: number): number {
   return LANE_PADDING + lane * LANE_WIDTH + LANE_WIDTH / 2;
 }
 
 interface GraphRowProps {
-  commit: Commit;
-  row: number;
+  row: GraphLayoutRow;
   graphWidth: number;
   selected: boolean;
   onClick: () => void;
@@ -662,10 +600,10 @@ interface GraphRowProps {
   rowHeight: number;
 }
 
-function GraphRow({ commit, graphWidth, selected, onClick, density, rowHeight }: GraphRowProps) {
+function GraphRow({ row, graphWidth, selected, onClick, density, rowHeight }: GraphRowProps) {
+  const commit = row.commit;
   const date = new Date(commit.author.date);
   const shortSha = commit.sha.slice(0, 7);
-  const headRef = commit.refs.find((r) => r.isHead);
   const [refCtx, setRefCtx] = useState<{ x: number; y: number; ref: RefLabel } | null>(null);
   const mutedRefs = useGraphFilterStore((s) => s.mutedRefs);
 
@@ -678,8 +616,9 @@ function GraphRow({ commit, graphWidth, selected, onClick, density, rowHeight }:
     return () => window.removeEventListener('click', close);
   }, []);
 
-  const visibleRefs = commit.refs
-    .filter((r) => !r.isHead && !mutedRefs.includes(r.shortName));
+  const visibleBranches = row.refs.branches.filter((ref) => !mutedRefs.includes(ref.shortName));
+  const visibleTags = row.refs.tags.filter((ref) => !mutedRefs.includes(ref.shortName));
+  const visibleRefs = [...visibleBranches, ...visibleTags];
   const MAX_VISIBLE = 6;
   const overflow = visibleRefs.length - MAX_VISIBLE;
 
@@ -693,54 +632,55 @@ function GraphRow({ commit, graphWidth, selected, onClick, density, rowHeight }:
     <div
       data-graph-row
       onClick={onClick}
-      className={`flex items-center border-b border-border-subtle/50 cursor-pointer ${
-        selected ? 'bg-accent/10' : 'row-hover'
-      }`}
+      className={`flex items-center border-b border-border-subtle/50 cursor-pointer ${selected ? 'bg-accent/10' : 'row-hover'}`}
       style={{ height: rowHeight }}
     >
       <div style={{ width: graphWidth, flexShrink: 0 }} />
 
-      <div className="flex-1 min-w-0 flex flex-col justify-center pr-3">
-        <div className="flex items-center gap-1.5 min-w-0">
-          {headRef && <HeadIndicator label={headRef} />}
-
-          {visibleRefs.slice(0, MAX_VISIBLE).map((r) =>
-            r.kind === 'tag' ? (
-              <TagBadge key={`tag:${r.shortName}`} label={r} onContextMenu={(e) => handleRefContext(e, r)} />
-            ) : (
-              <BranchBadge key={`${r.kind}:${r.shortName}`} label={r} onContextMenu={(e) => handleRefContext(e, r)} />
-            ),
-          )}
-
-          {overflow > 0 && (
-            <span className="px-1.5 py-0 rounded text-xxs text-fg-muted bg-bg-elevated font-mono shrink-0">
-              +{overflow}
+      <div className="flex-1 min-w-0 flex items-center gap-3 pr-3">
+        <div className="flex-1 min-w-0 flex flex-col justify-center gap-1">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <span className={`truncate ${isCompact ? 'text-xs' : 'text-sm'} ${selected ? 'text-fg' : 'text-fg font-medium'}`}>
+              {commit.subject}
             </span>
-          )}
+            {row.refs.head && <HeadIndicator label={row.refs.head} />}
+            {visibleRefs.slice(0, MAX_VISIBLE).map((ref) =>
+              ref.kind === 'tag' ? (
+                <TagBadge key={`tag:${ref.shortName}`} label={ref} onContextMenu={(e) => handleRefContext(e, ref)} />
+              ) : (
+                <BranchBadge key={`${ref.kind}:${ref.shortName}`} label={ref} onContextMenu={(e) => handleRefContext(e, ref)} />
+              ),
+            )}
+            {overflow > 0 && (
+              <span className="px-1.5 py-0 rounded text-xxs text-fg-muted bg-bg-elevated font-mono shrink-0">
+                +{overflow}
+              </span>
+            )}
+          </div>
 
-          <span className={`text-fg truncate ${isCompact ? 'text-xxs' : 'text-xs font-medium'}`}>{commit.subject}</span>
+          {!isCompact && (
+            <div className="flex items-center gap-2 text-xxs text-fg-muted min-w-0">
+              <span className="truncate">{commit.author.name}</span>
+              <span>·</span>
+              <span className="tabular-nums">{formatDate(date)}</span>
+              {isDetailed && (
+                <>
+                  <span>·</span>
+                  <span className="font-mono text-fg-dim">{shortSha}</span>
+                </>
+              )}
+            </div>
+          )}
         </div>
 
-        {isDetailed && (
-          <div className="flex items-center gap-1.5 text-xxs text-fg-muted mt-0.5">
-            <span className="truncate">{commit.author.name} ({commit.author.email})</span>
-            <span>·</span>
-            <span>{formatDate(date)}</span>
-          </div>
+        {!isDetailed && (
+          <>
+            <div className={`hidden xl:block w-28 shrink-0 px-2 text-fg-muted truncate ${isCompact ? 'text-xxs' : 'text-xs'}`}>{commit.author.name}</div>
+            <div className={`hidden lg:block w-20 shrink-0 px-2 text-fg-dim text-right tabular-nums ${isCompact ? 'text-xxs' : 'text-xs'}`}>{formatDate(date)}</div>
+            <div className={`hidden xl:block w-16 shrink-0 px-2 text-fg-dim font-mono text-right ${isCompact ? 'text-xxs' : 'text-xs'}`}>{shortSha}</div>
+          </>
         )}
       </div>
-
-      {!isDetailed && !isCompact && (
-        <div className="hidden xl:block w-32 shrink-0 px-2 text-xs text-fg-muted truncate">{commit.author.name}</div>
-      )}
-
-      {!isDetailed && (
-        <div className={`hidden lg:block w-24 shrink-0 px-2 text-fg-dim text-right tabular-nums ${isCompact ? 'text-xxs' : 'text-xs'}`}>
-          {formatDate(date)}
-        </div>
-      )}
-
-      <div className={`hidden xl:block w-20 shrink-0 px-2 text-fg-dim font-mono text-right ${isCompact ? 'text-xxs' : 'text-xs'}`}>{shortSha}</div>
 
       {refCtx && (
         <div className="fixed z-50 bg-bg-panel border border-border rounded shadow-xl py-1 w-48 text-xs" style={{ left: refCtx.x, top: refCtx.y }} onClick={(e) => e.stopPropagation()}>
@@ -766,7 +706,7 @@ function formatDate(d: Date): string {
   const now = new Date();
   const sameYear = d.getFullYear() === now.getFullYear();
   const opts: Intl.DateTimeFormatOptions = sameYear
-      ? { month: 'short', day: 'numeric' }
-      : { month: 'short', day: 'numeric', year: 'numeric' };
+    ? { month: 'short', day: 'numeric' }
+    : { month: 'short', day: 'numeric', year: 'numeric' };
   return d.toLocaleDateString(undefined, opts);
 }

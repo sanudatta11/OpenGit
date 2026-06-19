@@ -1,5 +1,4 @@
 // electron/main/git/parse/status.ts — parse `git status --porcelain=v2 --branch -z`.
-// See docs/architecture/git-types.md for the output type.
 
 import type {
   RepoStatus,

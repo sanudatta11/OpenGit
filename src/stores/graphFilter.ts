@@ -24,7 +24,7 @@ export const useGraphFilterStore = create<GraphFilterStore>((set, get) => ({
   solo: (ref) => set((s) => ({ soloedRefs: [...s.soloedRefs.filter((r) => r !== ref), ref] })),
   unsolo: (ref) => set((s) => ({ soloedRefs: s.soloedRefs.filter((r) => r !== ref) })),
   clearSolo: () => set({ soloedRefs: [] }),
-  mute: (ref) => set((s) => ({ mutedRefs: [...s.mutedRefs, ref] })),
+  mute: (ref) => set((s) => ({ mutedRefs: s.mutedRefs.includes(ref) ? s.mutedRefs : [...s.mutedRefs, ref] })),
   unmute: (ref) => set((s) => ({ mutedRefs: s.mutedRefs.filter((r) => r !== ref) })),
   clearAll: () => set({ soloedRefs: [], mutedRefs: [] }),
   isSoloed: (ref) => get().soloedRefs.includes(ref),

@@ -1,5 +1,4 @@
 // shared/git.ts — parsed domain types. Imported by main, preload, renderer.
-// See docs/architecture/git-types.md for the rationale.
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Repo
@@ -57,9 +56,6 @@ export interface Commit {
   readonly subject: string;
   readonly body: string;
   readonly refs: readonly RefLabel[];
-  // Filled by the graph renderer, not the parser:
-  lane: number;
-  parentLanes: number[];
 }
 
 export interface Person {

@@ -149,8 +149,9 @@ export async function getLog(
 ): Promise<{ commits: Commit[]; hasMore: boolean }> {
   // Fetch limit + 1 so we can tell if there's more.
   const fetchN = opts.limit + 1;
-  const args = ['log', `--pretty=format:${LOG_FORMAT}`, '-z', `--max-count=${fetchN}`, `--skip=${opts.skip}`];
+  const args = ['log', '--topo-order', `--pretty=format:${LOG_FORMAT}`, '-z', `--max-count=${fetchN}`, `--skip=${opts.skip}`];
   if (opts.range) args.push(opts.range);
+  else args.push('--all');
   if (opts.paths && opts.paths.length > 0) {
     args.push('--', ...opts.paths);
   }

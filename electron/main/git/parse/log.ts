@@ -1,5 +1,5 @@
 // electron/main/git/parse/log.ts — parse git log --pretty=format with custom separators.
-// Output: commits newest → oldest. lane/parentLanes are NOT set here (graph renderer does that).
+// Output: commits newest → oldest.
 
 import type { Commit, Person, RefLabel } from '@shared/git';
 
@@ -63,8 +63,6 @@ export function parseLog(
       subject: s!,
       body,
       refs: refsBySha?.get(sha!) ?? [],
-      lane: -1,         // assigned by graph renderer
-      parentLanes: [],  // assigned by graph renderer
     });
   }
 
