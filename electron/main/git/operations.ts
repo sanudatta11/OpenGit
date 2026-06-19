@@ -432,6 +432,32 @@ export async function pullRemote(
   };
 }
 
+export async function fetchAllRemotes(
+  workTree: string,
+  prune: boolean,
+): Promise<WriteResult<{ fetched: number }>> {
+  const args = ['fetch', '--all'];
+  if (prune) args.push('--prune');
+
+  const r = await gitRun({
+    cwd: workTree,
+    args,
+    channel: 'remote:fetchAll',
+    reject: false,
+  });
+
+  const fetched = (r.stderr.match(/->\s/g) ?? []).length;
+
+  return {
+    success: r.ok,
+    data: { fetched },
+    stdout: r.stdout,
+    stderr: r.stderr,
+    changedRefs: r.ok ? ['refs/remotes'] : [],
+    requiresRefresh: r.ok,
+  };
+}
+
 export async function pushRemote(
   workTree: string,
   remote: string,
@@ -1095,6 +1121,84 @@ export async function pruneWorktrees(workTree: string): Promise<WriteResult> {
     stdout: r.stdout,
     stderr: r.stderr,
     changedRefs: [],
+    requiresRefresh: r.ok,
+  };
+}
+
+export async function lockWorktree(
+  workTree: string,
+  path: string,
+  reason?: string,
+): Promise<WriteResult> {
+  const args = ['worktree', 'lock'];
+  if (reason) args.push('--reason', reason);
+  args.push(path);
+
+  const r = await gitRun({
+    cwd: workTree,
+    args,
+    channel: 'worktree:lock',
+    reject: false,
+  });
+  return {
+    success: r.ok,
+    stdout: r.stdout,
+    stderr: r.stderr,
+    changedRefs: [],
+    requiresRefresh: r.ok,
+  };
+}
+
+export async function unlockWorktree(
+  workTree: string,
+  path: string,
+): Promise<WriteResult> {
+  const r = await gitRun({
+    cwd: workTree,
+    args: ['worktree', 'unlock', path],
+    channel: 'worktree:unlock',
+    reject: false,
+  });
+  return {
+    success: r.ok,
+    stdout: r.stdout,
+    stderr: r.stderr,
+    changedRefs: [],
+    requiresRefresh: r.ok,
+  };
+}
+
+export async function removeWorktreeAndBranch(
+  workTree: string,
+  path: string,
+  branchName: string,
+  force: boolean,
+): Promise<WriteResult> {
+  const removeArgs = ['worktree', 'remove'];
+  if (force) removeArgs.push('--force');
+  removeArgs.push(path);
+
+  const r = await gitRun({
+    cwd: workTree,
+    args: removeArgs,
+    channel: 'worktree:removeAndDeleteBranch',
+    reject: false,
+  });
+
+  if (r.ok) {
+    await gitRun({
+      cwd: workTree,
+      args: ['branch', '-D', branchName],
+      channel: 'worktree:removeAndDeleteBranch',
+      reject: false,
+    });
+  }
+
+  return {
+    success: r.ok,
+    stdout: r.stdout,
+    stderr: r.stderr,
+    changedRefs: r.ok ? [`refs/heads/${branchName}`] : [],
     requiresRefresh: r.ok,
   };
 }

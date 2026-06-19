@@ -10,6 +10,7 @@ import './index.css';
 import { useLogStore } from './stores/log';
 import { api } from './ipc/api';
 import { RebaseEditor } from './components/rebase/RebaseEditor';
+import { ToastContainer } from './components/ToastContainer';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -49,6 +50,7 @@ root.render(
     <QueryClientProvider client={queryClient}>
       <App />
       <RebaseEditor />
+      <ToastContainer />
     </QueryClientProvider>
   </React.StrictMode>,
 );

@@ -4,6 +4,8 @@ import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import { api } from '../ipc/api';
 import { qk } from './keys';
 import { useRepoStore } from '../stores/repo';
+import { useToastStore } from '../stores/toast';
+import { usePushBannerStore } from '../stores/pushBanner';
 
 // Input types with optional defaults (renderer-side; main fills in defaults via Zod).
 interface CommitInput { message: string; amend?: boolean; signoff?: boolean; noVerify?: boolean; author?: { name: string; email: string } }
@@ -11,7 +13,7 @@ interface CheckoutInput { ref: string; create?: boolean; force?: boolean }
 interface CreateBranchInput { name: string; start?: string; checkout?: boolean }
 interface DeleteBranchInput { name: string; force?: boolean }
 interface FetchInput { remote?: string; prune?: boolean }
-interface PullInput { remote?: string; branch?: string; ffOnly?: boolean }
+interface PullInput { remote?: string; branch?: string; ffOnly?: boolean; strategy?: 'merge' | 'rebase' | 'ff-only' }
 interface PushInput { remote?: string; branch?: string; forceWithLease?: boolean; setUpstream?: boolean }
 
 // Helper: invalidate everything that a write might have changed.
@@ -128,7 +130,37 @@ export function usePush() {
   const refresh = useRefreshOnSuccess();
   return useMutation({
     mutationFn: (input: PushInput) => api.remote.push(input as never),
-    onSuccess: (r) => refresh(r.requiresRefresh),
+    onSuccess: (r, vars) => {
+      refresh(r.requiresRefresh);
+      if (r.data?.rejected) {
+        usePushBannerStore.getState().setRejection({
+          ...r.data,
+          message: r.stderr,
+          remote: vars.remote,
+          branch: vars.branch,
+        });
+      }
+    },
+  });
+}
+
+export function useFetchAll() {
+  const qc = useQueryClient();
+  const toast = useToastStore.getState;
+  return useMutation({
+    mutationFn: (prune?: boolean) => api.remote.fetchAll(prune),
+    onSuccess: (r) => {
+      void qc.invalidateQueries({ queryKey: qk.status });
+      void qc.invalidateQueries({ queryKey: qk.branches });
+      void qc.invalidateQueries({ queryKey: qk.remotes });
+      void qc.invalidateQueries({ queryKey: ['log'] });
+      if (r.data) {
+        toast().addToast(`Fetched ${r.data.fetched} refs from all remotes`, 'success');
+      }
+    },
+    onError: (err) => {
+      toast().addToast(`Fetch failed: ${(err as Error).message}`, 'error');
+    },
   });
 }
 

@@ -9,6 +9,7 @@ import { TopBar } from './TopBar';
 import { InProgressBanner } from './InProgressBanner';
 import { CommandPalette } from './CommandPalette';
 import { RepositorySearch } from './RepositorySearch';
+import { PushRejectionBanner } from './PushRejectionBanner';
 
 export function Workspace({ onOpenSettings }: { onOpenSettings: () => void }) {
   const logDrawerOpen = useRepoStore((s) => s.logDrawerOpen);
@@ -46,6 +47,7 @@ export function Workspace({ onOpenSettings }: { onOpenSettings: () => void }) {
   return (
     <div className="h-full flex flex-col bg-bg">
       <TopBar onOpenSettings={onOpenSettings} />
+      <PushRejectionBanner />
       {status.data && status.data.states.length > 0 && (
         <InProgressBanner states={status.data.states} />
       )}

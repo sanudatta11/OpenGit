@@ -67,6 +67,25 @@ export default {
         sm: ['12px', '18px'],
         md: ['13px', '20px'],
       },
+      keyframes: {
+        'slide-in': {
+          '0%': { transform: 'translateX(100%)', opacity: '0' },
+          '100%': { transform: 'translateX(0)', opacity: '1' },
+        },
+        'slide-down': {
+          '0%': { transform: 'translateY(-100%)', opacity: '0' },
+          '100%': { transform: 'translateY(0)', opacity: '1' },
+        },
+        'slide-up': {
+          '0%': { transform: 'translateY(0)', opacity: '1' },
+          '100%': { transform: 'translateY(-100%)', opacity: '0' },
+        },
+      },
+      animation: {
+        'slide-in': 'slide-in 300ms ease-out',
+        'slide-down': 'slide-down 300ms ease-out',
+        'slide-up': 'slide-up 200ms ease-in',
+      },
     },
   },
   plugins: [],

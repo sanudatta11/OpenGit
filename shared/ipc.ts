@@ -54,11 +54,15 @@ export const IPC = {
   REMOTE_ADD: 'remote:add',
   REMOTE_REMOVE: 'remote:remove',
   REMOTE_SET_URL: 'remote:setUrl',
+  REMOTE_FETCH_ALL: 'remote:fetchAll',
 
   WORKTREE_LIST: 'worktree:list',
   WORKTREE_CREATE: 'worktree:create',
   WORKTREE_REMOVE: 'worktree:remove',
   WORKTREE_PRUNE: 'worktree:prune',
+  WORKTREE_LOCK: 'worktree:lock',
+  WORKTREE_UNLOCK: 'worktree:unlock',
+  WORKTREE_REMOVE_AND_DELETE_BRANCH: 'worktree:removeAndDeleteBranch',
 
   SETTINGS_GET: 'settings:get',
   SETTINGS_SET: 'settings:set',
@@ -99,6 +103,8 @@ export const IPC = {
 
   TERMINAL_RUN: 'terminal:run',
   TERMINAL_KILL: 'terminal:kill',
+
+  SHELL_OPEN_PATH: 'shell:openPath',
 } as const;
 
 export type IpcChannel = (typeof IPC)[keyof typeof IPC];
@@ -253,6 +259,34 @@ export const WorktreeRemoveInput = z.object({
   force: z.boolean().default(false),
 });
 export type WorktreeRemoveInput = z.infer<typeof WorktreeRemoveInput>;
+
+export const WorktreeRemoveAndDeleteInput = z.object({
+  path: z.string().min(1),
+  branch: z.string().min(1),
+  force: z.boolean().default(false),
+});
+export type WorktreeRemoveAndDeleteInput = z.infer<typeof WorktreeRemoveAndDeleteInput>;
+
+export const WorktreeLockInput = z.object({
+  path: z.string().min(1),
+  reason: z.string().optional(),
+});
+export type WorktreeLockInput = z.infer<typeof WorktreeLockInput>;
+
+export const WorktreeUnlockInput = z.object({
+  path: z.string().min(1),
+});
+export type WorktreeUnlockInput = z.infer<typeof WorktreeUnlockInput>;
+
+export const FetchAllInput = z.object({
+  prune: z.boolean().default(false),
+});
+export type FetchAllInput = z.infer<typeof FetchAllInput>;
+
+export const ShellOpenPathInput = z.object({
+  path: z.string().min(1),
+});
+export type ShellOpenPathInput = z.infer<typeof ShellOpenPathInput>;
 
 export const SettingsSetInput = z.object({
   gitBinPath: z.string().nullable().optional(),

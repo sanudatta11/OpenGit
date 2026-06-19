@@ -1,9 +1,10 @@
 // electron/main/ipc/worktree.ts — worktree IPC handlers.
 
 import { ipcMain } from 'electron';
-import { IPC, GitError, WorktreeCreateInput, WorktreeRemoveInput } from '@shared/ipc';
+import { IPC, GitError, WorktreeCreateInput, WorktreeRemoveInput, WorktreeRemoveAndDeleteInput, WorktreeLockInput, WorktreeUnlockInput } from '@shared/ipc';
 import {
   listWorktrees, createWorktree, removeWorktree, pruneWorktrees,
+  lockWorktree, unlockWorktree, removeWorktreeAndBranch,
 } from '../git/operations';
 import { requireCurrentRepo } from '../git/session';
 
@@ -35,6 +36,27 @@ export function registerWorktreeHandlers(): void {
   ipcMain.handle(IPC.WORKTREE_PRUNE, async () => {
     const r = requireCurrentRepo();
     return pruneWorktrees(r.workTreeRoot);
+  });
+
+  ipcMain.handle(IPC.WORKTREE_LOCK, async (_e, raw) => {
+    const parsed = WorktreeLockInput.safeParse(raw);
+    if (!parsed.success) throw badInput(parsed.error.message);
+    const r = requireCurrentRepo();
+    return lockWorktree(r.workTreeRoot, parsed.data.path, parsed.data.reason);
+  });
+
+  ipcMain.handle(IPC.WORKTREE_UNLOCK, async (_e, raw) => {
+    const parsed = WorktreeUnlockInput.safeParse(raw);
+    if (!parsed.success) throw badInput(parsed.error.message);
+    const r = requireCurrentRepo();
+    return unlockWorktree(r.workTreeRoot, parsed.data.path);
+  });
+
+  ipcMain.handle(IPC.WORKTREE_REMOVE_AND_DELETE_BRANCH, async (_e, raw) => {
+    const parsed = WorktreeRemoveAndDeleteInput.safeParse(raw);
+    if (!parsed.success) throw badInput(parsed.error.message);
+    const r = requireCurrentRepo();
+    return removeWorktreeAndBranch(r.workTreeRoot, parsed.data.path, parsed.data.branch, parsed.data.force);
   });
 }
 

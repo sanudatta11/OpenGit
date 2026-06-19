@@ -3,10 +3,10 @@
 import { ipcMain } from 'electron';
 import {
   IPC, GitError,
-  RemoteFetchInput, RemotePullInput, RemotePushInput,
+  RemoteFetchInput, RemotePullInput, RemotePushInput, FetchAllInput,
 } from '@shared/ipc';
 import {
-  fetchRemote, pullRemote, pushRemote,
+  fetchRemote, pullRemote, pushRemote, fetchAllRemotes,
 } from '../git/operations';
 import { requireCurrentRepo } from '../git/session';
 import { gitRun } from '../git/client';
@@ -58,6 +58,13 @@ export function registerRemoteHandlers(): void {
     args.push(name, url);
     const res = await gitRun({ cwd: r.workTreeRoot, args, channel: 'remote:setUrl', reject: false });
     return { success: res.ok, stdout: res.stdout, stderr: res.stderr };
+  });
+
+  ipcMain.handle(IPC.REMOTE_FETCH_ALL, async (_e, raw) => {
+    const parsed = FetchAllInput.safeParse(raw);
+    if (!parsed.success) throw badInput(parsed.error.message);
+    const r = requireCurrentRepo();
+    return fetchAllRemotes(r.workTreeRoot, parsed.data.prune);
   });
 }
 

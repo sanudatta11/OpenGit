@@ -1,13 +1,13 @@
 // src/components/inspector/WorkingTree.tsx — staged/unstaged file list + actions + commit form + diff.
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   FileEdit, FilePlus, FileMinus, FileOutput, AlertCircle, Check, ChevronRight,
   Plus, Minus, RotateCcw, Loader2,
 } from 'lucide-react';
-import { useStatus, useFileContent } from '../../queries/useRepo';
+import { useStatus, useFileContent, useBranches, useLog } from '../../queries/useRepo';
 import {
-  useStage, useStageAll, useUnstage, useUnstageAll, useDiscard, useCommit,
+  useStage, useStageAll, useUnstage, useUnstageAll, useDiscard, useCommit, usePush,
 } from '../../queries/useMutations';
 import type { StatusEntry, EntryKind } from '@shared/git';
 import { DiffViewer } from '../diff/DiffViewer';
@@ -45,11 +45,19 @@ export function WorkingTree() {
   const unstaged = status.data.entries.filter((e) => e.unstaged);
   const untracked = status.data.entries.filter((e) => e.kind === 'untracked');
   const conflicts = status.data.entries.filter((e) => e.kind === 'unmerged');
+  const branchName = useRepoStore((s) => s.repo)?.currentBranch ?? 'HEAD';
 
   return (
     <div className="flex flex-col h-full min-h-0">
       {!selectedEntry && (
         <>
+          <div className="px-3 py-2 border-b border-border bg-bg/25 text-xxs text-fg-muted flex items-center gap-3 shrink-0">
+            <span className="text-fg font-medium">WIP on <span className="text-git-branch">{branchName}</span></span>
+            <span className="text-fg-dim">|</span>
+            <span className="text-git-staged">{staged.length} staged</span>
+            <span className="text-git-modified">{unstaged.length} unstaged</span>
+            {untracked.length > 0 && <span className="text-git-untracked">{untracked.length} untracked</span>}
+          </div>
           {conflicts.length > 0 && (
             <Section title="Conflicts" count={conflicts.length} color="text-git-conflicted" entries={conflicts} onSelect={setSelectedEntry} selected={selectedEntry} onDiscard={setConfirmEntry} />
           )}
@@ -342,9 +350,22 @@ function CommitForm() {
   const [amend, setAmend] = useState(false);
   const [signCommit, setSignCommit] = useState(false);
   const [noVerify, setNoVerify] = useState(false);
+  const [showOptions, setShowOptions] = useState(false);
+  const [pushAfterCommit, setPushAfterCommit] = useState(false);
   const commit = useCommit();
+  const push = usePush();
+  const branches = useBranches();
+  const headCommit = useLog(undefined, 0, 1);
   const status = useStatus();
   const hasStaged = (status.data?.entries ?? []).some((e) => e.staged);
+
+  useEffect(() => {
+    if (amend && headCommit.data?.commits[0]) {
+      setMessage(headCommit.data.commits[0].subject);
+    } else if (!amend) {
+      setMessage('');
+    }
+  }, [amend]);
 
   const handleCommit = () => {
     if (!message.trim()) return;
@@ -356,6 +377,15 @@ function CommitForm() {
           setAmend(false);
           setSignCommit(false);
           setNoVerify(false);
+          setShowOptions(false);
+          setPushAfterCommit(false);
+          if (pushAfterCommit) {
+            const currentBranch = branches.data?.find((b) => b.isHead);
+            const upstreamBranch = currentBranch?.upstream;
+            const remote = upstreamBranch?.split('/')[0] ?? 'origin';
+            const pushBranch = upstreamBranch?.split('/').slice(1).join('/') ?? currentBranch?.shortName ?? '';
+            push.mutate({ remote, branch: pushBranch, setUpstream: !upstreamBranch });
+          }
         },
       },
     );
@@ -376,8 +406,26 @@ function CommitForm() {
         }}
         disabled={commit.isPending}
       />
+      {amend && headCommit.data?.commits[0] && (
+        <div className="text-xxs text-fg-muted mb-1">Amending: {headCommit.data.commits[0].sha.slice(0, 7)}</div>
+      )}
       <div className="flex items-center justify-between mt-2">
-        <div className="flex items-center gap-3">
+        <button className="flex items-center gap-1 text-xs text-fg-muted hover:text-fg py-1" onClick={() => setShowOptions(!showOptions)}>
+          <ChevronRight className={`w-3 h-3 transition-transform ${showOptions ? 'rotate-90' : ''}`} />
+          Commit options
+        </button>
+        <button
+          className="btn btn-primary"
+          onClick={handleCommit}
+          disabled={commit.isPending || !message.trim() || (!hasStaged && !amend)}
+          title={(!hasStaged && !amend) ? 'Nothing staged to commit' : 'Commit (Ctrl+Enter)'}
+        >
+          {commit.isPending && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+          Commit
+        </button>
+      </div>
+      {showOptions && (
+        <div className="flex flex-col gap-1.5 pl-5 mb-2">
           <label className="flex items-center gap-1.5 text-xs text-fg-muted cursor-pointer">
             <input
               type="checkbox"
@@ -405,17 +453,12 @@ function CommitForm() {
             />
             Sign with GPG/SSH
           </label>
+          <label className="flex items-center gap-1.5 text-xs text-fg-muted cursor-pointer">
+            <input type="checkbox" checked={pushAfterCommit} onChange={(e) => setPushAfterCommit(e.target.checked)} className="accent-accent" />
+            Push after committing
+          </label>
         </div>
-        <button
-          className="btn btn-primary"
-          onClick={handleCommit}
-          disabled={commit.isPending || !message.trim() || (!hasStaged && !amend)}
-          title={(!hasStaged && !amend) ? 'Nothing staged to commit' : 'Commit (Ctrl+Enter)'}
-        >
-          {commit.isPending && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-          Commit
-        </button>
-      </div>
+      )}
       {commit.error && (
         <div className="mt-2 text-xs text-git-deleted">{(commit.error as Error).message}</div>
       )}

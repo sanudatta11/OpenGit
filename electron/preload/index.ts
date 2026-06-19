@@ -157,6 +157,8 @@ const api = {
       ipcRenderer.invoke(IPC.REMOTE_REMOVE, { name }),
     setUrl: (name: string, url: string, push?: boolean): Promise<{ success: boolean }> =>
       ipcRenderer.invoke(IPC.REMOTE_SET_URL, { name, url, push }),
+    fetchAll: (prune?: boolean): Promise<WriteResult<{ fetched: number }>> =>
+      ipcRenderer.invoke(IPC.REMOTE_FETCH_ALL, { prune: prune ?? false }),
   },
 
   stash: {
@@ -229,6 +231,12 @@ const api = {
       ipcRenderer.invoke(IPC.WORKTREE_REMOVE, input),
     prune: (): Promise<WriteResult> =>
       ipcRenderer.invoke(IPC.WORKTREE_PRUNE),
+    lock: (path: string, reason?: string): Promise<WriteResult> =>
+      ipcRenderer.invoke(IPC.WORKTREE_LOCK, { path, reason }),
+    unlock: (path: string): Promise<WriteResult> =>
+      ipcRenderer.invoke(IPC.WORKTREE_UNLOCK, { path }),
+    removeAndDelete: (path: string, branch: string, force?: boolean): Promise<WriteResult> =>
+      ipcRenderer.invoke(IPC.WORKTREE_REMOVE_AND_DELETE_BRANCH, { path, branch, force: force ?? false }),
   },
 
   settings: {
@@ -289,6 +297,11 @@ const api = {
   dialog: {
     pickRepo: (): Promise<string | null> => ipcRenderer.invoke('dialog:pickRepo'),
     pickDirectory: (): Promise<string | null> => ipcRenderer.invoke('dialog:pickDirectory'),
+  },
+
+  shell: {
+    openPath: (path: string): Promise<{ success: boolean }> =>
+      ipcRenderer.invoke(IPC.SHELL_OPEN_PATH, { path }),
   },
 
   // Re-hydrate GitError from serialized form. Renderer imports this.

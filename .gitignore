@@ -8,3 +8,8 @@ release
 .env
 .env.local
 coverage
+.opencode
+.specify
+AGENTS.md
+docs
+.claude
