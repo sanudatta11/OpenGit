@@ -22,6 +22,6 @@
       "@shared/*": ["shared/*"]
     }
   },
-  "include": ["electron/main", "shared", "electron.vite.config.ts", "tests"],
-  "exclude": ["node_modules", "out", "dist"]
+  "include": ["electron/main", "shared", "electron.vite.config.ts"],
+  "exclude": ["node_modules", "out", "dist", "tests"]
 }

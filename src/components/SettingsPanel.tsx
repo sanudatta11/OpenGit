@@ -1,11 +1,12 @@
 // src/components/SettingsPanel.tsx — modal settings panel (git path, diff view, recent repos).
 
 import { useEffect, useState } from 'react';
-import { Settings, X, FolderOpen, Trash2, Loader2, Check } from 'lucide-react';
+import { Settings, X, FolderOpen, Trash2, Loader2, Check, RefreshCw } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../ipc/api';
 import type { SettingsData } from '@shared/ipc';
 import { useThemeStore } from '../stores/theme';
+import { useCheckForUpdates } from '../queries/useUpdater';
 
 export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () => void }) {
   useEffect(() => {
@@ -41,6 +42,7 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
           <SigningSection />
           <AutoFetchSection />
           <ExternalEditorSection />
+          <UpdatesSection />
           <RecentReposSection />
         </div>
       </div>
@@ -420,6 +422,49 @@ function ExternalEditorSection() {
         <button className="btn" onClick={handleSave} disabled={setSetting.isPending}>
           {setSetting.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : saved ? <Check className="w-3.5 h-3.5 text-git-added" /> : 'Save'}
         </button>
+      </div>
+    </section>
+  );
+}
+
+function UpdatesSection() {
+  const { data } = useQuery({
+    queryKey: ['settings'],
+    queryFn: () => api.settings.get(),
+  });
+  const qc = useQueryClient();
+  const setSetting = useMutation({
+    mutationFn: (input: Partial<SettingsData>) => api.settings.set(input),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['settings'] }),
+  });
+  const checkForUpdates = useCheckForUpdates();
+  const [checking, setChecking] = useState(false);
+
+  const handleCheck = () => {
+    setChecking(true);
+    void checkForUpdates().finally(() => setChecking(false));
+  };
+
+  return (
+    <section>
+      <h4 className="label mb-2">Updates</h4>
+      <p className="text-xs text-fg-muted mb-2">
+        Check for new versions of OpenGit. Updates download in the background and install on restart.
+      </p>
+      <div className="flex items-center justify-between gap-2">
+        <button className="btn flex items-center gap-1.5" onClick={handleCheck} disabled={checking}>
+          {checking ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+          Check for updates
+        </button>
+        <label className="flex items-center gap-2 text-xs text-fg-muted cursor-pointer">
+          <input
+            type="checkbox"
+            checked={data?.betaUpdates ?? false}
+            onChange={(e) => void setSetting.mutate({ betaUpdates: e.target.checked })}
+            className="accent-accent"
+          />
+          Receive beta updates
+        </label>
       </div>
     </section>
   );

@@ -1,0 +1,182 @@
+name: Release
+
+# Tag-driven releases + manual dispatch (draft).
+#   push v0.2.0          -> full release (latest channel)
+#   push v0.2.0-beta.1   -> prerelease (beta channel)
+#   workflow_dispatch    -> draft release, version 0.1.0-ci.<run> (ci channel,
+#                           invisible to electron-updater because drafts are
+#                           not published)
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  # ── Gate: source typecheck + source lint + full test suite, once on Linux ─
+  # typecheck covers src/shared/preload/electron.main (tests excluded from
+  # tsc via tsconfig.node.json; tests are validated by `npm test` below).
+  # lint is scoped to source to skip pre-existing test-file require() debt.
+  check:
+    name: Check (typecheck + lint + tests)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npx eslint "src/**/*.{ts,tsx}" "shared/**/*.ts" "electron/**/*.{ts,tsx}"
+      - run: npm test
+
+  # ── Compute version + release flags for downstream jobs ──────────────────
+  meta:
+    name: Resolve version
+    needs: check
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+      tag: ${{ steps.v.outputs.tag }}
+      prerelease: ${{ steps.v.outputs.prerelease }}
+      draft: ${{ steps.v.outputs.draft }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: v
+        shell: bash
+        run: |
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+            TAG="${GITHUB_REF_NAME}"
+          else
+            BASE=$(node -p "require('./package.json').version")
+            VERSION="${BASE}-ci.${{ github.run_number }}"
+            TAG="v${VERSION}"
+          fi
+          # hyphen in version => prerelease (0.2.0-beta.1, 0.1.0-ci.42)
+          if [[ "$VERSION" == *-* ]]; then PRERELEASE=true; else PRERELEASE=false; fi
+          if [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ]; then DRAFT=true; else DRAFT=false; fi
+          {
+            echo "version=$VERSION"
+            echo "tag=$TAG"
+            echo "prerelease=$PRERELEASE"
+            echo "draft=$DRAFT"
+          } >> "$GITHUB_OUTPUT"
+
+  # ── Build matrix: mac arm64, windows x64, linux x64 ──────────────────────
+  build:
+    name: Build (${{ matrix.os }})
+    needs: meta
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - os: macos-latest
+            platform: mac
+          - os: windows-latest
+            platform: win
+          - os: ubuntu-latest
+            platform: linux
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Linux AppImage runtime deps
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libfuse2
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - run: npm ci
+
+      - name: Build renderer + main + preload
+        run: npx electron-vite build
+
+      - name: Package (electron-builder, version from tag)
+        env:
+          # Signing-ready: no-op while secrets are absent. Adding them later
+          # flips signing/notarization on with zero workflow change.
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          npx electron-builder \
+            --publish never \
+            --config.extraMetadata.version="${{ needs.meta.outputs.version }}"
+
+      - name: Upload curated artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ matrix.platform }}
+          path: |
+            release/*.dmg
+            release/*.zip
+            release/*.exe
+            release/*.AppImage
+            release/latest.yml
+            release/beta.yml
+            release/*-mac.yml
+            release/*-linux.yml
+            release/*.blockmap
+          if-no-files-found: warn
+          retention-days: 14
+
+  # ── Publish GitHub Release with curated assets ───────────────────────────
+  release:
+    name: Publish GitHub Release
+    needs: [meta, build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: assets
+          merge-multiple: true
+
+      - name: List assets
+        shell: bash
+        run: |
+          ls -la assets
+          echo "--- globs ---"
+          ls assets/*.dmg assets/*.zip assets/*.exe assets/*.AppImage 2>/dev/null
+
+      - name: Create / update release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.meta.outputs.tag }}
+          name: ${{ needs.meta.outputs.tag }}
+          prerelease: ${{ needs.meta.outputs.prerelease }}
+          draft: ${{ needs.meta.outputs.draft }}
+          generate_release_notes: true
+          files: |
+            assets/*.dmg
+            assets/*.zip
+            assets/*.exe
+            assets/*.AppImage
+            assets/latest.yml
+            assets/beta.yml
+            assets/*-mac.yml
+            assets/*-linux.yml
+            assets/*.blockmap
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -7,6 +7,7 @@ import { existsSync } from 'node:fs';
 import { discoverGitBin, cancelAll } from './git/client';
 import { registerAllHandlers } from './ipc';
 import { stopWatching } from './watcher';
+import { initUpdater } from './updater';
 import { GitError } from '@shared/ipc';
 
 const isDev = !app.isPackaged;
@@ -94,6 +95,15 @@ app.whenReady().then(async () => {
 
   // 3. Create the main window.
   await createWindow();
+
+  // 4. Start auto-updater (only in packaged builds; dev has no app-update.yml).
+  if (app.isPackaged) {
+    try {
+      initUpdater();
+    } catch (err) {
+      console.warn('[opengit] updater init failed:', err);
+    }
+  }
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {

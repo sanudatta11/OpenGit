@@ -18,6 +18,7 @@ import { registerAuthHandlers } from './auth';
 import { registerShellHandlers } from './shell';
 import { registerSubmoduleHandlers } from './submodule';
 import { registerLfsHandlers } from './lfs';
+import { registerUpdaterHandlers } from './updater';
 
 export function registerAllHandlers(): void {
   registerRepoHandlers();
@@ -38,4 +39,5 @@ export function registerAllHandlers(): void {
   registerShellHandlers();
   registerSubmoduleHandlers();
   registerLfsHandlers();
+  registerUpdaterHandlers();
 }

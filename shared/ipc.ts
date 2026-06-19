@@ -118,6 +118,9 @@ export const IPC = {
   LFS_LIST: 'lfs:list',
   LFS_TRACK: 'lfs:track',
   LFS_UNTRACK: 'lfs:untrack',
+
+  UPDATER_EVENT: 'updater:event',
+  UPDATER_CHECK: 'updater:check',
 } as const;
 
 export type IpcChannel = (typeof IPC)[keyof typeof IPC];
@@ -317,6 +320,7 @@ export const SettingsSetInput = z.object({
   sidebarWidth: z.number().int().min(200).max(480).optional(),
   inspectorWidth: z.number().int().min(280).max(600).optional(),
   autoFetchInterval: z.number().int().nonnegative().max(3600).optional(),
+  betaUpdates: z.boolean().optional(),
 });
 export type SettingsSetInput = z.infer<typeof SettingsSetInput>;
 
@@ -337,6 +341,7 @@ export interface SettingsData {
   sidebarWidth: number;
   inspectorWidth: number;
   autoFetchInterval: number;
+  betaUpdates: boolean;
 }
 
 export const DiffFileInput = z.object({
@@ -744,3 +749,38 @@ export const LfsUntrackInput = z.object({
   pattern: z.string().min(1),
 });
 export type LfsUntrackInput = z.infer<typeof LfsUntrackInput>;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Auto-updater (electron-updater) — version metadata + event union
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface UpdaterInfo {
+  readonly version: string;
+  readonly releaseName?: string | null;
+  readonly releaseNotes?: string | ReadonlyArray<ReleaseNoteInfo> | null;
+  readonly releaseDate: string;
+}
+
+export interface ReleaseNoteInfo {
+  readonly version?: string;
+  readonly note?: string | null;
+}
+
+export type UpdaterEventType =
+  | 'available'
+  | 'downloaded'
+  | 'not-available'
+  | 'error';
+
+export type UpdaterEvent =
+  | { readonly type: 'available'; readonly info: UpdaterInfo }
+  | { readonly type: 'downloaded'; readonly info: UpdaterInfo; readonly version: string }
+  | { readonly type: 'not-available'; readonly info: UpdaterInfo }
+  | { readonly type: 'error'; readonly message: string };
+
+export type UpdaterCheckStatus = 'up-to-date' | 'available' | 'error';
+export interface UpdaterCheckResult {
+  readonly status: UpdaterCheckStatus;
+  readonly version?: string;
+  readonly message?: string;
+}

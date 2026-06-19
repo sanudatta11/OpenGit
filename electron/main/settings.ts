@@ -22,6 +22,7 @@ export interface Settings {
   sidebarWidth: number;
   inspectorWidth: number;
   autoFetchInterval: number;
+  betaUpdates: boolean;
 }
 
 const DEFAULTS: Settings = {
@@ -41,6 +42,7 @@ const DEFAULTS: Settings = {
   sidebarWidth: 256,
   inspectorWidth: 360,
   autoFetchInterval: 0,
+  betaUpdates: false,
 };
 
 const MAX_RECENT = 10;

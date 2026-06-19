@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRepoStore } from './stores/repo';
 import { useRepoHead } from './queries/useRepo';
+import { useUpdaterEvents } from './queries/useUpdater';
 import { Workspace } from './components/Workspace';
 import { LaunchPanel } from './components/LaunchPanel';
 import { SettingsPanel } from './components/SettingsPanel';
@@ -12,6 +13,9 @@ export default function App() {
   const setRepo = useRepoStore((s) => s.setRepo);
   const head = useRepoHead();
   const [settingsOpen, setSettingsOpen] = useState(false);
+
+  // Subscribe to auto-updater events -> toasts (no-op in dev).
+  useUpdaterEvents();
 
   // Rehydrate repo info if the renderer reloads.
   useEffect(() => {

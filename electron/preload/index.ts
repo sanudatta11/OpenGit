@@ -3,7 +3,7 @@
 
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron';
 import { IPC, GitError } from '@shared/ipc';
-import type { WatchEvent } from '@shared/ipc';
+import type { WatchEvent, UpdaterEvent, UpdaterCheckResult } from '@shared/ipc';
 import type {
   RepoInfo,
   RepoStatus,
@@ -330,6 +330,16 @@ const api = {
       ipcRenderer.invoke(IPC.LFS_TRACK, { pattern }),
     untrack: (pattern: string): Promise<WriteResult> =>
       ipcRenderer.invoke(IPC.LFS_UNTRACK, { pattern }),
+  },
+
+  updater: {
+    onEvent: (cb: (event: UpdaterEvent) => void): (() => void) => {
+      const handler = (_e: IpcRendererEvent, event: UpdaterEvent) => cb(event);
+      ipcRenderer.on(IPC.UPDATER_EVENT, handler);
+      return () => ipcRenderer.off(IPC.UPDATER_EVENT, handler);
+    },
+    check: (): Promise<UpdaterCheckResult> =>
+      ipcRenderer.invoke(IPC.UPDATER_CHECK),
   },
 
   // Re-hydrate GitError from serialized form. Renderer imports this.
