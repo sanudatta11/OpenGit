@@ -11,6 +11,10 @@ import { useLogStore } from './stores/log';
 import { api } from './ipc/api';
 import { RebaseEditor } from './components/rebase/RebaseEditor';
 import { ToastContainer } from './components/ToastContainer';
+import { initTheme } from './stores/theme';
+
+// Initialize theme from settings before first render.
+void initTheme();
 
 const queryClient = new QueryClient({
   defaultOptions: {

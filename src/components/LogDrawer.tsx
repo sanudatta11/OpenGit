@@ -129,7 +129,7 @@ export function LogDrawer() {
   };
 
   return (
-    <div className="h-64 border-t border-border bg-[#0a0a0a] text-[#d4d4d4] flex flex-col shrink-0 font-mono text-xs">
+    <div className="h-64 border-t border-border bg-bg text-fg flex flex-col shrink-0 font-mono text-xs">
       {/* Header Bar */}
       <div className="h-9 px-3 flex items-center justify-between border-b border-border bg-bg-panel shrink-0 select-none">
         <div className="flex items-center gap-2">
@@ -234,7 +234,7 @@ export function LogDrawer() {
                 );
               }
               return (
-                <pre key={idx} className="whitespace-pre-wrap text-[#c5c6c7] leading-relaxed select-text font-mono">
+                <pre key={idx} className="whitespace-pre-wrap leading-relaxed select-text font-mono">
                   {line.text}
                 </pre>
               );
@@ -243,7 +243,7 @@ export function LogDrawer() {
           </div>
 
           {/* Input Line */}
-          <div className="px-3 py-2 border-t border-border/30 bg-[#0f0f0f] flex items-center gap-2 shrink-0">
+          <div className="px-3 py-2 border-t border-border/30 bg-bg-elevated flex items-center gap-2 shrink-0">
             <span className="flex items-center gap-1 text-git-added font-semibold shrink-0 select-none">
               {repoName}
               {repo?.currentBranch && (
@@ -253,7 +253,7 @@ export function LogDrawer() {
             </span>
             <input
               ref={inputRef}
-              className="flex-1 bg-transparent outline-none text-[#ffffff] font-mono text-xs border-none p-0 caret-accent"
+              className="flex-1 bg-transparent outline-none text-fg font-mono text-xs border-none p-0 caret-accent"
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               onKeyDown={handleKeyDown}

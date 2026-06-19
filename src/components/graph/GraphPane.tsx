@@ -487,7 +487,7 @@ function GraphCanvas({ commits, firstRow, offsetY, graphWidth, viewportHeight, r
       const isMerge = c.parents.length > 1;
 
       ctx.fillStyle = color;
-      ctx.strokeStyle = '#0d1117';
+      ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--color-bg').trim() || '#0d1117';
       ctx.lineWidth = 2;
       ctx.beginPath();
       ctx.arc(x, y, isMerge ? DOT_RADIUS + 1.5 : DOT_RADIUS, 0, Math.PI * 2);

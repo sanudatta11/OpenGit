@@ -5,6 +5,7 @@ import { api } from '../../ipc/api';
 import { useStatus } from '../../queries/useRepo';
 import { extensionForLanguage } from '../../utils/language';
 import { AlertTriangle, ChevronRight, Check, ArrowLeft, Loader2 } from 'lucide-react';
+import { useThemeStore } from '../../stores/theme';
 
 interface ConflictBlock {
   type: 'normal' | 'conflict';
@@ -15,8 +16,6 @@ interface ConflictBlock {
   theirLabel?: string;
   id?: string;
 }
-
-const THEME = 'opengit-dark';
 
 export function ConflictEditor() {
   const qc = useQueryClient();
@@ -79,6 +78,8 @@ function FileConflictResolver({
   onBack: () => void;
   onResolved: () => void;
 }) {
+  const resolvedTheme = useThemeStore((s) => s.resolved);
+  const THEME = resolvedTheme === 'light' ? 'opengit-light' : 'opengit-dark';
   const [decisions, setDecisions] = useState<Record<string, 'current' | 'incoming' | 'both'>>({});
   const [resolvedContent, setResolvedContent] = useState('');
   const [viewMode, setViewMode] = useState<'card' | 'editor'>('card');

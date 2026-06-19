@@ -5,6 +5,7 @@ import { Settings, X, FolderOpen, Trash2, Loader2, Check } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../ipc/api';
 import type { SettingsData } from '@shared/ipc';
+import { useThemeStore } from '../stores/theme';
 
 export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () => void }) {
   useEffect(() => {
@@ -170,7 +171,7 @@ function ThemeSection() {
           <button
             key={v}
             className={`btn !text-xxs ${data?.theme === v ? 'btn-primary' : ''}`}
-            onClick={() => void setSetting.mutate({ theme: v })}
+            onClick={() => { void setSetting.mutate({ theme: v }); useThemeStore.getState().setTheme(v); }}
           >
             {v.charAt(0).toUpperCase() + v.slice(1)}
           </button>

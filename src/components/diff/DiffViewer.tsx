@@ -3,6 +3,7 @@
 import { useMemo } from 'react';
 import { DiffEditor } from '@monaco-editor/react';
 import type { editor } from 'monaco-editor';
+import { useThemeStore } from '../../stores/theme';
 
 export type DiffView = 'side-by-side' | 'unified';
 
@@ -15,8 +16,6 @@ export interface DiffViewerProps {
   className?: string;
 }
 
-const THEME = 'opengit-dark';
-
 export function DiffViewer({
   original,
   modified,
@@ -25,6 +24,8 @@ export function DiffViewer({
   binary,
   className,
 }: DiffViewerProps) {
+  const theme = useThemeStore((s) => s.resolved);
+  const THEME = theme === 'light' ? 'opengit-light' : 'opengit-dark';
   const options = useMemo<editor.IDiffEditorConstructionOptions>(
     () => ({
       readOnly: true,
@@ -46,8 +47,7 @@ export function DiffViewer({
   if (binary) {
     return (
       <div
-        className={`flex h-full w-full items-center justify-center text-sm ${className ?? ''}`}
-        style={{ background: '#0d1117', color: '#8b949e' }}
+        className={`flex h-full w-full items-center justify-center text-sm text-fg-muted ${className ?? ''}`}
       >
         Binary file not shown
       </div>
@@ -68,15 +68,14 @@ export function DiffViewer({
         height="100%"
         width="100%"
         loading={
-          <div style={{ background: '#0d1117', color: '#8b949e', height: '100%' }}>
+          <div className="h-full flex items-center justify-center text-fg-muted bg-bg">
             Loading diff…
           </div>
         }
       />
       {identical && (
         <div
-          className="pointer-events-none absolute right-3 top-3 rounded px-2 py-1 text-xs"
-          style={{ background: '#161b22', color: '#8b949e', border: '1px solid #262d3a' }}
+          className="pointer-events-none absolute right-3 top-3 rounded px-2 py-1 text-xs bg-bg-panel text-fg-muted border border-border"
         >
           No changes
         </div>

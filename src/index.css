@@ -2,6 +2,92 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── Dark theme (default) ── */
+:root {
+  --color-bg: #0d1117;
+  --color-bg-panel: #161b22;
+  --color-bg-elevated: #1c2230;
+  --color-bg-hover: #1f2733;
+  --color-bg-input: #0a0d13;
+  --color-border: #262d3a;
+  --color-border-strong: #384357;
+  --color-border-subtle: #1c2230;
+  --color-fg: #e6edf3;
+  --color-fg-muted: #8b949e;
+  --color-fg-dim: #6e7681;
+  --color-accent: #3b82f6;
+  --color-accent-hover: #60a5fa;
+  --color-accent-subtle: #1e3a8a;
+  --color-git-added: #3fb950;
+  --color-git-modified: #d29922;
+  --color-git-deleted: #f85149;
+  --color-git-renamed: #58a6ff;
+  --color-git-untracked: #a371f7;
+  --color-git-conflicted: #db6d28;
+  --color-git-remote: #f0883e;
+  --color-git-local: #a371f7;
+  --color-git-stash: #d2a8ff;
+  --color-git-worktree: #79c0ff;
+  --color-git-branch: #a371f7;
+  --color-git-tag: #3fb950;
+  --color-git-head: #d29922;
+  --color-lane-0: #3b82f6;
+  --color-lane-1: #f85149;
+  --color-lane-2: #3fb950;
+  --color-lane-3: #d29922;
+  --color-lane-4: #a371f7;
+  --color-lane-5: #ec4899;
+  --color-lane-6: #14b8a6;
+  --color-lane-7: #f97316;
+  --color-lane-8: #8b5cf6;
+  --color-lane-9: #10b981;
+  --color-lane-10: #eab308;
+  --color-lane-11: #06b6d4;
+}
+
+/* ── Light theme ── */
+:root.light {
+  --color-bg: #ffffff;
+  --color-bg-panel: #f6f8fa;
+  --color-bg-elevated: #ffffff;
+  --color-bg-hover: #eaeef2;
+  --color-bg-input: #f6f8fa;
+  --color-border: #d0d7de;
+  --color-border-strong: #afb8c1;
+  --color-border-subtle: #eaeef2;
+  --color-fg: #1a1a2e;
+  --color-fg-muted: #57606a;
+  --color-fg-dim: #8b949e;
+  --color-accent: #0969da;
+  --color-accent-hover: #0550ae;
+  --color-accent-subtle: #ddf4ff;
+  --color-git-added: #1a7f37;
+  --color-git-modified: #9a6700;
+  --color-git-deleted: #cf222e;
+  --color-git-renamed: #0969da;
+  --color-git-untracked: #8250df;
+  --color-git-conflicted: #bc4c00;
+  --color-git-remote: #cf6a0f;
+  --color-git-local: #8250df;
+  --color-git-stash: #9a7dcb;
+  --color-git-worktree: #0550ae;
+  --color-git-branch: #8250df;
+  --color-git-tag: #1a7f37;
+  --color-git-head: #9a6700;
+  --color-lane-0: #0969da;
+  --color-lane-1: #cf222e;
+  --color-lane-2: #1a7f37;
+  --color-lane-3: #9a6700;
+  --color-lane-4: #8250df;
+  --color-lane-5: #bf3989;
+  --color-lane-6: #0a7c99;
+  --color-lane-7: #bc4c00;
+  --color-lane-8: #6338c4;
+  --color-lane-9: #0a6b55;
+  --color-lane-10: #9a7800;
+  --color-lane-11: #0580a1;
+}
+
 @layer base {
   html, body, #root {
     height: 100%;
