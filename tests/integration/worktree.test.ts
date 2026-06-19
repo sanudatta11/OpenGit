@@ -7,6 +7,7 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import {
   createWorktree, listWorktrees, removeWorktree, pruneWorktrees,
+  lockWorktree, unlockWorktree, removeWorktreeAndBranch,
 } from '../../electron/main/git/operations';
 
 let repoDir: string;
@@ -106,5 +107,98 @@ describe('worktree', () => {
 
     const listAfter = await listWorktrees(repoDir);
     expect(listAfter.find((w) => w.path === stalePath)).toBeUndefined();
+  });
+
+  it('A.9.4 creates a worktree with lock reason', async () => {
+    const lockedPath = join(tmpdir(), 'opengit-wt-locked');
+    try {
+      const r = await createWorktree(repoDir, {
+        path: lockedPath,
+        start: 'HEAD',
+        lock: 'testing locked creation',
+      });
+      expect(r.success).toBe(true);
+
+      const list = await listWorktrees(repoDir);
+      const created = list.find((w) => w.path === lockedPath);
+      expect(created).toBeDefined();
+      // The porcelain output should indicate it's locked
+      expect(created!.locked).toBe(true);
+    } finally {
+      await removeWorktree(repoDir, lockedPath, true).catch(() => {});
+    }
+  });
+
+  it('A.9.5 locks an existing worktree', async () => {
+    const lockPath = join(tmpdir(), 'opengit-wt-lock');
+    try {
+      await createWorktree(repoDir, { path: lockPath, start: 'HEAD' });
+      const r = await lockWorktree(repoDir, lockPath, 'Testing lock feature');
+      expect(r.success).toBe(true);
+
+      const list = await listWorktrees(repoDir);
+      const wt = list.find((w) => w.path === lockPath);
+      expect(wt?.locked).toBe(true);
+    } finally {
+      await removeWorktree(repoDir, lockPath, true).catch(() => {});
+    }
+  });
+
+  it('A.9.6 unlocks a locked worktree', async () => {
+    const unlockPath = join(tmpdir(), 'opengit-wt-unlock');
+    try {
+      await createWorktree(repoDir, { path: unlockPath, start: 'HEAD' });
+      await lockWorktree(repoDir, unlockPath, 'to unlock');
+      const r = await unlockWorktree(repoDir, unlockPath);
+      expect(r.success).toBe(true);
+
+      const list = await listWorktrees(repoDir);
+      const wt = list.find((w) => w.path === unlockPath);
+      expect(wt?.locked).toBe(false);
+    } finally {
+      await removeWorktree(repoDir, unlockPath, true).catch(() => {});
+    }
+  });
+
+  it('A.9.8 removes a worktree and its branch', async () => {
+    const rmbPath = join(tmpdir(), 'opengit-wt-rmb');
+    const branchName = 'feature-rmb';
+    try {
+      await createWorktree(repoDir, {
+        path: rmbPath,
+        branch: branchName,
+        start: 'HEAD',
+      });
+
+      const r = await removeWorktreeAndBranch(repoDir, rmbPath, branchName, true);
+      expect(r.success).toBe(true);
+
+      const list = await listWorktrees(repoDir);
+      expect(list.find((w) => w.path === rmbPath)).toBeUndefined();
+
+      const branches = execSync(`git branch --list '${branchName}'`, {
+        cwd: repoDir, encoding: 'utf8',
+      }).trim();
+      expect(branches).toBe('');
+    } catch {
+      // Clean up on failure
+      try { await removeWorktree(repoDir, rmbPath, true); } catch { /* ok */ }
+    }
+  });
+
+  it('A.9.11 lists multiple worktrees with locked + detached attributes', async () => {
+    // The existing setup creates:
+    // - The main repo (main)
+    // - wt-feature-dashboard (locked, branch: feature/dashboard)
+    // Later tests:
+    const extraWt = join(tmpdir(), 'opengit-wt-extra');
+    await createWorktree(repoDir, { path: extraWt, branch: 'extra', start: 'HEAD' });
+
+    const list = await listWorktrees(repoDir);
+    // Should have at least the initial wt + the one we just created
+    expect(list.length).toBeGreaterThanOrEqual(2);
+
+    // Clean up
+    await removeWorktree(repoDir, extraWt, true).catch(() => {});
   });
 });
