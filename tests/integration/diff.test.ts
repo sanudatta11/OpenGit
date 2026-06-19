@@ -3,6 +3,7 @@
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { join } from 'node:path';
+import { appendFileSync } from 'node:fs';
 import {
   setupTestRepo, cleanupTestRepo, createQuickRepo, destroyQuickRepo,
   type TestRepo,
@@ -34,6 +35,7 @@ describe('getDiff', () => {
   });
 
   it('A.23.5 binary file returns isBinary flag', async () => {
+    appendFileSync(join(repo.main, 'assets/logo.png'), Buffer.from([0x00, 0xff]));
     const diff = await getDiff(repo.main, { path: 'assets/logo.png' });
     expect(diff.isBinary).toBe(true);
   });

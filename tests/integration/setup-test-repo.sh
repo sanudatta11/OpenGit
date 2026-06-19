@@ -26,6 +26,7 @@ git_init_with_identity() {
   git -C "$1" config user.email "test@opengit.dev"
   git -C "$1" config commit.gpgsign false
   git -C "$1" config core.autocrlf false
+  git -C "$1" config protocol.file.allow always
 }
 
 rm -rf "$TEST_ROOT"
@@ -41,8 +42,8 @@ git commit -q -m "Initial commit"
 
 # ── Feature branch with multiple commits (for rebase/cherry-pick tests) ──
 git checkout -q -b feature/login
-printf 'export function login() {}\n' > src/auth.ts
 mkdir -p src
+printf 'export function login() {}\n' > src/auth.ts
 git add src/auth.ts && git commit -q -m "Add login function"
 printf 'export function logout() {}\n' >> src/auth.ts
 git add src/auth.ts && git commit -q -m "Add logout function"
@@ -94,12 +95,6 @@ git commit -q -m "Make run.sh executable"
 printf 'export const emoji = "🎉";\n' > src/emoji.ts
 git add src/emoji.ts
 git commit -q -m "Add 漢字 emoji 🎉 support"
-
-# ── Uncommitted changes: staged + unstaged + untracked (for WIP bar) ──
-printf 'TODO: refactor auth\n' >> src/auth.ts          # unstaged (tracked)
-printf "export const version = '1.0.0';\n" > src/config.ts
-git add src/config.ts                                    # staged
-printf 'export function newFeature() {}\n' > src/new-feature.ts  # untracked
 
 # ── Stash #1 (with untracked) ──
 printf 'stash-me: work in progress\n' >> src/utils.ts
@@ -168,7 +163,7 @@ cd "$SUBMODULE"
 printf "export const lib = 'v1';\n" > index.ts
 git add index.ts && git commit -q -m "Submodule initial"
 cd "$REPO"
-git submodule add -q "$SUBMODULE" libs/submodule-lib
+git -c protocol.file.allow=always submodule add -q "$SUBMODULE" libs/submodule-lib
 git commit -q -m "Add submodule"
 
 # ── LFS tracking (optional) ──
@@ -202,6 +197,13 @@ if [[ "$DO_GPG" -eq 1 ]] && [[ -f "$TEST_ROOT/gpg-key.txt" ]]; then
   printf 'signed\n' > signed.txt
   git add signed.txt && git commit -S -m "GPG signed commit"
 fi
+
+# ── Uncommitted changes: staged + unstaged + untracked (for WIP bar) ──
+# Must be at the very end so stashes and branch checkouts don't remove them.
+printf 'TODO: refactor auth\n' >> src/auth.ts          # unstaged (tracked)
+printf "export const version = '1.0.0';\n" > src/config.ts
+git add src/config.ts                                    # staged
+printf 'export function newFeature() {}\n' > src/new-feature.ts  # untracked
 
 # ── Summary ──
 echo ""

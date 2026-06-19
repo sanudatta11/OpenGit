@@ -85,7 +85,8 @@ describe('undo', () => {
 
   it('A.18.7 undoes a branch delete (recovers branch)', async () => {
     initRepo();
-    await createBranch(repoDir, 'to-recover', 'HEAD', false);
+    await createBranch(repoDir, 'to-recover', 'HEAD', true);
+    git(['checkout', 'main']);
     git(['branch', '-q', '-D', 'to-recover']);
 
     const r = await undoAction(repoDir, { kind: 'branch-delete', branch: 'to-recover' });
@@ -96,10 +97,11 @@ describe('undo', () => {
   it('A.18.8 undoes a stash apply', async () => {
     initRepo();
     writeFileSync(join(repoDir, 'to-stash.txt'), 'stash me\n');
+    await stagePaths(repoDir, ['to-stash.txt']);
     await createStash(repoDir, { message: 'to apply' });
-    await stagePaths(repoDir, ['to-stash.txt']); // doesn't matter, stash was created
 
     // Re-apply stash
+    git(['update-ref', 'ORIG_HEAD', 'HEAD']);
     git(['stash', 'apply']);
     expect(readFileSync(join(repoDir, 'to-stash.txt'), 'utf8').trim()).toBe('stash me');
 
@@ -110,6 +112,7 @@ describe('undo', () => {
 
   it('A.18.10 handles unknown kind gracefully', async () => {
     initRepo();
+    git(['update-ref', 'ORIG_HEAD', 'HEAD']);
     const r = await undoAction(repoDir, { kind: 'unknown-kind' });
     // Falls through to reset --hard ORIG_HEAD
     expect(r.success).toBe(true);

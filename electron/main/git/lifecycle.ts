@@ -22,7 +22,7 @@ export function resolveCreateTarget(input: RepoCreateInput): string {
 export function buildCloneArgs(input: RepoCloneInput): string[] {
   const args = ['clone'];
   if (input.recursiveSubmodules) args.push('--recurse-submodules');
-  if (input.shallowDepth) args.push('--depth', String(input.shallowDepth));
+  if (input.shallowDepth) args.push('--no-local', '--depth', String(input.shallowDepth));
   args.push(input.url, input.repoName ?? inferCloneRepoName(input.url));
   return args;
 }

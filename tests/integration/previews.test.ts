@@ -21,14 +21,14 @@ afterAll(() => {
 
 describe('previews', () => {
   it('A.21.1 mergePreview lists commits to merge', async () => {
-    const preview = await mergePreview(repo.main, 'feature/login');
+    const preview = await mergePreview(repo.main, 'feature/dashboard');
     expect(preview).toBeDefined();
-    expect(preview.source).toBe('feature/login');
+    expect(preview.source).toBe('feature/dashboard');
     expect(preview.commits.length).toBeGreaterThan(0);
   });
 
   it('A.21.2 mergePreview lists files that will change', async () => {
-    const preview = await mergePreview(repo.main, 'feature/login');
+    const preview = await mergePreview(repo.main, 'feature/dashboard');
     expect(preview.files.length).toBeGreaterThan(0);
   });
 

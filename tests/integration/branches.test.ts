@@ -116,7 +116,7 @@ describe('branches', () => {
     try {
       const { workTree } = qr;
       // Create a remote
-      const remotePath = join(require('node:path').tmpdir(), 'opengit-remote-' + Date.now());
+      const remotePath = join(require('node:os').tmpdir(), 'opengit-remote-' + Date.now());
       git(workTree, ['init', '--bare', remotePath]);
       git(workTree, ['remote', 'add', 'origin', remotePath]);
       git(workTree, ['push', '-q', '-u', 'origin', 'main']);

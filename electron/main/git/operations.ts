@@ -18,6 +18,7 @@ export async function stagePaths(workTree: string, paths: readonly string[]): Pr
     cwd: workTree,
     args: ['add', '--', ...paths],
     channel: 'workingTree:stage',
+    reject: false,
   });
   return {
     success: r.ok,
@@ -33,6 +34,7 @@ export async function stageAll(workTree: string): Promise<WriteResult> {
     cwd: workTree,
     args: ['add', '--all'],
     channel: 'workingTree:stage',
+    reject: false,
   });
   return {
     success: r.ok,
@@ -123,7 +125,7 @@ export async function stageHunks(
   const r = await gitRun({
     cwd: workTree,
     args: ['apply', '--cached', '-'],
-    stdin: patch,
+    input: patch,
     channel: 'workingTree:stageHunks',
     reject: false,
   });
@@ -146,7 +148,7 @@ export async function unstageHunks(
   const r = await gitRun({
     cwd: workTree,
     args: ['apply', '--cached', '--reverse', '-'],
-    stdin: patch,
+    input: patch,
     channel: 'workingTree:unstageHunks',
     reject: false,
   });
@@ -183,6 +185,7 @@ export async function createCommit(workTree: string, opts: CommitOptions): Promi
     cwd: workTree,
     args,
     channel: 'commit:create',
+    reject: false,
   });
 
   if (!r.ok) {
@@ -478,7 +481,7 @@ export async function pushRemote(
     reject: false,
   });
 
-  const rejected = !r.ok && /!\[rejected\]|non-fast-forward/i.test(r.stderr);
+  const rejected = !r.ok && /! \[rejected\]|non-fast-forward/i.test(r.stderr);
   let remoteHead: string | null = null;
   if (r.ok && branch) {
     try {
@@ -1031,6 +1034,34 @@ export async function resetBranch(
 // Undo
 // ─────────────────────────────────────────────────────────────────────────────
 
+async function findReflogSha(workTree: string, branch: string): Promise<string | null> {
+  try {
+    const lines = await gitText({
+      cwd: workTree,
+      args: ['reflog', '--no-abbrev', '--format=%H %gs'],
+      channel: 'operation:undo',
+    });
+    const pattern = new RegExp(`moving from .* to ${escapeRegex(branch)}\\s*$`);
+    for (const line of lines.split('\n')) {
+      const match = pattern.exec(line);
+      if (match) return line.split(' ')[0]!;
+    }
+    // Fallback: look for Branch: created pattern
+    const createPattern = new RegExp(`Branch: created .* ${escapeRegex(branch)}$`);
+    for (const line of lines.split('\n')) {
+      const match = createPattern.exec(line);
+      if (match) return line.split(' ')[0]!;
+    }
+  } catch {
+    // best-effort
+  }
+  return null;
+}
+
+function escapeRegex(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 export async function undoAction(
   workTree: string,
   action: { kind: string; branch?: string; sha?: string },
@@ -1057,16 +1088,21 @@ export async function undoAction(
       else args = ['reset', '--hard', 'ORIG_HEAD'];
       break;
     case 'branch-delete':
-      // Recover from reflog; attempt to find the branch tip before deletion
+      // Recover from HEAD reflog: find the last commit known as this branch
       if (action.branch) {
-        args = ['branch', action.branch, `${action.branch}@{1}`];
+        const sha = await findReflogSha(workTree, action.branch);
+        if (sha) {
+          args = ['branch', action.branch, sha];
+        } else {
+          args = ['reset', '--hard', 'ORIG_HEAD'];
+        }
       } else {
         args = ['reset', '--hard', 'ORIG_HEAD'];
       }
       break;
     case 'stash-apply':
     case 'stash-pop':
-      args = ['reset', '--hard', 'ORIG_HEAD'];
+      args = ['reset', '--hard', 'HEAD'];
       break;
     default:
       args = ['reset', '--hard', 'ORIG_HEAD'];
@@ -1123,7 +1159,7 @@ export async function createWorktree(
     args.push('--detach');
   }
   if (opts.lock) {
-    args.push('--lock', opts.lock);
+    args.push('--lock');
   }
   args.push(opts.path, opts.start);
 
@@ -1257,7 +1293,7 @@ export interface BlameEntry {
   author: string;
   authorEmail: string;
   authorDate: string;
-  lineNo: number;
+  line: number;
   content: string;
 }
 
@@ -1305,7 +1341,7 @@ export async function getBlame(workTree: string, path: string, ref?: string): Pr
         author: currentAuthor,
         authorEmail: currentAuthorEmail,
         authorDate: currentAuthorDate,
-        lineNo: currentLineNo,
+        line: currentLineNo,
         content: line.slice(1),
       });
       currentLineNo++;

@@ -23,10 +23,10 @@ afterAll(() => {
 describe('getStatus', () => {
   it('A.2.1 parses staged/unstaged/untracked entries', async () => {
     const status = await getStatus(repo.main, join(repo.main, '.git'));
-    // The fixture has staged (config.ts), unstaged (auth.ts), and untracked (new-feature.ts)
-    expect(status.entries.some(e => e.path === 'config.ts' && e.staged)).toBe(true);
+    // The fixture has staged (src/config.ts), unstaged (src/auth.ts), and untracked (src/new-feature.ts)
+    expect(status.entries.some(e => e.path === 'src/config.ts' && e.staged)).toBe(true);
     expect(status.entries.some(e => e.path === 'src/auth.ts' && e.unstaged && !e.staged)).toBe(true);
-    expect(status.entries.some(e => e.path === 'new-feature.ts' && e.kind === 'untracked')).toBe(true);
+    expect(status.entries.some(e => e.path === 'src/new-feature.ts' && e.kind === 'untracked')).toBe(true);
   });
 
   it('A.2.2 returns empty entries on a clean tree', async () => {

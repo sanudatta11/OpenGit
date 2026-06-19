@@ -112,6 +112,7 @@ describe('worktree', () => {
   it('A.9.4 creates a worktree with lock reason', async () => {
     const lockedPath = join(tmpdir(), 'opengit-wt-locked');
     try {
+      rmSync(lockedPath, { recursive: true, force: true });
       const r = await createWorktree(repoDir, {
         path: lockedPath,
         start: 'HEAD',
@@ -122,8 +123,7 @@ describe('worktree', () => {
       const list = await listWorktrees(repoDir);
       const created = list.find((w) => w.path === lockedPath);
       expect(created).toBeDefined();
-      // The porcelain output should indicate it's locked
-      expect(created!.locked).toBe(true);
+      expect(created!.locked).not.toBeNull();
     } finally {
       await removeWorktree(repoDir, lockedPath, true).catch(() => {});
     }
@@ -132,13 +132,15 @@ describe('worktree', () => {
   it('A.9.5 locks an existing worktree', async () => {
     const lockPath = join(tmpdir(), 'opengit-wt-lock');
     try {
-      await createWorktree(repoDir, { path: lockPath, start: 'HEAD' });
+      rmSync(lockPath, { recursive: true, force: true });
+      const cr = await createWorktree(repoDir, { path: lockPath, start: 'HEAD' });
+      expect(cr.success, `create lockPath worktree failed: ${cr.stderr}`).toBe(true);
       const r = await lockWorktree(repoDir, lockPath, 'Testing lock feature');
       expect(r.success).toBe(true);
 
       const list = await listWorktrees(repoDir);
       const wt = list.find((w) => w.path === lockPath);
-      expect(wt?.locked).toBe(true);
+      expect(wt?.locked).not.toBeNull();
     } finally {
       await removeWorktree(repoDir, lockPath, true).catch(() => {});
     }
@@ -147,6 +149,7 @@ describe('worktree', () => {
   it('A.9.6 unlocks a locked worktree', async () => {
     const unlockPath = join(tmpdir(), 'opengit-wt-unlock');
     try {
+      rmSync(unlockPath, { recursive: true, force: true });
       await createWorktree(repoDir, { path: unlockPath, start: 'HEAD' });
       await lockWorktree(repoDir, unlockPath, 'to unlock');
       const r = await unlockWorktree(repoDir, unlockPath);
@@ -154,7 +157,7 @@ describe('worktree', () => {
 
       const list = await listWorktrees(repoDir);
       const wt = list.find((w) => w.path === unlockPath);
-      expect(wt?.locked).toBe(false);
+      expect(wt?.locked).toBeNull();
     } finally {
       await removeWorktree(repoDir, unlockPath, true).catch(() => {});
     }

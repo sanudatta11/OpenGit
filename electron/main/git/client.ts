@@ -10,7 +10,8 @@ import { logStore } from '../log/emitter';
 export interface GitRunOptions {
   cwd: string;
   args: readonly string[];
-  stdin?: string;
+  /** String content to pipe to the child's stdin (execa v9 `input`). */
+  input?: string;
   signal?: AbortSignal;
   /** When true, non-zero exit is returned as a value instead of throwing. */
   reject?: boolean;
@@ -135,14 +136,18 @@ export async function gitRun(opts: GitRunOptions): Promise<GitRunResult> {
         ...process.env,
         GIT_TERMINAL_PROMPT: '0', // never prompt for credentials interactively
         GIT_PAGER: 'cat', // never invoke a pager
+        GIT_EDITOR: 'true', // never wait for editor input
         LC_ALL: 'C', // stable parser output
         GIT_OPTIONAL_LOCKS: '0', // don't block concurrent git processes
+        GIT_CONFIG_COUNT: '1',
+        GIT_CONFIG_KEY_0: 'protocol.file.allow',
+        GIT_CONFIG_VALUE_0: 'always',
         ...opts.env, // caller env overrides win — used for GIT_SEQUENCE_EDITOR etc.
       },
       encoding: 'utf8',
       maxBuffer: 64 * 1024 * 1024,
     };
-    if (opts.stdin) execOpts.stdin = opts.stdin;
+    if (opts.input) execOpts.input = opts.input;
     child = execa(bin, opts.args as string[], execOpts);
   } catch (err) {
     const shape = toGitErrorShape(err, argv, opts.channel, 'GitFailed');

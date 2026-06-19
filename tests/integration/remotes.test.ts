@@ -2,10 +2,15 @@
 // Uses the full fixture repo for the remote + lightweight inline repos for local ops.
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { execSync } from 'node:child_process';
 import {
   setupTestRepo, cleanupTestRepo, git, createQuickRepo, destroyQuickRepo,
   type TestRepo,
 } from './helpers';
+
+function bash(workTree: string, cmd: string) {
+  execSync(cmd, { cwd: workTree, shell: true, stdio: 'pipe' });
+}
 import {
   fetchRemote, fetchAllRemotes, pullRemote, pushRemote,
 } from '../../electron/main/git/operations';
@@ -65,13 +70,18 @@ describe('fetchAllRemotes', () => {
 describe('pullRemote', () => {
   it('A.6.5 fast-forward pull', async () => {
     // Clone the fixture's remote so we have a full history
+    const cloneName = 'opengit-pull-' + Date.now();
     const r = await import('../../electron/main/git/lifecycle').then(m =>
-      m.cloneRepository({ url: repo.remote, destinationParent: require('node:path').tmpdir(), recursiveSubmodules: false })
+      m.cloneRepository({ url: repo.remote, destinationParent: require('node:os').tmpdir(), repoName: cloneName, recursiveSubmodules: false })
     );
     expect(r.success).toBe(true);
-    // Pull should be ff since there's nothing new
-    const pullR = await pullRemote(r.data!.path, 'origin', undefined, false, 'ff-only');
-    expect(pullR.success).toBe(true);
+    try {
+      // Pull should be ff since there's nothing new
+      const pullR = await pullRemote(r.data!.path, 'origin', undefined, false, 'ff-only');
+      expect(pullR.success).toBe(true);
+    } finally {
+      require('node:fs').rmSync(r.data!.path, { recursive: true, force: true });
+    }
   });
 
   it('A.6.8 ff-only fails on diverged history', async () => {
@@ -82,7 +92,7 @@ describe('pullRemote', () => {
       await fetchRemote(workTree, 'origin', true);
 
       // Make a local commit that diverges
-      git(workTree, ['bash', '-c', 'printf "diverged\n" > div.txt']);
+      bash(workTree, 'printf "diverged\n" > div.txt');
       git(workTree, ['add', '.']);
       git(workTree, ['commit', '-q', '-m', 'local diverged']);
 
@@ -106,7 +116,7 @@ describe('pushRemote', () => {
       git(workTree, ['remote', 'remove', 'origin']);
       git(workTree, ['remote', 'add', 'origin', bare]);
 
-      const r = await pushRemote(workTree, 'origin', undefined, false, false);
+      const r = await pushRemote(workTree, 'origin', 'main', false, false);
       expect(r.success).toBe(true);
     } finally {
       destroyQuickRepo(qr);
@@ -121,7 +131,7 @@ describe('pushRemote', () => {
       git(workTree, ['init', '--bare', bare]);
       git(workTree, ['remote', 'add', 'origin', bare]);
 
-      const r = await pushRemote(workTree, 'origin', undefined, false, true);
+      const r = await pushRemote(workTree, 'origin', 'main', false, true);
       expect(r.success).toBe(true);
       const upstream = git(workTree, ['config', 'branch.main.remote']).trim();
       expect(upstream).toBe('origin');
@@ -142,13 +152,13 @@ describe('pushRemote', () => {
       // Clone to a second worktree, make a commit there, push
       const cloneDir = require('node:path').join(require('node:os').tmpdir(), 'opengit-cl2-' + Date.now());
       git(workTree, ['clone', '-q', bare, cloneDir]);
-      git(cloneDir, ['bash', '-c', 'printf "other\n" > other.txt']);
+      bash(cloneDir, 'printf "other\n" > other.txt');
       git(cloneDir, ['add', '.']);
       git(cloneDir, ['commit', '-q', '-m', 'other commit']);
       git(cloneDir, ['push', '-q', 'origin', 'main']);
 
       // Now try to push from original (should be rejected)
-      git(workTree, ['bash', '-c', 'printf "rejected\n" > rej.txt']);
+      bash(workTree, 'printf "rejected\n" > rej.txt');
       git(workTree, ['add', '.']);
       git(workTree, ['commit', '-q', '-m', 'local commit']);
 
@@ -171,17 +181,19 @@ describe('pushRemote', () => {
 
       const cloneDir = require('node:path').join(require('node:os').tmpdir(), 'opengit-cl3-' + Date.now());
       git(workTree, ['clone', '-q', bare, cloneDir]);
-      git(cloneDir, ['bash', '-c', 'printf "other\n" > other.txt']);
+      bash(cloneDir, 'printf "other\n" > other.txt');
       git(cloneDir, ['add', '.']);
       git(cloneDir, ['commit', '-q', '-m', 'other']);
       git(cloneDir, ['push', '-q', 'origin', 'main']);
 
-      git(workTree, ['bash', '-c', 'printf "local\n" > local.txt']);
+      bash(workTree, 'printf "local\n" > local.txt');
       git(workTree, ['add', '.']);
       git(workTree, ['commit', '-q', '-m', 'local']);
 
+      // Fetch to update tracking ref so --force-with-lease can verify
+      await fetchRemote(workTree, 'origin', false);
       // Force push should succeed
-      const r = await pushRemote(workTree, 'origin', undefined, true, false);
+      const r = await pushRemote(workTree, 'origin', 'main', true, false);
       expect(r.success).toBe(true);
     } finally {
       destroyQuickRepo(qr);

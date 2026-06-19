@@ -41,7 +41,7 @@ describe('buildCloneArgs', () => {
       recursiveSubmodules: true,
       shallowDepth: 1,
     });
-    expect(args).toEqual(['clone', '--recurse-submodules', '--depth', '1', 'https://github.com/foo/bar.git', 'bar']);
+    expect(args).toEqual(['clone', '--recurse-submodules', '--no-local', '--depth', '1', 'https://github.com/foo/bar.git', 'bar']);
   });
 });
 

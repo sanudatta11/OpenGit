@@ -90,10 +90,12 @@ describe('merge', () => {
     git(['commit', '-q', '-m', 'feature commit']);
     git(['checkout', '-q', 'main']);
 
-    const r = await mergeBranch(repoDir, { ref: 'feature', noCommit: true });
+    const r = await mergeBranch(repoDir, { ref: 'feature', noCommit: true, noFf: true });
     expect(r.success).toBe(true);
+    const log = git(['log', '--pretty=format:%s', '-1']);
+    expect(log).toBe('base'); // no merge commit
     const status = git(['status', '--porcelain']);
-    expect(status).toContain('M  f.txt'); // staged
+    expect(status).toContain('A  f.txt'); // staged as new file
   });
 
   it('A.13.5 detects merge conflicts', async () => {

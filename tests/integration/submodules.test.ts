@@ -3,7 +3,8 @@
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import {
-  setupTestRepo, cleanupTestRepo, type TestRepo,
+  setupTestRepo, cleanupTestRepo, createQuickRepo, destroyQuickRepo,
+  type TestRepo,
 } from './helpers';
 import { listSubmodules, initSubmodules, deinitSubmodule } from '../../electron/main/git/operations';
 
@@ -38,12 +39,12 @@ describe('submodules', () => {
   });
 
   it('A.11.4 returns empty list when no submodules exist', async () => {
-    const qr = require('./helpers').createQuickRepo();
+    const qr = createQuickRepo();
     try {
       const subs = await listSubmodules(qr.workTree);
       expect(subs.length).toBe(0);
     } finally {
-      require('./helpers').destroyQuickRepo(qr);
+      destroyQuickRepo(qr);
     }
   });
 });

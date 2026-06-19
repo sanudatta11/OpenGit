@@ -174,7 +174,7 @@ export async function getBranches(
     '%(upstream)',
     '%(upstream:track)',
     '%(HEAD)',
-    '%(authordate:iso-strict)',
+    '%(creatordate:iso-strict)',
   ].join('\x1f');
   const raw = await gitText({
     cwd: workTree,
@@ -184,8 +184,19 @@ export async function getBranches(
 
   let headRef: string | null = null;
   let headSha: string | null = null;
+  let actualGitDir = gitDir;
   try {
-    headRef = readFileSync(join(gitDir, 'HEAD'), 'utf8').trim();
+    if (statSync(gitDir).isFile()) {
+      // Worktree: .git is a file pointing to the real gitdir
+      const content = readFileSync(gitDir, 'utf8').trim();
+      const match = content.match(/^gitdir:\s*(.+)$/m);
+      if (match) actualGitDir = match[1]!.trim();
+    }
+  } catch {
+    // ignore — will fall through to the HEAD read below
+  }
+  try {
+    headRef = readFileSync(join(actualGitDir, 'HEAD'), 'utf8').trim();
   } catch {
     // ignore
   }

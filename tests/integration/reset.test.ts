@@ -52,6 +52,13 @@ describe.each([
   ['keep',  false,  'kept - uncommitted tracked changes preserved'],
 ] as const)('reset %s', (mode, _expectStaged, description) => {
   it(`A.17.{index} leaves working tree ${description}`, async () => {
+    if (mode === 'keep') {
+      // --keep requires changes to be only in working tree, not staged,
+      // and the changed file must exist in both HEAD and HEAD~1 (base.txt).
+      git(['reset', '-q', 'HEAD', 'second.txt']); // unstage second.txt
+      git(['checkout', '-q', '--', 'second.txt']); // revert working tree
+      require('fs').writeFileSync(join(repoDir, 'base.txt'), 'base modified\n'); // unstaged change to base.txt
+    }
     const r = await resetBranch(repoDir, 'HEAD~1', mode);
     expect(r.success).toBe(true);
 
@@ -63,21 +70,21 @@ describe.each([
     const fileExists = require('fs').existsSync(join(repoDir, 'second.txt'));
 
     if (mode === 'soft') {
-      // Changes remain staged
-      expect(status).toContain('M  second.txt');
+      // Changes remain staged (as Added since second.txt wasn't in HEAD~1)
+      expect(status).toContain('A  second.txt');
       expect(fileExists).toBe(true);
     } else if (mode === 'mixed') {
-      // Changes remain unstaged
-      expect(status).toContain(' M second.txt');
+      // Changes remain in working tree (untracked, since HEAD~1 has no second.txt)
+      expect(status).toContain('?? second.txt');
       expect(fileExists).toBe(true);
     } else if (mode === 'hard') {
       // Changes discarded
       expect(status.trim()).toBe('');
       expect(fileExists).toBe(false);
     } else if (mode === 'keep') {
-      // Changes preserved (unstaged)
-      expect(status).toContain(' M second.txt');
-      expect(fileExists).toBe(true);
+      // --keep preserves working tree changes to base.txt as unstaged
+      expect(status).toContain(' M base.txt');
+      expect(fileExists).toBe(false); // second.txt removed by reset
     }
   });
 });

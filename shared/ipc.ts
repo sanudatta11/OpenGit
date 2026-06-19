@@ -488,7 +488,7 @@ export interface BlameEntry {
   readonly author: string;
   readonly authorEmail: string;
   readonly authorDate: string;
-  readonly lineNo: number;
+  readonly line: number;
   readonly content: string;
 }
 
