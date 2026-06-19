@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLog } from '../../queries/useRepo';
 import { useRepoStore, cacheCommits } from '../../stores/repo';
+import { useGraphFilterStore } from '../../stores/graphFilter';
 import { assignLanes } from '../../graph/lane';
 import { laneColorByIndex } from '../../graph/colors';
-import type { Commit } from '@shared/git';
-import { GitCommit, Search, X } from 'lucide-react';
+import type { Commit, RefLabel } from '@shared/git';
+import { GitCommit, Search, X, EyeOff, Eye } from 'lucide-react';
 import { useCheckout, useCreateBranch, useCherryPick, useRevert, useReset, useRebase, useMerge } from '../../queries/useMutations';
 import { ConfirmDialog } from '../ConfirmDialog';
 
@@ -73,7 +74,17 @@ export function GraphPane() {
   const parsed = useMemo(() => parseSearchQuery(searchQuery), [searchQuery]);
   const paths = useMemo(() => (parsed.file ? [parsed.file] : undefined), [parsed.file]);
 
-  const log = useLog(undefined, 0, limit, paths);
+  const soloedRefs = useGraphFilterStore((s) => s.soloedRefs);
+  const mutedRefs = useGraphFilterStore((s) => s.mutedRefs);
+  const filterActive = useGraphFilterStore((s) => s.isActive);
+  const clearAllFilters = useGraphFilterStore((s) => s.clearAll);
+
+  const logRange = useMemo(() => {
+    if (soloedRefs.length === 0) return undefined;
+    return soloedRefs.join(' ');
+  }, [soloedRefs]);
+
+  const log = useLog(logRange, 0, limit, paths);
 
   const rowHeight = density === 'compact' ? 20 : density === 'detailed' ? 36 : 28;
 
@@ -115,9 +126,17 @@ export function GraphPane() {
 
   const assigned = useMemo(() => {
     if (filteredCommits.length === 0) return null;
-    const clones = filteredCommits.map((c) => ({ ...c, lane: -1, parentLanes: [] }));
+    const clones = filteredCommits.map((c) => {
+      if (mutedRefs.length === 0) return { ...c, lane: -1, parentLanes: [] };
+      return {
+        ...c,
+        refs: c.refs.filter((r) => !mutedRefs.includes(r.shortName)),
+        lane: -1,
+        parentLanes: [],
+      };
+    });
     return assignLanes(clones);
-  }, [filteredCommits]);
+  }, [filteredCommits, mutedRefs]);
 
   const [scrollTop, setScrollTop] = useState(0);
   const [viewportHeight, setViewportHeight] = useState(600);
@@ -192,6 +211,31 @@ export function GraphPane() {
           ))}
         </div>
       </div>
+
+      {filterActive() && (
+        <div className="border-b border-accent/30 bg-accent/5 px-3 py-1.5 flex items-center gap-2 shrink-0 text-xxs animate-slide-down">
+          <Eye className="w-3 h-3 text-accent shrink-0" />
+          <div className="flex-1 min-w-0 flex items-center gap-2 flex-wrap text-fg-muted">
+            {soloedRefs.length > 0 && (
+              <span>
+                Soloed: {soloedRefs.map((r) => (
+                  <span key={r} className="inline-flex items-center gap-0.5 bg-accent/10 text-accent px-1 py-0 rounded mr-1">{r}<X className="w-2.5 h-2.5 cursor-pointer hover:text-fg" onClick={() => useGraphFilterStore.getState().unsolo(r)} /></span>
+                ))}
+              </span>
+            )}
+            {mutedRefs.length > 0 && (
+              <span>
+                Muted: {mutedRefs.map((r) => (
+                  <span key={r} className="inline-flex items-center gap-0.5 bg-fg-dim/10 text-fg-dim px-1 py-0 rounded mr-1">{r}<X className="w-2.5 h-2.5 cursor-pointer hover:text-fg" onClick={() => useGraphFilterStore.getState().unmute(r)} /></span>
+                ))}
+              </span>
+            )}
+          </div>
+          <button className="icon-btn !w-5 !h-5" onClick={clearAllFilters} title="Clear all filters">
+            <X className="w-3 h-3" />
+          </button>
+        </div>
+      )}
 
       <div
         ref={containerRef}
@@ -523,9 +567,16 @@ function GraphRow({ commit, graphWidth, selected, onClick, density, rowHeight }:
   const date = new Date(commit.author.date);
   const shortSha = commit.sha.slice(0, 7);
   const headRef = commit.refs.find((r) => r.isHead);
+  const [refCtx, setRefCtx] = useState<{ x: number; y: number; ref: RefLabel } | null>(null);
 
   const isDetailed = density === 'detailed';
   const isCompact = density === 'compact';
+
+  useEffect(() => {
+    const close = () => setRefCtx(null);
+    window.addEventListener('click', close);
+    return () => window.removeEventListener('click', close);
+  }, []);
 
   return (
     <div
@@ -547,8 +598,9 @@ function GraphRow({ commit, graphWidth, selected, onClick, density, rowHeight }:
           {commit.refs.filter((r) => !r.isHead).slice(0, 3).map((r) => (
             <span
               key={`${r.kind}:${r.shortName}`}
-              className={`px-1.5 py-0 rounded text-xxs font-mono shrink-0 ${refBadgeClass(r.kind)}`}
-              title={r.shortName}
+              className={`px-1.5 py-0 rounded text-xxs font-mono shrink-0 cursor-pointer ${refBadgeClass(r.kind)}`}
+              title={`${r.shortName} (right-click to solo/mute)`}
+              onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); setRefCtx({ x: e.clientX, y: e.clientY, ref: r }); }}
             >
               {r.shortName}
             </span>
@@ -576,6 +628,23 @@ function GraphRow({ commit, graphWidth, selected, onClick, density, rowHeight }:
       )}
 
       <div className={`hidden xl:block w-20 shrink-0 px-2 text-fg-dim font-mono text-right ${isCompact ? 'text-xxs' : 'text-xs'}`}>{shortSha}</div>
+
+      {refCtx && (
+        <div className="fixed z-50 bg-bg-panel border border-border rounded shadow-xl py-1 w-48 text-xs" style={{ left: refCtx.x, top: refCtx.y }} onClick={(e) => e.stopPropagation()}>
+          <button
+            className="w-full text-left px-3 py-1.5 hover:bg-bg-hover text-fg flex items-center gap-2"
+            onClick={() => { useGraphFilterStore.getState().solo(refCtx.ref.shortName); setRefCtx(null); }}
+          >
+            <Eye className="w-3 h-3" /> Solo this branch
+          </button>
+          <button
+            className="w-full text-left px-3 py-1.5 hover:bg-bg-hover text-fg flex items-center gap-2"
+            onClick={() => { useGraphFilterStore.getState().mute(refCtx.ref.shortName); setRefCtx(null); }}
+          >
+            <EyeOff className="w-3 h-3" /> Mute this branch
+          </button>
+        </div>
+      )}
     </div>
   );
 }
