@@ -2,7 +2,7 @@
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { execSync } from 'node:child_process';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync, realpathSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import {
@@ -20,8 +20,13 @@ function git(args: string[]): string {
   });
 }
 
+/** Create a temp dir and resolve symlinks so it matches what git reports. */
+function realTmpDir(prefix: string): string {
+  return realpathSync(mkdtempSync(join(tmpdir(), prefix)));
+}
+
 beforeAll(() => {
-  repoDir = mkdtempSync(join(tmpdir(), 'opengit-wt-'));
+  repoDir = realTmpDir('opengit-wt-');
   git(['init', '-q', '-b', 'main']);
   git(['config', 'user.email', 't@t.co']);
   git(['config', 'user.name', 'Test']);
@@ -29,12 +34,12 @@ beforeAll(() => {
   writeFileSync(join(repoDir, 'base.txt'), 'base\n');
   git(['add', '.']);
   git(['commit', '-q', '-m', 'initial']);
-  wtDir = join(tmpdir(), 'opengit-wt-test');
+  wtDir = realTmpDir('opengit-wt-test-');
 });
 
 afterAll(() => {
   rmSync(repoDir, { recursive: true, force: true });
-  try { rmSync(wtDir, { recursive: true, force: true }); } catch { /* ok */}
+  try { rmSync(wtDir, { recursive: true, force: true }); } catch { /* ok */ }
 });
 
 describe('worktree', () => {
@@ -74,16 +79,17 @@ describe('worktree', () => {
   });
 
   it('creates a worktree with a branch', async () => {
-    const branchPath = join(tmpdir(), 'opengit-wt-branch');
+    const branchPath = realTmpDir('opengit-wt-branch-');
     const r = await createWorktree(repoDir, {
       path: branchPath,
       branch: 'feature-wt',
       start: 'HEAD',
     });
-    expect(r.success).toBe(true);
+    expect(r.success, `createWorktree failed: ${r.stderr}`).toBe(true);
 
     const list = await listWorktrees(repoDir);
     const created = list.find((w) => w.path === branchPath);
+    expect(created).toBeDefined();
     expect(created?.branch).toBe('refs/heads/feature-wt');
     expect(created?.detached).toBe(false);
 
@@ -93,7 +99,7 @@ describe('worktree', () => {
 
   it('prunes stale worktree entries', async () => {
     // Create a worktree, remove its directory on disk, then prune.
-    const stalePath = join(tmpdir(), 'opengit-wt-stale');
+    const stalePath = realTmpDir('opengit-wt-stale-');
     await createWorktree(repoDir, { path: stalePath, start: 'HEAD' });
     // Remove the directory on disk (but not via git).
     rmSync(stalePath, { recursive: true, force: true });
@@ -110,9 +116,8 @@ describe('worktree', () => {
   });
 
   it('A.9.4 creates a worktree with lock reason', async () => {
-    const lockedPath = join(tmpdir(), 'opengit-wt-locked');
+    const lockedPath = realTmpDir('opengit-wt-locked-');
     try {
-      rmSync(lockedPath, { recursive: true, force: true });
       const r = await createWorktree(repoDir, {
         path: lockedPath,
         start: 'HEAD',
@@ -130,9 +135,8 @@ describe('worktree', () => {
   });
 
   it('A.9.5 locks an existing worktree', async () => {
-    const lockPath = join(tmpdir(), 'opengit-wt-lock');
+    const lockPath = realTmpDir('opengit-wt-lock-');
     try {
-      rmSync(lockPath, { recursive: true, force: true });
       const cr = await createWorktree(repoDir, { path: lockPath, start: 'HEAD' });
       expect(cr.success, `create lockPath worktree failed: ${cr.stderr}`).toBe(true);
       const r = await lockWorktree(repoDir, lockPath, 'Testing lock feature');
@@ -147,9 +151,8 @@ describe('worktree', () => {
   });
 
   it('A.9.6 unlocks a locked worktree', async () => {
-    const unlockPath = join(tmpdir(), 'opengit-wt-unlock');
+    const unlockPath = realTmpDir('opengit-wt-unlock-');
     try {
-      rmSync(unlockPath, { recursive: true, force: true });
       await createWorktree(repoDir, { path: unlockPath, start: 'HEAD' });
       await lockWorktree(repoDir, unlockPath, 'to unlock');
       const r = await unlockWorktree(repoDir, unlockPath);
@@ -164,7 +167,7 @@ describe('worktree', () => {
   });
 
   it('A.9.8 removes a worktree and its branch', async () => {
-    const rmbPath = join(tmpdir(), 'opengit-wt-rmb');
+    const rmbPath = realTmpDir('opengit-wt-rmb-');
     const branchName = 'feature-rmb';
     try {
       await createWorktree(repoDir, {
@@ -190,11 +193,7 @@ describe('worktree', () => {
   });
 
   it('A.9.11 lists multiple worktrees with locked + detached attributes', async () => {
-    // The existing setup creates:
-    // - The main repo (main)
-    // - wt-feature-dashboard (locked, branch: feature/dashboard)
-    // Later tests:
-    const extraWt = join(tmpdir(), 'opengit-wt-extra');
+    const extraWt = realTmpDir('opengit-wt-extra-');
     await createWorktree(repoDir, { path: extraWt, branch: 'extra', start: 'HEAD' });
 
     const list = await listWorktrees(repoDir);

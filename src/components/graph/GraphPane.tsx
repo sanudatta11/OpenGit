@@ -305,10 +305,8 @@ export function GraphPane() {
           <div style={{ height: totalHeight, position: 'relative' }}>
             <GraphCanvas
               commits={visible}
-              firstRow={firstRow}
               offsetY={offsetY}
               graphWidth={graphWidth}
-              viewportHeight={viewportHeight}
               rowHeight={rowHeight}
               laneOwners={laneOwners}
               selectedSha={selectedSha ?? undefined}
@@ -516,16 +514,14 @@ export function GraphPane() {
 
 interface GraphCanvasProps {
   commits: Commit[];
-  firstRow: number;
   offsetY: number;
   graphWidth: number;
-  viewportHeight: number;
   rowHeight: number;
   laneOwners: Map<number, string>;
   selectedSha?: string;
 }
 
-function GraphCanvas({ commits, firstRow, offsetY, graphWidth, viewportHeight, rowHeight, laneOwners, selectedSha }: GraphCanvasProps) {
+function GraphCanvas({ commits, offsetY, graphWidth, rowHeight, laneOwners, selectedSha }: GraphCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [dpr, setDpr] = useState(window.devicePixelRatio || 1);
 
@@ -541,7 +537,7 @@ function GraphCanvas({ commits, firstRow, offsetY, graphWidth, viewportHeight, r
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    const height = Math.min(commits.length * rowHeight + rowHeight, viewportHeight + rowHeight * 2);
+    const height = commits.length * rowHeight + rowHeight;
     canvas.width = graphWidth * dpr;
     canvas.height = height * dpr;
     canvas.style.width = `${graphWidth}px`;
@@ -641,13 +637,13 @@ function GraphCanvas({ commits, firstRow, offsetY, graphWidth, viewportHeight, r
         ctx.stroke();
       }
     }
-  }, [commits, graphWidth, viewportHeight, dpr, rowHeight]);
+  }, [commits, graphWidth, dpr, rowHeight]);
 
   return (
     <canvas
       ref={canvasRef}
       className="absolute top-0 left-0 pointer-events-none"
-      style={{ transform: `translateY(${offsetY - firstRow * rowHeight}px)` }}
+      style={{ transform: `translateY(${offsetY}px)` }}
     />
   );
 }

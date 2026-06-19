@@ -6,6 +6,7 @@ import { AlertTriangle, Download, FolderOpen, FolderPlus, Loader2, Settings, Tra
 import { api } from '../ipc/api';
 import { useRepoStore } from '../stores/repo';
 import { GitError } from '@shared/ipc';
+import { TitleBar } from './header/TitleBar';
 
 type Mode = 'open' | 'clone' | 'create';
 
@@ -54,8 +55,10 @@ export function LaunchPanel({ onOpenSettings }: { onOpenSettings: () => void }) 
   const gitError = GitError.is(error) ? GitError.fromSerialized(error) : null;
 
   return (
-    <div className="h-full bg-bg flex items-center justify-center p-6 select-none">
-      <div className="w-full max-w-5xl grid grid-cols-[minmax(0,1.1fr)_minmax(280px,0.9fr)] gap-6 max-lg:grid-cols-1">
+    <div className="h-full flex flex-col bg-bg select-none">
+      <TitleBar />
+      <div className="flex-1 flex items-center justify-center p-6">
+        <div className="w-full max-w-5xl grid grid-cols-[minmax(0,1.1fr)_minmax(280px,0.9fr)] gap-6 max-lg:grid-cols-1">
         <section className="min-w-0">
           <div className="mb-5">
             <div className="text-xxs uppercase tracking-wider text-accent font-semibold">OpenGit</div>
@@ -125,6 +128,7 @@ export function LaunchPanel({ onOpenSettings }: { onOpenSettings: () => void }) 
           </div>
         </aside>
       </div>
+    </div>
     </div>
   );
 }

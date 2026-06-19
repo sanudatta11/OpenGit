@@ -28,6 +28,7 @@ export function WorkingTree() {
   const stage = useStage();
   const unstage = useUnstage();
   const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set());
+  const branchName = useRepoStore((s) => s.activeRepo)?.currentBranch ?? 'HEAD';
 
   const toggleFile = (path: string) => {
     setSelectedFiles(prev => { const n = new Set(prev); if (n.has(path)) n.delete(path); else n.add(path); return n; });
@@ -70,7 +71,6 @@ export function WorkingTree() {
   const unstaged = status.data.entries.filter((e) => e.unstaged);
   const untracked = status.data.entries.filter((e) => e.kind === 'untracked');
   const conflicts = status.data.entries.filter((e) => e.kind === 'unmerged');
-  const branchName = useRepoStore((s) => s.activeRepo)?.currentBranch ?? 'HEAD';
 
   return (
     <div className="flex flex-col h-full min-h-0">
