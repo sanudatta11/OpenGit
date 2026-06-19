@@ -41,6 +41,8 @@ electron-builder.yml
 .specify
 .claude
 .cursor
+.agents
+.windsurf
 
 # Docs (plans/notes)
 docs
