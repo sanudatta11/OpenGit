@@ -4,7 +4,7 @@
   "productName": "OpenGit",
   "directories": { "output": "release" },
   "files": ["out/**/*", "package.json"],
-  "mac": { "target": ["dmg", "zip"], "category": "public.app-category.developer-tools" },
+  "mac": { "identity": null, "target": ["dmg", "zip"], "category": "public.app-category.developer-tools" },
   "win": { "target": "nsis" },
   "linux": { "target": "AppImage", "category": "Development" },
   "publish": [{ "provider": "github", "owner": "sanudatta11", "repo": "OpenGit" }]
