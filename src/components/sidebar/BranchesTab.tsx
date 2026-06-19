@@ -1,7 +1,7 @@
 // src/components/sidebar/BranchesTab.tsx — list local/remote branches + tags + checkout/create/delete.
 
 import { useState, useEffect } from 'react';
-import { GitBranch, Tag, Cloud, Check, Plus, Trash2, Loader2 } from 'lucide-react';
+import { GitBranch, Tag, Cloud, Check, Plus, Trash2, Loader2, ChevronDown } from 'lucide-react';
 import { useBranches } from '../../queries/useRepo';
 import { useCheckout, useCreateBranch, useDeleteBranch } from '../../queries/useMutations';
 import { useQueryClient } from '@tanstack/react-query';
@@ -25,6 +25,7 @@ export function BranchesTab() {
   const [worktreePath, setWorktreePath] = useState('');
   const [worktreeLock, setWorktreeLock] = useState('');
   const repoName = useRepoStore((s) => s.repo?.path?.split('/').pop() ?? 'repo');
+  const [showFlow, setShowFlow] = useState(false);
 
   const handleCreateWorktree = (b: Branch) => {
     setCreateWorktreeBranch(b);
@@ -82,6 +83,17 @@ export function BranchesTab() {
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
         />
+      </div>
+
+      <div className="px-3 py-1">
+        <button
+          className="w-full flex items-center gap-1.5 text-xxs text-fg-muted hover:text-fg transition-colors"
+          onClick={() => setShowFlow(!showFlow)}
+        >
+          <ChevronDown className={`w-3 h-3 transition-transform ${showFlow ? 'rotate-180' : ''}`} />
+          Git Flow
+        </button>
+        {showFlow && <GitFlowSection />}
       </div>
 
       <Section title="Local" count={locals.length} actions={
@@ -374,6 +386,85 @@ function CreateBranchForm({ onClose }: { onClose: () => void }) {
         </div>
       </div>
       {create.error && <div className="text-xxs text-git-deleted">{(create.error as Error).message}</div>}
+    </div>
+  );
+}
+
+function GitFlowSection() {
+  const [featureName, setFeatureName] = useState('');
+  const [hotfixName, setHotfixName] = useState('');
+  const [releaseName, setReleaseName] = useState('');
+  const create = useCreateBranch();
+
+  const handleStart = (prefix: string, name: string) => {
+    if (!name.trim()) return;
+    void create.mutate({ name: `${prefix}/${name.trim()}`, start: 'HEAD', checkout: true });
+  };
+
+  return (
+    <div className="mt-1 space-y-2">
+      <div className="space-y-1">
+        <span className="text-xxs text-fg-dim font-medium">Start Feature</span>
+        <div className="flex items-center gap-1">
+          <span className="text-xxs text-fg-dim shrink-0">feature/</span>
+          <input
+            className="input w-full !text-xxs !py-0.5"
+            placeholder="name"
+            value={featureName}
+            onChange={(e) => setFeatureName(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') { handleStart('feature', featureName); setFeatureName(''); } }}
+          />
+          <button
+            className="btn btn-primary !text-xxs !px-2 !py-0.5 shrink-0"
+            onClick={() => { handleStart('feature', featureName); setFeatureName(''); }}
+            disabled={create.isPending || !featureName.trim()}
+          >
+            Start
+          </button>
+        </div>
+      </div>
+
+      <div className="space-y-1">
+        <span className="text-xxs text-fg-dim font-medium">Start Hotfix</span>
+        <div className="flex items-center gap-1">
+          <span className="text-xxs text-fg-dim shrink-0">hotfix/</span>
+          <input
+            className="input w-full !text-xxs !py-0.5"
+            placeholder="name"
+            value={hotfixName}
+            onChange={(e) => setHotfixName(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') { handleStart('hotfix', hotfixName); setHotfixName(''); } }}
+          />
+          <button
+            className="btn btn-primary !text-xxs !px-2 !py-0.5 shrink-0"
+            onClick={() => { handleStart('hotfix', hotfixName); setHotfixName(''); }}
+            disabled={create.isPending || !hotfixName.trim()}
+          >
+            Start
+          </button>
+        </div>
+      </div>
+
+      <div className="space-y-1">
+        <span className="text-xxs text-fg-dim font-medium">Start Release</span>
+        <div className="flex items-center gap-1">
+          <span className="text-xxs text-fg-dim shrink-0">release/</span>
+          <input
+            className="input w-full !text-xxs !py-0.5"
+            placeholder="name"
+            value={releaseName}
+            onChange={(e) => setReleaseName(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') { handleStart('release', releaseName); setReleaseName(''); } }}
+          />
+          <button
+            className="btn btn-primary !text-xxs !px-2 !py-0.5 shrink-0"
+            onClick={() => { handleStart('release', releaseName); setReleaseName(''); }}
+            disabled={create.isPending || !releaseName.trim()}
+          >
+            Start
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

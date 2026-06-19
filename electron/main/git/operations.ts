@@ -1229,6 +1229,26 @@ export async function unlockWorktree(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// GPG verification
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function verifyCommit(workTree: string, sha: string): Promise<{ verified: boolean; signer: string }> {
+  const r = await gitRun({ cwd: workTree, args: ['verify-commit', sha], channel: 'commit:verify', reject: false });
+  const verified = r.ok;
+  const signerMatch = r.stderr.match(/Good signature from "(.+)"/) || r.stdout.match(/Good signature from "(.+)"/);
+  return { verified, signer: signerMatch?.[1] ?? '' };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Stash diff
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function stashDiff(workTree: string, ref: string): Promise<string> {
+  const r = await gitRun({ cwd: workTree, args: ['stash', 'show', '-p', ref], channel: 'stash:diff', reject: false });
+  return r.ok ? r.stdout : '';
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Blame
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -1328,4 +1348,53 @@ export async function removeWorktreeAndBranch(
     changedRefs: r.ok ? [`refs/heads/${branchName}`] : [],
     requiresRefresh: r.ok,
   };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Submodules
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function listSubmodules(workTree: string): Promise<{ path: string; url: string; branch: string; sha: string }[]> {
+  const r = await gitRun({ cwd: workTree, args: ['submodule', 'status', '--recursive'], channel: 'submodule:list', reject: false });
+  if (!r.ok || !r.stdout) return [];
+  return r.stdout.split('\n').filter(Boolean).map(line => {
+    const m = line.trim().match(/^[\s+]?([0-9a-f]{40})\s+(\S+)\s+(?:\((.+)\))?/);
+    if (!m) return null;
+    return { path: m[2]!, url: '', branch: m[3]?.replace('heads/', '') ?? '', sha: m[1]! };
+  }).filter(Boolean) as any[];
+}
+
+export async function initSubmodules(workTree: string, recursive: boolean): Promise<WriteResult> {
+  const args = ['submodule', 'update', '--init'];
+  if (recursive) args.push('--recursive');
+  const r = await gitRun({ cwd: workTree, args, channel: 'submodule:init', reject: false });
+  return { success: r.ok, stdout: r.stdout, stderr: r.stderr, changedRefs: [], requiresRefresh: r.ok };
+}
+
+export async function deinitSubmodule(workTree: string, path: string, force: boolean): Promise<WriteResult> {
+  const args = ['submodule', 'deinit'];
+  if (force) args.push('--force');
+  args.push(path);
+  const r = await gitRun({ cwd: workTree, args, channel: 'submodule:deinit', reject: false });
+  return { success: r.ok, stdout: r.stdout, stderr: r.stderr, changedRefs: [], requiresRefresh: r.ok };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Git LFS
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function listLFSTracked(workTree: string): Promise<string[]> {
+  const r = await gitRun({ cwd: workTree, args: ['lfs', 'track'], channel: 'lfs:list', reject: false });
+  if (!r.ok || !r.stdout) return [];
+  return r.stdout.split('\n').filter(l => l.includes('(')).map(l => l.split('(')[0]!.trim()).filter(Boolean);
+}
+
+export async function lfsTrack(workTree: string, pattern: string): Promise<WriteResult> {
+  const r = await gitRun({ cwd: workTree, args: ['lfs', 'track', pattern], channel: 'lfs:track', reject: false });
+  return { success: r.ok, stdout: r.stdout, stderr: r.stderr, changedRefs: ['.gitattributes'], requiresRefresh: r.ok };
+}
+
+export async function lfsUntrack(workTree: string, pattern: string): Promise<WriteResult> {
+  const r = await gitRun({ cwd: workTree, args: ['lfs', 'untrack', pattern], channel: 'lfs:untrack', reject: false });
+  return { success: r.ok, stdout: r.stdout, stderr: r.stderr, changedRefs: ['.gitattributes'], requiresRefresh: r.ok };
 }

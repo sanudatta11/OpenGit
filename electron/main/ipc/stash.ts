@@ -1,9 +1,9 @@
 // electron/main/ipc/stash.ts — stash IPC handlers.
 
 import { ipcMain } from 'electron';
-import { IPC, GitError, StashCreateInput, StashApplyInput, StashRefInput } from '@shared/ipc';
+import { IPC, GitError, StashCreateInput, StashApplyInput, StashRefInput, StashDiffInput } from '@shared/ipc';
 import {
-  listStashes, createStash, applyStash, popStash, dropStash,
+  listStashes, createStash, applyStash, popStash, dropStash, stashDiff,
 } from '../git/operations';
 import { requireCurrentRepo } from '../git/session';
 
@@ -43,6 +43,13 @@ export function registerStashHandlers(): void {
     if (!parsed.success) throw badInput(parsed.error.message);
     const r = requireCurrentRepo();
     return dropStash(r.workTreeRoot, parsed.data.ref);
+  });
+
+  ipcMain.handle(IPC.STASH_DIFF, async (_e, raw) => {
+    const parsed = StashDiffInput.safeParse(raw);
+    if (!parsed.success) throw badInput(parsed.error.message);
+    const r = requireCurrentRepo();
+    return stashDiff(r.workTreeRoot, parsed.data.ref);
   });
 }
 

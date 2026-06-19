@@ -44,6 +44,8 @@ import type {
   StashCreateInput,
   StashApplyInput,
   StashRefInput,
+  StashDiffInput,
+  VerifyCommitInput,
   MergeResultData,
   RebaseResultData,
   WorktreeCreateInput,
@@ -129,6 +131,8 @@ const api = {
   commit: {
     create: (input: CommitCreateInput): Promise<WriteResult<CommitResultData>> =>
       ipcRenderer.invoke(IPC.COMMIT_CREATE, input),
+    verify: (input: VerifyCommitInput): Promise<{ verified: boolean; signer: string }> =>
+      ipcRenderer.invoke(IPC.COMMIT_VERIFY, input),
   },
 
   branch: {
@@ -174,6 +178,8 @@ const api = {
       ipcRenderer.invoke(IPC.STASH_POP, input),
     drop: (input: StashRefInput): Promise<WriteResult> =>
       ipcRenderer.invoke(IPC.STASH_DROP, input),
+    diff: (input: StashDiffInput): Promise<string> =>
+      ipcRenderer.invoke(IPC.STASH_DIFF, input),
   },
 
   operations: {
@@ -306,6 +312,24 @@ const api = {
   shell: {
     openPath: (path: string): Promise<{ success: boolean }> =>
       ipcRenderer.invoke(IPC.SHELL_OPEN_PATH, { path }),
+  },
+
+  submodule: {
+    list: (): Promise<{ path: string; url: string; branch: string; sha: string }[]> =>
+      ipcRenderer.invoke(IPC.SUBMODULE_LIST),
+    init: (recursive?: boolean): Promise<WriteResult> =>
+      ipcRenderer.invoke(IPC.SUBMODULE_INIT, { recursive: recursive ?? true }),
+    deinit: (path: string, force?: boolean): Promise<WriteResult> =>
+      ipcRenderer.invoke(IPC.SUBMODULE_DEINIT, { path, force: force ?? false }),
+  },
+
+  lfs: {
+    list: (): Promise<string[]> =>
+      ipcRenderer.invoke(IPC.LFS_LIST),
+    track: (pattern: string): Promise<WriteResult> =>
+      ipcRenderer.invoke(IPC.LFS_TRACK, { pattern }),
+    untrack: (pattern: string): Promise<WriteResult> =>
+      ipcRenderer.invoke(IPC.LFS_UNTRACK, { pattern }),
   },
 
   // Re-hydrate GitError from serialized form. Renderer imports this.

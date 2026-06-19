@@ -12,7 +12,7 @@ export function BranchCompare() {
     return s.repo.currentBranch;
   });
 
-  const localBranches = (branchesQ.data ?? []).filter((b) => b.kind === 'local');
+  const localBranches = (branchesQ.data ?? []).filter((b) => b.kind === 'local' || b.kind === 'remote');
   const defaultBranchA = localBranches.length > 1 ? localBranches[1]!.shortName : '';
   const defaultBranchB = repoStoreBranch ?? '';
 
@@ -35,7 +35,7 @@ export function BranchCompare() {
             onChange={(e) => setBranchA(e.target.value)}
           >
             {localBranches.map((b) => (
-              <option key={b.name} value={b.shortName}>{b.shortName}</option>
+              <option key={b.name} value={b.shortName}>{b.kind === 'remote' ? `${b.shortName} (remote)` : b.shortName}</option>
             ))}
           </select>
         </div>
@@ -47,7 +47,7 @@ export function BranchCompare() {
             onChange={(e) => setBranchB(e.target.value)}
           >
             {localBranches.map((b) => (
-              <option key={b.name} value={b.shortName}>{b.shortName}</option>
+              <option key={b.name} value={b.shortName}>{b.kind === 'remote' ? `${b.shortName} (remote)` : b.shortName}</option>
             ))}
           </select>
         </div>

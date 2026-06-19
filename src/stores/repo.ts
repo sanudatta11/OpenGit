@@ -13,6 +13,9 @@ interface RepoStore {
   selectedFile: { path: string; staged: boolean; isCommit: boolean; sha?: string; oldPath?: string | null } | null;
   selectFile: (file: { path: string; staged: boolean; isCommit: boolean; sha?: string; oldPath?: string | null } | null) => void;
 
+  fileHistoryPath: string | null;
+  setFileHistory: (path: string | null) => void;
+
   logDrawerOpen: boolean;
   toggleLogDrawer: (open?: boolean) => void;
 
@@ -20,7 +23,7 @@ interface RepoStore {
   setSidebarTab: (t: SidebarTab) => void;
 }
 
-export type SidebarTab = 'branches' | 'remotes' | 'stash' | 'worktrees' | 'actions';
+export type SidebarTab = 'branches' | 'remotes' | 'stash' | 'worktrees' | 'submodules' | 'lfs' | 'actions';
 
 export const useRepoStore = create<RepoStore>((set) => ({
   repo: null,
@@ -31,6 +34,9 @@ export const useRepoStore = create<RepoStore>((set) => ({
 
   selectedFile: null,
   selectFile: (file) => set({ selectedFile: file }),
+
+  fileHistoryPath: null,
+  setFileHistory: (path) => set({ fileHistoryPath: path }),
 
   logDrawerOpen: false,
   toggleLogDrawer: (open) =>

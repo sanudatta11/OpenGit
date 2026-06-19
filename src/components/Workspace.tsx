@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useRepoStore } from '../stores/repo';
 import { useStatus, useOpenRepo } from '../queries/useRepo';
+import { useFetchAll } from '../queries/useMutations';
 import { api } from '../ipc/api';
 import { Sidebar } from './Sidebar';
 import { GraphPane } from './graph/GraphPane';
@@ -95,6 +96,17 @@ export function Workspace({ onOpenSettings }: { onOpenSettings: () => void }) {
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   }, []);
+
+  const fetchAll = useFetchAll();
+
+  useEffect(() => {
+    const interval = settings?.autoFetchInterval;
+    if (!interval || interval <= 0) return;
+    const timer = setInterval(() => {
+      fetchAll.mutate(false);
+    }, interval * 60 * 1000);
+    return () => clearInterval(timer);
+  }, [settings?.autoFetchInterval]);
 
   const handleOpenRepository = async () => {
     const path = await window.api.dialog.pickRepo();

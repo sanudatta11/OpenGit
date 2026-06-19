@@ -9,6 +9,8 @@ import { useStatus, useFileContent, useBranches, useLog } from '../../queries/us
 import {
   useStage, useStageAll, useUnstage, useUnstageAll, useDiscard, useCommit, usePush,
 } from '../../queries/useMutations';
+import { useQuery } from '@tanstack/react-query';
+import { api } from '../../ipc/api';
 import type { StatusEntry, EntryKind } from '@shared/git';
 import { DiffViewer } from '../diff/DiffViewer';
 import { languageForFile } from '../../monaco/language';
@@ -23,6 +25,29 @@ export function WorkingTree() {
   const [diffView, setDiffView] = useState<DiffView | 'hunks'>('side-by-side');
   const [confirmEntry, setConfirmEntry] = useState<StatusEntry | null>(null);
   const discard = useDiscard();
+  const stage = useStage();
+  const unstage = useUnstage();
+  const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set());
+
+  const toggleFile = (path: string) => {
+    setSelectedFiles(prev => { const n = new Set(prev); if (n.has(path)) n.delete(path); else n.add(path); return n; });
+  };
+
+  const allEntries = status.data?.entries ?? [];
+  const selectedEntries = allEntries.filter(e => selectedFiles.has(e.path));
+
+  const handleStageSelected = () => {
+    const unstaged = selectedEntries.filter(e => !e.staged);
+    if (unstaged.length) stage.mutate(unstaged.map(e => e.path), { onSuccess: () => setSelectedFiles(new Set()) });
+  };
+
+  const handleDiscardSelected = () => {
+    const tracked = selectedEntries.filter(e => e.kind !== 'untracked');
+    const untracked = selectedEntries.filter(e => e.kind === 'untracked');
+    if (tracked.length) discard.mutate({ paths: tracked.map(e => e.path) });
+    if (untracked.length) discard.mutate({ paths: untracked.map(e => e.path), untracked: true });
+    setSelectedFiles(new Set());
+  };
 
   if (status.isLoading && !status.data) {
     return <div className="p-3 text-xs text-fg-muted">Loading status…</div>;
@@ -59,22 +84,34 @@ export function WorkingTree() {
             {untracked.length > 0 && <span className="text-git-untracked">{untracked.length} untracked</span>}
           </div>
           {conflicts.length > 0 && (
-            <Section title="Conflicts" count={conflicts.length} color="text-git-conflicted" entries={conflicts} onSelect={setSelectedEntry} selected={selectedEntry} onDiscard={setConfirmEntry} />
+            <Section title="Conflicts" count={conflicts.length} color="text-git-conflicted" entries={conflicts} onSelect={setSelectedEntry} selected={selectedEntry} onDiscard={setConfirmEntry} selectedFiles={selectedFiles} onToggleFile={toggleFile} />
           )}
           <Section
             title="Staged" count={staged.length} color="text-git-staged"
             entries={staged} onSelect={setSelectedEntry} selected={selectedEntry}
             actions={staged.length > 0 ? <UnstageAllButton /> : undefined}
             onDiscard={setConfirmEntry}
+            selectedFiles={selectedFiles} onToggleFile={toggleFile}
           />
           <Section
             title="Unstaged" count={unstaged.length} color="text-git-modified"
             entries={unstaged} onSelect={setSelectedEntry} selected={selectedEntry}
             actions={unstaged.length > 0 ? <StageAllButton /> : undefined}
             onDiscard={setConfirmEntry}
+            selectedFiles={selectedFiles} onToggleFile={toggleFile}
           />
           {untracked.length > 0 && (
-            <Section title="Untracked" count={untracked.length} color="text-git-untracked" entries={untracked} onSelect={setSelectedEntry} selected={selectedEntry} onDiscard={setConfirmEntry} />
+            <Section title="Untracked" count={untracked.length} color="text-git-untracked" entries={untracked} onSelect={setSelectedEntry} selected={selectedEntry} onDiscard={setConfirmEntry} selectedFiles={selectedFiles} onToggleFile={toggleFile} />
+          )}
+          {selectedFiles.size >= 2 && (
+            <div className="px-3 py-2 border-t border-border bg-accent/5 flex items-center gap-2 text-xs shrink-0">
+              <span className="text-fg-muted">{selectedFiles.size} selected</span>
+              <button className="btn btn-primary !text-xxs !px-2 !py-0.5" onClick={handleStageSelected} disabled={stage.isPending || unstage.isPending}>
+                Stage selected
+              </button>
+              <button className="btn !text-xxs !px-2 !py-0.5" onClick={handleDiscardSelected}>Discard selected</button>
+              <button className="btn !text-xxs !px-2 !py-0.5" onClick={() => setSelectedFiles(new Set())}>Clear</button>
+            </div>
           )}
           <CommitForm />
         </>
@@ -179,6 +216,8 @@ function Section({
   selected,
   actions,
   onDiscard,
+  selectedFiles,
+  onToggleFile,
 }: {
   title: string;
   count: number;
@@ -188,6 +227,8 @@ function Section({
   selected: StatusEntry | null;
   actions?: React.ReactNode;
   onDiscard: (e: StatusEntry) => void;
+  selectedFiles: Set<string>;
+  onToggleFile: (path: string) => void;
 }) {
   if (count === 0) return null;
   return (
@@ -207,6 +248,8 @@ function Section({
             selected={selected?.path === e.path}
             onClick={() => onSelect(e)}
             onDiscard={() => onDiscard(e)}
+            checked={selectedFiles.has(e.path)}
+            onToggle={() => onToggleFile(e.path)}
           />
         ))}
       </div>
@@ -236,7 +279,7 @@ const KIND_COLOR: Record<EntryKind, string> = {
   ignored: 'text-fg-dim',
 };
 
-function FileRow({ entry, selected, onClick, onDiscard }: { entry: StatusEntry; selected: boolean; onClick: () => void; onDiscard: () => void }) {
+function FileRow({ entry, selected, onClick, onDiscard, checked, onToggle }: { entry: StatusEntry; selected: boolean; onClick: () => void; onDiscard: () => void; checked: boolean; onToggle: () => void }) {
   const stage = useStage();
   const unstage = useUnstage();
 
@@ -277,6 +320,7 @@ function FileRow({ entry, selected, onClick, onDiscard }: { entry: StatusEntry; 
       title={entry.path}
       onClick={handleClick}
     >
+      <input type="checkbox" checked={checked} onChange={onToggle} onClick={e => e.stopPropagation()} className="accent-accent shrink-0" />
       <Icon className={`w-3.5 h-3.5 shrink-0 ${color}`} />
       <span className="text-xs truncate flex-1">{label}</span>
       <div className="flex items-center gap-0.5 shrink-0">
@@ -359,6 +403,15 @@ function CommitForm() {
   const status = useStatus();
   const hasStaged = (status.data?.entries ?? []).some((e) => e.staged);
 
+  const { data: settings } = useQuery({
+    queryKey: ['settings'],
+    queryFn: () => api.settings.get(),
+  });
+
+  const subjectLine = message.split('\n')[0] ?? '';
+  const subjectLength = subjectLine.length;
+  const maxSubject = settings?.commitSubjectLength ?? 72;
+
   useEffect(() => {
     if (amend && headCommit.data?.commits[0]) {
       setMessage(headCommit.data.commits[0].subject);
@@ -405,7 +458,11 @@ function CommitForm() {
           }
         }}
         disabled={commit.isPending}
+        spellCheck
       />
+      <div className={`text-xxs text-right ${subjectLength > maxSubject ? 'text-git-deleted' : 'text-fg-dim'}`}>
+        {subjectLength}/{maxSubject}
+      </div>
       {amend && headCommit.data?.commits[0] && (
         <div className="text-xxs text-fg-muted mb-1">Amending: {headCommit.data.commits[0].sha.slice(0, 7)}</div>
       )}

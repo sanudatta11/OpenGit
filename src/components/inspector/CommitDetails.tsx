@@ -1,7 +1,7 @@
 // src/components/inspector/CommitDetails.tsx — show selected commit info + files + diff + actions.
 
 import { useState } from 'react';
-import { User, Clock, Hash, FileText, FilePlus, FileMinus, FileEdit, FileOutput, ChevronRight, GitMerge, GitPullRequest, Copy, RotateCcw, Loader2 } from 'lucide-react';
+import { User, Clock, Hash, FileText, FilePlus, FileMinus, FileEdit, FileOutput, ChevronRight, GitMerge, GitPullRequest, Copy, RotateCcw, Loader2, Shield, ShieldCheck } from 'lucide-react';
 import type { Commit, DiffFile } from '@shared/git';
 import { useCommitFiles, useFileContent } from '../../queries/useRepo';
 import { useCherryPick, useRevert, useMerge, useRebase } from '../../queries/useMutations';
@@ -10,6 +10,7 @@ import { languageForFile } from '../../monaco/language';
 import type { DiffView } from '../diff/DiffViewer';
 import { ConfirmDialog } from '../ConfirmDialog';
 import { useRepoStore } from '../../stores/repo';
+import { api } from '../../ipc/api';
 
 type ActionKind = 'cherry-pick' | 'revert' | 'merge' | 'rebase';
 
@@ -17,6 +18,17 @@ export function CommitDetails({ commit }: { commit: Commit }) {
   const files = useCommitFiles(commit.sha);
   const [selectedFile, setSelectedFile] = useState<DiffFile | null>(null);
   const [diffView, setDiffView] = useState<DiffView>('side-by-side');
+  const [gpgVerify, setGpgVerify] = useState<{ loading: boolean; result?: { verified: boolean; signer: string } }>({ loading: false });
+
+  const handleGpgVerify = async () => {
+    setGpgVerify({ loading: true });
+    try {
+      const result = await api.commit.verify({ sha: commit.sha });
+      setGpgVerify({ loading: false, result });
+    } catch {
+      setGpgVerify({ loading: false, result: { verified: false, signer: '' } });
+    }
+  };
 
   return (
     <div className="flex flex-col h-full min-h-0">
@@ -25,6 +37,19 @@ export function CommitDetails({ commit }: { commit: Commit }) {
         {commit.body && (
           <pre className="mt-2 text-xs text-fg-muted whitespace-pre-wrap font-sans">{commit.body}</pre>
         )}
+        <div className="mt-2">
+          {gpgVerify.result ? (
+            <span className={`text-xxs px-1.5 py-0.5 rounded ${gpgVerify.result.verified ? 'bg-git-added/20 text-git-added' : 'bg-git-deleted/20 text-git-deleted'}`}>
+              <ShieldCheck className="w-3 h-3 inline mr-1" />
+              {gpgVerify.result.verified ? `Verified: ${gpgVerify.result.signer}` : 'Not verified'}
+            </span>
+          ) : (
+            <button className="btn !text-xxs !px-2 !py-0.5" onClick={handleGpgVerify} disabled={gpgVerify.loading}>
+              {gpgVerify.loading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Shield className="w-3 h-3" />}
+              {gpgVerify.loading ? 'Verifying...' : 'Verify signature'}
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="p-3 border-b border-border shrink-0 space-y-1.5 text-xs">
@@ -130,6 +155,8 @@ function FileRow({ file, selected, onClick }: { file: DiffFile; selected: boolea
   const Icon = iconForStatus(file);
   const color = colorForFile(file);
   const label = file.oldPath ? `${file.oldPath} → ${file.path}` : file.path;
+  const setFileHistory = useRepoStore((s) => s.setFileHistory);
+
   return (
     <button
       onClick={onClick}
@@ -139,6 +166,13 @@ function FileRow({ file, selected, onClick }: { file: DiffFile; selected: boolea
       <Icon className={`w-3.5 h-3.5 shrink-0 ${color}`} />
       <span className="text-xs truncate flex-1">{label}</span>
       <span className="text-xxs shrink-0 flex items-center gap-1">
+        <button
+          className="icon-btn !w-5 !h-5"
+          title="File history"
+          onClick={(e) => { e.stopPropagation(); setFileHistory(file.path); }}
+        >
+          <Clock className="w-3 h-3" />
+        </button>
         {file.additions > 0 && <span className="text-git-added">+{file.additions}</span>}
         {file.deletions > 0 && <span className="text-git-deleted">-{file.deletions}</span>}
         {file.isBinary && <span className="text-fg-dim">binary</span>}

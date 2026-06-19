@@ -47,6 +47,9 @@ export const IPC = {
   STASH_APPLY: 'stash:apply',
   STASH_POP: 'stash:pop',
   STASH_DROP: 'stash:drop',
+  STASH_DIFF: 'stash:diff',
+
+  COMMIT_VERIFY: 'commit:verify',
 
   REMOTE_FETCH: 'remote:fetch',
   REMOTE_PULL: 'remote:pull',
@@ -107,6 +110,14 @@ export const IPC = {
   TERMINAL_KILL: 'terminal:kill',
 
   SHELL_OPEN_PATH: 'shell:openPath',
+
+  SUBMODULE_LIST: 'submodule:list',
+  SUBMODULE_INIT: 'submodule:init',
+  SUBMODULE_DEINIT: 'submodule:deinit',
+
+  LFS_LIST: 'lfs:list',
+  LFS_TRACK: 'lfs:track',
+  LFS_UNTRACK: 'lfs:untrack',
 } as const;
 
 export type IpcChannel = (typeof IPC)[keyof typeof IPC];
@@ -305,6 +316,7 @@ export const SettingsSetInput = z.object({
   defaultExternalEditor: z.string().nullable().optional(),
   sidebarWidth: z.number().int().min(200).max(480).optional(),
   inspectorWidth: z.number().int().min(280).max(600).optional(),
+  autoFetchInterval: z.number().int().nonnegative().max(3600).optional(),
 });
 export type SettingsSetInput = z.infer<typeof SettingsSetInput>;
 
@@ -324,6 +336,7 @@ export interface SettingsData {
   defaultExternalEditor: string | null;
   sidebarWidth: number;
   inspectorWidth: number;
+  autoFetchInterval: number;
 }
 
 export const DiffFileInput = z.object({
@@ -459,6 +472,16 @@ export const BlameInput = z.object({
   ref: z.string().optional(),
 });
 export type BlameInput = z.infer<typeof BlameInput>;
+
+export const VerifyCommitInput = z.object({
+  sha: z.string().regex(/^[0-9a-f]{4,40}$/),
+});
+export type VerifyCommitInput = z.infer<typeof VerifyCommitInput>;
+
+export const StashDiffInput = z.object({
+  ref: z.string().min(1),
+});
+export type StashDiffInput = z.infer<typeof StashDiffInput>;
 
 export interface BlameEntry {
   readonly sha: string;
@@ -696,3 +719,28 @@ export interface WatchEvent {
   readonly kind: WatchEventKind;
   readonly ts: number;
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Submodule + LFS input schemas
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const SubmoduleInitInput = z.object({
+  recursive: z.boolean().default(true),
+});
+export type SubmoduleInitInput = z.infer<typeof SubmoduleInitInput>;
+
+export const SubmoduleDeinitInput = z.object({
+  path: z.string().min(1),
+  force: z.boolean().default(false),
+});
+export type SubmoduleDeinitInput = z.infer<typeof SubmoduleDeinitInput>;
+
+export const LfsTrackInput = z.object({
+  pattern: z.string().min(1),
+});
+export type LfsTrackInput = z.infer<typeof LfsTrackInput>;
+
+export const LfsUntrackInput = z.object({
+  pattern: z.string().min(1),
+});
+export type LfsUntrackInput = z.infer<typeof LfsUntrackInput>;

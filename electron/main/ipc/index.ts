@@ -16,6 +16,8 @@ import { registerCompareHandlers } from './compare';
 import { registerRebaseHandlers } from './rebase';
 import { registerAuthHandlers } from './auth';
 import { registerShellHandlers } from './shell';
+import { registerSubmoduleHandlers } from './submodule';
+import { registerLfsHandlers } from './lfs';
 
 export function registerAllHandlers(): void {
   registerRepoHandlers();
@@ -34,4 +36,6 @@ export function registerAllHandlers(): void {
   registerRebaseHandlers();
   registerAuthHandlers();
   registerShellHandlers();
+  registerSubmoduleHandlers();
+  registerLfsHandlers();
 }

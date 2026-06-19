@@ -5,7 +5,7 @@ import { useGraphFilterStore } from '../../stores/graphFilter';
 import { assignLanes } from '../../graph/lane';
 import { laneColorByIndex } from '../../graph/colors';
 import type { Commit, RefLabel } from '@shared/git';
-import { GitCommit, Search, X, EyeOff, Eye } from 'lucide-react';
+import { GitCommit, Search, X, EyeOff, Eye, Clock } from 'lucide-react';
 import { useCheckout, useCreateBranch, useCherryPick, useRevert, useReset, useRebase, useMerge } from '../../queries/useMutations';
 import { ConfirmDialog } from '../ConfirmDialog';
 
@@ -53,6 +53,8 @@ function parseSearchQuery(query: string): ParsedQuery {
 export function GraphPane() {
   const selectedSha = useRepoStore((s) => s.selectedCommitSha);
   const selectCommit = useRepoStore((s) => s.selectCommit);
+  const fileHistoryPath = useRepoStore((s) => s.fileHistoryPath);
+  const setFileHistory = useRepoStore((s) => s.setFileHistory);
   const [limit, setLimit] = useState(200);
   const [searchQuery, setSearchQuery] = useState('');
   const [density, setDensity] = useState<Density>('comfortable');
@@ -62,6 +64,7 @@ export function GraphPane() {
   const [resetConfirmCommit, setResetConfirmCommit] = useState<Commit | null>(null);
   const [resetMode, setResetMode] = useState<'soft' | 'mixed' | 'hard'>('mixed');
   const [mergeConfirmCommit, setMergeConfirmCommit] = useState<Commit | null>(null);
+  const [zoom, setZoom] = useState(1.0);
 
   const checkout = useCheckout();
   const createBranch = useCreateBranch();
@@ -72,7 +75,11 @@ export function GraphPane() {
   const merge = useMerge();
 
   const parsed = useMemo(() => parseSearchQuery(searchQuery), [searchQuery]);
-  const paths = useMemo(() => (parsed.file ? [parsed.file] : undefined), [parsed.file]);
+  const paths = useMemo(() => {
+    if (fileHistoryPath) return [fileHistoryPath];
+    if (parsed.file) return [parsed.file];
+    return undefined;
+  }, [parsed.file, fileHistoryPath]);
 
   const soloedRefs = useGraphFilterStore((s) => s.soloedRefs);
   const mutedRefs = useGraphFilterStore((s) => s.mutedRefs);
@@ -97,6 +104,13 @@ export function GraphPane() {
     window.addEventListener('click', close);
     return () => window.removeEventListener('click', close);
   }, []);
+
+  const handleWheel = (e: React.WheelEvent) => {
+    if (e.ctrlKey || e.metaKey) {
+      e.preventDefault();
+      setZoom(prev => Math.min(2, Math.max(0.5, prev + (e.deltaY > 0 ? -0.1 : 0.1))));
+    }
+  };
 
   const filteredCommits = useMemo(() => {
     if (!log.data?.commits) return [];
@@ -209,6 +223,8 @@ export function GraphPane() {
               {d}
             </button>
           ))}
+          <span className="text-fg-dim mx-1">|</span>
+          <span className="text-xxs text-fg-muted">{Math.round(zoom * 100)}%</span>
         </div>
       </div>
 
@@ -237,11 +253,23 @@ export function GraphPane() {
         </div>
       )}
 
+      {fileHistoryPath && (
+        <div className="border-b border-accent/30 bg-accent/5 px-3 py-1.5 flex items-center gap-2 shrink-0 text-xxs">
+          <Clock className="w-3 h-3 text-accent shrink-0" />
+          <span className="text-fg-muted flex-1">File history: <span className="font-mono text-fg">{fileHistoryPath}</span></span>
+          <button className="icon-btn !w-5 !h-5" onClick={() => setFileHistory(null)} title="Clear file history">
+            <X className="w-3 h-3" />
+          </button>
+        </div>
+      )}
+
       <div
         ref={containerRef}
         className="flex-1 min-w-0 overflow-auto relative"
         onScroll={handleScroll}
+        onWheel={handleWheel}
       >
+        <div style={{ transform: `scale(${zoom})`, transformOrigin: 'top left' }}>
         {commits.length === 0 ? (
           <div className="absolute inset-0 flex flex-col items-center justify-center text-fg-muted text-sm gap-2">
             <GitCommit className="w-8 h-8 text-fg-dim" />
@@ -287,6 +315,7 @@ export function GraphPane() {
             </div>
           </div>
         )}
+        </div>
       </div>
 
       {contextMenu && (

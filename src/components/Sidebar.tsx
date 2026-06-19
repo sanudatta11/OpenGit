@@ -1,9 +1,11 @@
-import { GitBranch, Cloud, Archive, FolderTree } from 'lucide-react';
+import { GitBranch, Cloud, Archive, FolderTree, FolderGit, Database } from 'lucide-react';
 import { useRepoStore, type SidebarTab } from '../stores/repo';
 import { BranchesTab } from './sidebar/BranchesTab';
 import { RemotesTab } from './sidebar/RemotesTab';
 import { StashTab } from './sidebar/StashTab';
 import { WorktreesTab } from './sidebar/WorktreesTab';
+import { SubmodulesTab } from './sidebar/SubmodulesTab';
+import { LFSTab } from './sidebar/LFSTab';
 import { useStatus, useRemotes } from '../queries/useRepo';
 
 const TABS: ReadonlyArray<{ id: SidebarTab; label: string; icon: typeof GitBranch }> = [
@@ -11,6 +13,8 @@ const TABS: ReadonlyArray<{ id: SidebarTab; label: string; icon: typeof GitBranc
   { id: 'remotes', label: 'Remotes', icon: Cloud },
   { id: 'stash', label: 'Stash', icon: Archive },
   { id: 'worktrees', label: 'Worktrees', icon: FolderTree },
+  { id: 'submodules', label: 'Submodules', icon: FolderGit },
+  { id: 'lfs', label: 'LFS', icon: Database },
 ];
 
 export function Sidebar({ sidebarWidth }: { sidebarWidth?: number }) {
@@ -119,6 +123,8 @@ function SidebarPanel({ tab }: { tab: SidebarTab }) {
         {tab === 'remotes' && <RemotesTab />}
         {tab === 'stash' && <StashTab />}
         {tab === 'worktrees' && <WorktreesTab />}
+        {tab === 'submodules' && <SubmodulesTab />}
+        {tab === 'lfs' && <LFSTab />}
         {tab === 'actions' && (
           <div className="p-3 text-xs text-fg-muted">
             Use the Actions tab in the right pane to resolve conflicts or execute operations.

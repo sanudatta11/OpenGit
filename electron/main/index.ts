@@ -38,7 +38,6 @@ async function createWindow(): Promise<BrowserWindow> {
       nodeIntegration: false,
       sandbox: !isDev && !process.env['OPENGIT_NO_SANDBOX'],
       webviewTag: false,
-      spellcheck: false,
     },
   });
 

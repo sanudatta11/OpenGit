@@ -5,6 +5,7 @@ import { Archive, Plus, Play, ArrowDownToLine, Trash2, Loader2 } from 'lucide-re
 import { useStashList, useStashCreate, useStashApply, useStashPop, useStashDrop } from '../../queries/useMutations';
 import { ConfirmDialog } from '../ConfirmDialog';
 import type { StashEntry } from '@shared/git';
+import { api } from '../../ipc/api';
 
 export function StashTab() {
   const { data, isLoading, error } = useStashList();
@@ -12,6 +13,9 @@ export function StashTab() {
   const [confirmDrop, setConfirmDrop] = useState<StashEntry | null>(null);
   const [confirmPop, setConfirmPop] = useState<StashEntry | null>(null);
   const [filter, setFilter] = useState('');
+  const [expandedStash, setExpandedStash] = useState<string | null>(null);
+  const [stashDiffContent, setStashDiffContent] = useState<string>('');
+  const [stashDiffLoading, setStashDiffLoading] = useState(false);
   const drop = useStashDrop();
   const pop = useStashPop();
 
@@ -53,6 +57,22 @@ export function StashTab() {
           entry={s}
           onDrop={() => setConfirmDrop(s)}
           onPop={() => setConfirmPop(s)}
+          onToggleDiff={() => {
+            if (expandedStash === s.ref) {
+              setExpandedStash(null);
+              setStashDiffContent('');
+            } else {
+              setExpandedStash(s.ref);
+              setStashDiffLoading(true);
+              api.stash.diff({ ref: s.ref }).then((d) => {
+                setStashDiffContent(d);
+                setStashDiffLoading(false);
+              }).catch(() => setStashDiffLoading(false));
+            }
+          }}
+          expanded={expandedStash === s.ref}
+          diffLoading={expandedStash === s.ref && stashDiffLoading}
+          diffContent={expandedStash === s.ref ? stashDiffContent : ''}
         />
       ))}
 
@@ -84,7 +104,7 @@ export function StashTab() {
   );
 }
 
-function StashRow({ entry, onDrop, onPop }: { entry: StashEntry; onDrop: () => void; onPop: () => void }) {
+function StashRow({ entry, onDrop, onPop, onToggleDiff, expanded, diffLoading, diffContent }: { entry: StashEntry; onDrop: () => void; onPop: () => void; onToggleDiff: () => void; expanded: boolean; diffLoading: boolean; diffContent: string }) {
   const apply = useStashApply();
   const pop = useStashPop();
   const drop = useStashDrop();
@@ -94,16 +114,33 @@ function StashRow({ entry, onDrop, onPop }: { entry: StashEntry; onDrop: () => v
     <div className="px-3 py-1.5 border-b border-border-subtle/30">
       <div className="flex items-center gap-2">
         <Archive className="w-3.5 h-3.5 shrink-0 text-git-stash" />
-        <span className="font-mono text-fg-muted text-xxs shrink-0">{entry.ref}</span>
+        <button
+          className="font-mono text-fg-muted text-xxs shrink-0 hover:text-accent cursor-pointer"
+          onClick={onToggleDiff}
+          title="Toggle diff preview"
+        >
+          {entry.ref}
+        </button>
         <span className="text-xxs text-fg-dim ml-auto shrink-0">{formatRelative(date)}</span>
       </div>
       <div className="mt-1 text-xs text-fg truncate" title={entry.subject}>{entry.subject}</div>
       {entry.branch && (
         <div className="mt-0.5 text-xxs text-fg-dim">on {entry.branch}</div>
       )}
+      {expanded && (
+        <div className="mt-2 border-t border-border-subtle pt-2 max-h-40 overflow-y-auto">
+          {diffLoading ? (
+            <div className="text-xxs text-fg-muted flex items-center gap-1"><Loader2 className="w-3 h-3 animate-spin" /> Loading diff...</div>
+          ) : diffContent ? (
+            <pre className="text-xxs font-mono text-fg-muted whitespace-pre-wrap">{diffContent.slice(0, 4000)}{diffContent.length > 4000 ? '\n...truncated' : ''}</pre>
+          ) : (
+            <div className="text-xxs text-fg-dim">No diff available.</div>
+          )}
+        </div>
+      )}
       <div className="mt-1.5 flex items-center gap-1">
         <button
-          className="icon-btn !w-5 !h-5 !h-5"
+          className="icon-btn !w-5 !h-5"
           onClick={() => apply.mutate({ ref: entry.ref })}
           disabled={apply.isPending || pop.isPending}
           title="Apply (keep stash)"

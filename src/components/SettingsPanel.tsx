@@ -39,6 +39,7 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
           <PullStrategySection />
           <CommitSection />
           <SigningSection />
+          <AutoFetchSection />
           <ExternalEditorSection />
           <RecentReposSection />
         </div>
@@ -345,6 +346,38 @@ function SigningSection() {
             />
             <span className="uppercase">{v}</span>
           </label>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function AutoFetchSection() {
+  const { data } = useQuery({
+    queryKey: ['settings'],
+    queryFn: () => api.settings.get(),
+  });
+  const qc = useQueryClient();
+  const setSetting = useMutation({
+    mutationFn: (input: Partial<SettingsData>) => api.settings.set(input),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['settings'] }),
+  });
+
+  const intervals = [0, 5, 15, 30, 60];
+
+  return (
+    <section>
+      <h4 className="label mb-2">Auto-fetch</h4>
+      <p className="text-xs text-fg-muted mb-2">Automatically fetch from all remotes at the given interval (minutes).</p>
+      <div className="flex gap-1">
+        {intervals.map((v) => (
+          <button
+            key={v}
+            className={`btn !text-xxs ${data?.autoFetchInterval === v ? 'btn-primary' : ''}`}
+            onClick={() => void setSetting.mutate({ autoFetchInterval: v })}
+          >
+            {v === 0 ? 'Off' : `${v}m`}
+          </button>
         ))}
       </div>
     </section>

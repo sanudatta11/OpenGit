@@ -21,6 +21,7 @@ export interface Settings {
   defaultExternalEditor: string | null;
   sidebarWidth: number;
   inspectorWidth: number;
+  autoFetchInterval: number;
 }
 
 const DEFAULTS: Settings = {
@@ -39,6 +40,7 @@ const DEFAULTS: Settings = {
   defaultExternalEditor: null,
   sidebarWidth: 256,
   inspectorWidth: 360,
+  autoFetchInterval: 0,
 };
 
 const MAX_RECENT = 10;
