@@ -123,6 +123,15 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
         run: |
+          # Disable empty signing environment variables to prevent electron-builder from treating them as paths
+          # (empty strings resolve to the workspace root directory and fail with "not a file")
+          [ -z "$CSC_LINK" ] && unset CSC_LINK
+          [ -z "$WIN_CSC_LINK" ] && unset WIN_CSC_LINK
+          [ -z "$CSC_KEY_PASSWORD" ] && unset CSC_KEY_PASSWORD
+          [ -z "$APPLE_ID" ] && unset APPLE_ID
+          [ -z "$APPLE_APP_SPECIFIC_PASSWORD" ] && unset APPLE_APP_SPECIFIC_PASSWORD
+          [ -z "$APPLE_TEAM_ID" ] && unset APPLE_TEAM_ID
+
           npx electron-builder \
             --publish never \
             --config.extraMetadata.version="${{ needs.meta.outputs.version }}"
