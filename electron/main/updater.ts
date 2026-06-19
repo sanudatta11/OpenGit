@@ -6,8 +6,9 @@
 // a stable-installed user can opt into the beta track without reinstalling.
 
 import { BrowserWindow } from 'electron';
-import { autoUpdater } from 'electron-updater';
+import updaterPkg from 'electron-updater';
 import type { UpdateInfo } from 'electron-updater';
+const { autoUpdater } = updaterPkg;
 import { IPC, type UpdaterEvent, type UpdaterInfo, type UpdaterCheckResult } from '@shared/ipc';
 import { loadSettings } from './settings';
 
