@@ -2,7 +2,7 @@
 
 import './monaco/setup';
 
-import React from 'react';
+import React, { useRef, useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import App from './App';
@@ -10,7 +10,9 @@ import './index.css';
 import { useLogStore } from './stores/log';
 import { api } from './ipc/api';
 import { RebaseEditor } from './components/rebase/RebaseEditor';
+import { RepoSwitchOverlay } from './components/RepoSwitchOverlay';
 import { ToastContainer } from './components/ToastContainer';
+import { useRepoStore } from './stores/repo';
 import { initTheme } from './stores/theme';
 
 // Initialize theme from settings before first render.
@@ -48,13 +50,37 @@ api.watch.onEvent((evt) => {
   }
 });
 
+function AppShell() {
+  const isSwitching = useRepoStore((s) => s.isSwitchingRepo);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = wrapperRef.current;
+    if (!el) return;
+    if (isSwitching) {
+      el.setAttribute('inert', '');
+      el.setAttribute('aria-hidden', 'true');
+    } else {
+      el.removeAttribute('inert');
+      el.removeAttribute('aria-hidden');
+    }
+  }, [isSwitching]);
+  return (
+    <>
+      <div ref={wrapperRef}>
+        <App />
+        <RebaseEditor />
+      </div>
+      <RepoSwitchOverlay />
+      <ToastContainer />
+    </>
+  );
+}
+
 const root = createRoot(document.getElementById('root')!);
 root.render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
-      <App />
-      <RebaseEditor />
-      <ToastContainer />
+      <AppShell />
     </QueryClientProvider>
   </React.StrictMode>,
 );

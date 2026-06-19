@@ -33,6 +33,9 @@ interface RepoStore {
 
   sidebarCollapsed: boolean;
   toggleSidebarCollapsed: () => void;
+
+  isSwitchingRepo: boolean;
+  setSwitchingRepo: (v: boolean) => void;
 }
 
 export type SidebarTab = 'branches' | 'remotes' | 'stash' | 'worktrees' | 'submodules' | 'lfs' | 'actions';
@@ -103,6 +106,9 @@ export const useRepoStore = create<RepoStore>((set) => ({
 
   sidebarCollapsed: false,
   toggleSidebarCollapsed: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
+
+  isSwitchingRepo: false,
+  setSwitchingRepo: (v) => set({ isSwitchingRepo: v }),
 }));
 
 // Commit cache: sha → Commit.

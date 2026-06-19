@@ -33,10 +33,19 @@ export function useSwitchRepo() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (path: string) => api.repo.setActive(path),
+    onMutate: () => {
+      useRepoStore.getState().setSwitchingRepo(true);
+    },
     onSuccess: (info) => {
-      if (!info) return;
+      if (!info) {
+        useRepoStore.getState().setSwitchingRepo(false);
+        return;
+      }
       switchRepo(info.path);
       qc.removeQueries();
+    },
+    onError: () => {
+      useRepoStore.getState().setSwitchingRepo(false);
     },
   });
 }
