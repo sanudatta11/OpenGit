@@ -14,10 +14,9 @@
     "start": "electron-vite preview",
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.node.json",
     "typecheck:src": "tsc --noEmit -p tsconfig.json",
-    "lint": "eslint . --ext .ts,.tsx",
+    "lint": "eslint .",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "playwright test",
     "package": "electron-vite build && electron-builder"
   },
   "dependencies": {

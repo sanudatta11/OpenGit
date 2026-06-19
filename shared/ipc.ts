@@ -51,6 +51,9 @@ export const IPC = {
   REMOTE_FETCH: 'remote:fetch',
   REMOTE_PULL: 'remote:pull',
   REMOTE_PUSH: 'remote:push',
+  REMOTE_ADD: 'remote:add',
+  REMOTE_REMOVE: 'remote:remove',
+  REMOTE_SET_URL: 'remote:setUrl',
 
   WORKTREE_LIST: 'worktree:list',
   WORKTREE_CREATE: 'worktree:create',
@@ -347,6 +350,62 @@ export const ConflictVersionsInput = z.object({
   path: z.string().min(1),
 });
 export type ConflictVersionsInput = z.infer<typeof ConflictVersionsInput>;
+
+export const BranchRenameInput = z.object({
+  oldName: z.string().min(1),
+  newName: z.string().regex(/^[^\s~^:?*\[]+$/),
+});
+export type BranchRenameInput = z.infer<typeof BranchRenameInput>;
+
+export const BranchSetUpstreamInput = z.object({
+  branch: z.string().min(1),
+  upstream: z.string().min(1),
+});
+export type BranchSetUpstreamInput = z.infer<typeof BranchSetUpstreamInput>;
+
+export const RevertInput = z.object({
+  shas: z.array(z.string().regex(/^[0-9a-f]{4,40}$/)).min(1),
+  noCommit: z.boolean().default(false),
+});
+export type RevertInput = z.infer<typeof RevertInput>;
+
+export const HunkStageInput = z.object({
+  path: z.string().min(1),
+  patch: z.string().min(1),
+});
+export type HunkStageInput = z.infer<typeof HunkStageInput>;
+
+export const RebaseInteractivePlanInput = z.object({
+  onto: z.string().min(1),
+});
+export type RebaseInteractivePlanInput = z.infer<typeof RebaseInteractivePlanInput>;
+
+export const RebaseInteractiveApplyInput = z.object({
+  onto: z.string().min(1),
+  items: z.array(z.object({
+    action: z.enum(['pick', 'reword', 'edit', 'squash', 'fixup', 'exec', 'drop']),
+    sha: z.string().regex(/^[0-9a-f]{4,40}$/),
+  })).min(1),
+});
+export type RebaseInteractiveApplyInput = z.infer<typeof RebaseInteractiveApplyInput>;
+
+export const ConflictFileInput = z.object({
+  path: z.string().min(1),
+});
+export type ConflictFileInput = z.infer<typeof ConflictFileInput>;
+
+export const ConflictResolveInput = z.object({
+  path: z.string().min(1),
+  content: z.string(),
+});
+export type ConflictResolveInput = z.infer<typeof ConflictResolveInput>;
+
+export const DiffCommitsInput = z.object({
+  base: z.string().min(1),
+  ref: z.string().min(1),
+  paths: z.array(z.string()).optional(),
+});
+export type DiffCommitsInput = z.infer<typeof DiffCommitsInput>;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Output envelope (writes)

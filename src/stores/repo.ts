@@ -20,7 +20,7 @@ interface RepoStore {
   setSidebarTab: (t: SidebarTab) => void;
 }
 
-export type SidebarTab = 'history' | 'branches' | 'remotes' | 'stash' | 'worktrees';
+export type SidebarTab = 'history' | 'branches' | 'remotes' | 'stash' | 'worktrees' | 'actions';
 
 export const useRepoStore = create<RepoStore>((set) => ({
   repo: null,

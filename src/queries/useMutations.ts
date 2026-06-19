@@ -180,6 +180,17 @@ export function useStashDrop() {
   });
 }
 
+// ── Reset ─────────────────────────────────────────────────────────────────────
+
+export function useReset() {
+  const refresh = useRefreshOnSuccess();
+  return useMutation({
+    mutationFn: (input: { ref: string; mode: 'soft' | 'mixed' | 'hard' }) =>
+      api.branch.reset(input.ref, input.mode),
+    onSuccess: (r) => refresh(r.requiresRefresh),
+  });
+}
+
 // ── Operations (merge/rebase/cherry-pick/revert + abort/continue/skip) ───────
 
 export function useMerge() {

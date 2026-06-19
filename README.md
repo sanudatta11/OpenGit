@@ -7,7 +7,7 @@
 A lightweight desktop Git client for local repository workflows, built with Electron, React, Vite, and TypeScript.
 
 ![Dark graph-first workspace](https://img.shields.io/badge/status-alpha-orange)
-![Tests](https://img.shields.io/badge/tests-44%20passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-53%20passing-brightgreen)
 
 ## Features
 
@@ -47,7 +47,7 @@ npm run dev
 | `npm run dev` | Start in development mode with HMR |
 | `npm run build` | Build for production |
 | `npm start` | Preview production build |
-| `npm test` | Run 44 unit + integration tests |
+| `npm test` | Run 53 unit + integration tests |
 | `npm run typecheck` | TypeScript type-check |
 | `npm run lint` | ESLint |
 | `npm run package` | Build distributables (dmg/nsis/AppImage) |
@@ -83,7 +83,7 @@ opengit/
 | Diff viewer | Monaco Editor 0.55 + @monaco-editor/react 4.7 |
 | IPC validation | Zod 3 |
 | Icons | Lucide React |
-| Tests | Vitest 2 (44 tests against temp git repos) |
+| Tests | Vitest 2 (53 tests against temp git repos) |
 
 ## Safety Model
 

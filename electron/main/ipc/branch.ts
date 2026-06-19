@@ -1,9 +1,10 @@
-// electron/main/ipc/branch.ts — branch checkout/create/delete/rename/set-upstream IPC handlers.
+// electron/main/ipc/branch.ts — branch checkout/create/delete/rename/set-upstream/reset IPC handlers.
 
 import { ipcMain } from 'electron';
 import {
   IPC, GitError,
   BranchCheckoutInput, BranchCreateInput, BranchDeleteInput,
+  BranchRenameInput, BranchSetUpstreamInput, BranchResetInput,
 } from '@shared/ipc';
 import {
   checkoutBranch, createBranch, deleteBranch, renameBranch, setUpstream,
@@ -33,17 +34,25 @@ export function registerBranchHandlers(): void {
   });
 
   ipcMain.handle(IPC.BRANCH_RENAME, async (_e, raw) => {
-    const { oldName, newName } = raw as { oldName: string; newName: string };
-    if (!oldName || !newName) throw badInput('Missing oldName or newName');
+    const parsed = BranchRenameInput.safeParse(raw);
+    if (!parsed.success) throw badInput(parsed.error.message);
     const r = requireCurrentRepo();
-    return renameBranch(r.workTreeRoot, oldName, newName);
+    return renameBranch(r.workTreeRoot, parsed.data.oldName, parsed.data.newName);
   });
 
   ipcMain.handle(IPC.BRANCH_SET_UPSTREAM, async (_e, raw) => {
-    const { branch, upstream } = raw as { branch: string; upstream: string };
-    if (!branch || !upstream) throw badInput('Missing branch or upstream');
+    const parsed = BranchSetUpstreamInput.safeParse(raw);
+    if (!parsed.success) throw badInput(parsed.error.message);
     const r = requireCurrentRepo();
-    return setUpstream(r.workTreeRoot, branch, upstream);
+    return setUpstream(r.workTreeRoot, parsed.data.branch, parsed.data.upstream);
+  });
+
+  ipcMain.handle(IPC.BRANCH_RESET, async (_e, raw) => {
+    const parsed = BranchResetInput.safeParse(raw);
+    if (!parsed.success) throw badInput(parsed.error.message);
+    const r = requireCurrentRepo();
+    const { resetBranch } = await import('../git/operations');
+    return resetBranch(r.workTreeRoot, parsed.data.ref, parsed.data.mode);
   });
 }
 

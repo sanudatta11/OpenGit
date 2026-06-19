@@ -5,7 +5,7 @@ import {
   IPC, GitError,
   BranchMergeInput, BranchRebaseInput, CherryPickInput, OperationInput,
   MergePreviewInput, PullPreviewInput, PushPreviewInput, RebasePlanInput,
-  ConflictVersionsInput,
+  ConflictVersionsInput, RevertInput, ConflictFileInput, ConflictResolveInput,
 } from '@shared/ipc';
 import {
   mergeBranch, rebaseBranch, cherryPick, revertCommits,
@@ -135,10 +135,10 @@ export function registerOperationsHandlers(): void {
   });
 
   ipcMain.handle(IPC.COMMIT_REVERT, async (_e, raw) => {
-    const { shas, noCommit } = raw as { shas: string[]; noCommit?: boolean };
-    if (!shas || !Array.isArray(shas) || shas.length === 0) throw badInput('Missing shas');
+    const parsed = RevertInput.safeParse(raw);
+    if (!parsed.success) throw badInput(parsed.error.message);
     const r = requireCurrentRepo();
-    return revertCommits(r.workTreeRoot, shas, !!noCommit);
+    return revertCommits(r.workTreeRoot, parsed.data.shas, parsed.data.noCommit);
   });
 
   ipcMain.handle(IPC.OPERATION_ABORT, async (_e, raw) => {
@@ -163,14 +163,14 @@ export function registerOperationsHandlers(): void {
   });
 
   ipcMain.handle(IPC.CONFLICT_FILE, async (_e, raw) => {
-    const { path } = raw as { path: string };
-    if (!path) throw badInput('Missing path');
+    const parsed = ConflictFileInput.safeParse(raw);
+    if (!parsed.success) throw badInput(parsed.error.message);
     const r = requireCurrentRepo();
-    const fsPath = join(r.workTreeRoot, path);
+    const fsPath = join(r.workTreeRoot, parsed.data.path);
     if (!existsSync(fsPath)) throw badInput('File not found');
     const content = readFileSync(fsPath, 'utf8');
     const blocks = parseConflictContent(content);
-    return { path, blocks };
+    return { path: parsed.data.path, blocks };
   });
 
   ipcMain.handle(IPC.CONFLICT_VERSIONS, async (_e, raw) => {
@@ -182,14 +182,14 @@ export function registerOperationsHandlers(): void {
   });
 
   ipcMain.handle(IPC.CONFLICT_RESOLVE, async (_e, raw) => {
-    const { path, content } = raw as { path: string; content: string };
-    if (!path || content === undefined) throw badInput('Missing path or content');
+    const parsed = ConflictResolveInput.safeParse(raw);
+    if (!parsed.success) throw badInput(parsed.error.message);
     const r = requireCurrentRepo();
-    const fsPath = join(r.workTreeRoot, path);
-    writeFileSync(fsPath, content, 'utf8');
+    const fsPath = join(r.workTreeRoot, parsed.data.path);
+    writeFileSync(fsPath, parsed.data.content, 'utf8');
     const stage = await gitRun({
       cwd: r.workTreeRoot,
-      args: ['add', path],
+      args: ['add', parsed.data.path],
       channel: 'conflict:resolve',
       reject: false,
     });

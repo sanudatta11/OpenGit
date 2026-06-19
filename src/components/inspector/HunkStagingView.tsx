@@ -8,13 +8,13 @@ import type { Hunk, DiffLine } from '@shared/git';
 interface HunkStagingViewProps {
   path: string;
   staged: boolean;
+  oldPath?: string | null;
+  status?: 'added' | 'modified' | 'deleted' | 'renamed';
 }
 
-export function HunkStagingView({ path, staged }: HunkStagingViewProps) {
+export function HunkStagingView({ path, staged, oldPath, status }: HunkStagingViewProps) {
   const qc = useQueryClient();
 
-  // Query diff for this file.
-  // Note: if staged is true, diff is between HEAD and index. If staged is false, diff is between index and working tree.
   const { data, isLoading, error } = useQuery({
     queryKey: ['diffFileHunks', path, staged],
     queryFn: () =>
@@ -22,12 +22,6 @@ export function HunkStagingView({ path, staged }: HunkStagingViewProps) {
         path,
         contextLines: 3,
         ignoreWhitespace: false,
-        // If staged is true, diff is HEAD..index. The API call getDiff with no ref/base parameters compares working tree vs index.
-        // Wait, if the file is staged, we want to see what is staged (HEAD vs index). So base = 'HEAD', ref = 'INDEX' ?
-        // Let's check how main processes it: if opts.ref is provided, it diffs HEAD/commit vs working tree.
-        // For working tree vs index (unstaged): no ref/base is needed.
-        // For staged: if we pass base='HEAD', we get HEAD vs working tree or similar.
-        // Actually, let's just query the default diff, which gives working tree vs index (unstaged changes), or we can pass ref: 'HEAD' to compare index/working tree vs HEAD.
         ref: staged ? 'HEAD' : undefined,
       }),
     refetchOnWindowFocus: false,
@@ -64,6 +58,7 @@ export function HunkStagingView({ path, staged }: HunkStagingViewProps) {
   }
 
   const hunks = data?.hunks ?? [];
+  const fileStatus = status ?? data?.oldPath ? 'renamed' : 'modified';
 
   if (hunks.length === 0) {
     return (
@@ -74,12 +69,12 @@ export function HunkStagingView({ path, staged }: HunkStagingViewProps) {
   }
 
   const handleStageHunk = (h: Hunk) => {
-    const patch = generatePatch(path, h);
+    const patch = generatePatch(path, h, fileStatus, oldPath ?? data?.oldPath);
     void stageHunkMutation.mutate(patch);
   };
 
   const handleUnstageHunk = (h: Hunk) => {
-    const patch = generatePatch(path, h);
+    const patch = generatePatch(path, h, fileStatus, oldPath ?? data?.oldPath);
     void unstageHunkMutation.mutate(patch);
   };
 
@@ -128,11 +123,30 @@ export function HunkStagingView({ path, staged }: HunkStagingViewProps) {
   );
 }
 
-function generatePatch(path: string, hunk: Hunk): string {
+function generatePatch(path: string, hunk: Hunk, status?: string, oldPath?: string | null): string {
   const lines: string[] = [];
-  lines.push(`diff --git a/${path} b/${path}`);
-  lines.push(`--- a/${path}`);
-  lines.push(`+++ b/${path}`);
+  const useOldPath = (status === 'deleted' || status === 'renamed') && oldPath ? oldPath : path;
+
+  if (status === 'added') {
+    lines.push(`diff --git a/${path} b/${path}`);
+    lines.push('new file mode 100644');
+    lines.push('--- /dev/null');
+    lines.push(`+++ b/${path}`);
+  } else if (status === 'deleted') {
+    lines.push(`diff --git a/${path} b/${path}`);
+    lines.push('deleted file mode 100644');
+    lines.push(`--- a/${path}`);
+    lines.push('+++ /dev/null');
+  } else if (status === 'renamed' && oldPath) {
+    lines.push(`diff --git a/${oldPath} b/${path}`);
+    lines.push(`--- a/${oldPath}`);
+    lines.push(`+++ b/${path}`);
+  } else {
+    lines.push(`diff --git a/${useOldPath} b/${path}`);
+    lines.push(`--- a/${useOldPath}`);
+    lines.push(`+++ b/${path}`);
+  }
+
   lines.push(hunk.header);
   for (const line of hunk.lines) {
     if (line.type === 'context') {
@@ -141,6 +155,8 @@ function generatePatch(path: string, hunk: Hunk): string {
       lines.push(`+${line.text}`);
     } else if (line.type === 'del') {
       lines.push(`-${line.text}`);
+    } else if (line.type === 'no-newline') {
+      lines.push('\\ No newline at end of file');
     }
   }
   return lines.join('\n') + '\n';

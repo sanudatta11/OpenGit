@@ -1,9 +1,10 @@
 // src/components/InProgressBanner.tsx — banner shown when a git operation is in progress.
 // Offers abort/continue/skip based on the operation kind.
 
-import { AlertTriangle, X, Play, SkipForward, Loader2 } from 'lucide-react';
+import { AlertTriangle, X, Play, SkipForward, Loader2, ExternalLink } from 'lucide-react';
 import { useState } from 'react';
 import { useAbortOperation, useContinueOperation, useSkipOperation } from '../queries/useMutations';
+import { useRepoStore } from '../stores/repo';
 import { ConfirmDialog } from './ConfirmDialog';
 import type { InProgressState, OperationKind } from '@shared/git';
 
@@ -59,9 +60,18 @@ function BannerRow({ state, onAbort }: { state: InProgressState; onAbort: () => 
           {stepLabel && <span className="text-fg-muted font-normal ml-2">· {stepLabel}</span>}
         </div>
         {conflictCount > 0 && (
-          <div className="text-xxs text-fg-muted mt-0.5">
-            {conflictCount} conflict{conflictCount === 1 ? '' : 's'} to resolve
-          </div>
+          <>
+            <div className="text-xxs text-fg-muted mt-0.5">
+              {conflictCount} conflict{conflictCount === 1 ? '' : 's'} to resolve
+            </div>
+            <button
+              className="text-xxs text-accent hover:underline mt-1 inline-flex items-center gap-0.5"
+              onClick={() => useRepoStore.getState().setSidebarTab('actions')}
+            >
+              Resolve conflicts
+              <ExternalLink className="w-3 h-3" />
+            </button>
+          </>
         )}
       </div>
       <div className="flex items-center gap-1 shrink-0">

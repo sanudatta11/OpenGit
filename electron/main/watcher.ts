@@ -8,6 +8,7 @@ import { BrowserWindow } from 'electron';
 import { IPC, type WatchEvent, type WatchEventKind } from '@shared/ipc';
 
 let watcher: FSWatcher | null = null;
+let workWatcher: FSWatcher | null = null;
 let debounceTimer: NodeJS.Timeout | null = null;
 const pendingKinds = new Set<WatchEventKind>();
 
@@ -20,7 +21,7 @@ const PATH_TO_KIND: Readonly<Record<string, WatchEventKind>> = {
   BISECT_LOG: 'bisect',
 };
 
-export function startWatching(gitDir: string, win: BrowserWindow): void {
+export function startWatching(gitDir: string, workTreeRoot: string, win: BrowserWindow): void {
   void stopWatching();
 
   const refsDir = join(gitDir, 'refs');
@@ -43,7 +44,6 @@ export function startWatching(gitDir: string, win: BrowserWindow): void {
 
   watcher.on('all', (_event, path) => {
     const base = path.split('/').pop() ?? path;
-    // Skip if path is under rebase-merge/ or rebase-apply/ (those are rebase progress, not state changes per se)
     if (path.includes('rebase-merge/') || path.includes('rebase-apply/')) {
       pendingKinds.add('rebase');
     } else if (path.includes('/refs/')) {
@@ -51,8 +51,30 @@ export function startWatching(gitDir: string, win: BrowserWindow): void {
     } else {
       const kind = PATH_TO_KIND[base];
       if (kind) pendingKinds.add(kind);
-      else pendingKinds.add('index'); // unknown change in .git root → treat as index-ish
+      else pendingKinds.add('index');
     }
+
+    if (debounceTimer) clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(() => {
+      const kinds = [...pendingKinds];
+      pendingKinds.clear();
+      debounceTimer = null;
+      for (const kind of kinds) {
+        const evt: WatchEvent = { kind, ts: Date.now() };
+        if (!win.isDestroyed()) win.webContents.send(IPC.WATCH_EVENT, evt);
+      }
+    }, 150);
+  });
+
+  workWatcher = chokidar.watch('.', {
+    cwd: workTreeRoot,
+    ignoreInitial: true,
+    ignored: /(\.git\/|node_modules|\.next)/,
+    depth: 0,
+  });
+
+  workWatcher.on('all', () => {
+    pendingKinds.add('index');
 
     if (debounceTimer) clearTimeout(debounceTimer);
     debounceTimer = setTimeout(() => {
@@ -76,5 +98,9 @@ export async function stopWatching(): Promise<void> {
   if (watcher) {
     await watcher.close();
     watcher = null;
+  }
+  if (workWatcher) {
+    await workWatcher.close();
+    workWatcher = null;
   }
 }

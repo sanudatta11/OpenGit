@@ -6,7 +6,7 @@ import { api } from '../../ipc/api';
 import { useBranches, useRemotes } from '../../queries/useRepo';
 import { useMerge, useRebase, usePull, usePush } from '../../queries/useMutations';
 import { ArrowDown, ArrowUp, GitMerge, GitPullRequest, AlertTriangle, Loader2 } from 'lucide-react';
-import type { MergePreview, PullPreview, PushPreview, RebasePlan } from '@shared/ipc';
+import type { MergePreview, PullPreview, PushPreview, RebasePlan, RemotePullInput } from '@shared/ipc';
 import { useRebaseStore } from '../../stores/rebase';
 
 type OpType = 'merge' | 'pull' | 'push' | 'rebase';
@@ -98,7 +98,8 @@ export function OperationPreviewPanel() {
       await pullMutation.mutateAsync({
         remote: remoteName,
         strategy: pullStrategy,
-      } as any);
+        ffOnly: pullStrategy === 'ff-only',
+      } as unknown as RemotePullInput);
     } else if (op === 'push') {
       await pushMutation.mutateAsync({
         remote: remoteName,

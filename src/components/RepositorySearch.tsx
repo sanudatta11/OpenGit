@@ -58,7 +58,6 @@ export function RepositorySearch({ open, onClose }: RepositorySearchProps) {
         setSidebarTab('history');
       }
     } else if (item.kind === 'file') {
-      // Just select or set some file state if available; here we close for now
     } else if (item.kind === 'stash') {
       setSidebarTab('stash');
     }

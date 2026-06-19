@@ -14,6 +14,7 @@ import { registerSettingsHandlers } from './settings';
 import { registerTerminalHandlers } from './terminal';
 import { registerCompareHandlers } from './compare';
 import { registerRebaseHandlers } from './rebase';
+import { registerAuthHandlers } from './auth';
 
 export function registerAllHandlers(): void {
   registerRepoHandlers();
@@ -30,4 +31,5 @@ export function registerAllHandlers(): void {
   registerTerminalHandlers();
   registerCompareHandlers();
   registerRebaseHandlers();
+  registerAuthHandlers();
 }

@@ -10,6 +10,8 @@ const EXTENSION_MAP: Record<string, string> = {
   json: 'json',
   jsonc: 'json',
   md: 'markdown',
+  markdown: 'markdown',
+  mdx: 'markdown',
   yml: 'yaml',
   yaml: 'yaml',
   toml: 'ini',
@@ -18,6 +20,8 @@ const EXTENSION_MAP: Record<string, string> = {
   less: 'less',
   html: 'html',
   htm: 'html',
+  handlebars: 'handlebars',
+  hbs: 'handlebars',
   xml: 'xml',
   svg: 'xml',
   py: 'python',
@@ -29,6 +33,7 @@ const EXTENSION_MAP: Record<string, string> = {
   swift: 'swift',
   c: 'c',
   cpp: 'cpp',
+  cc: 'cpp',
   h: 'c',
   hpp: 'cpp',
   cs: 'csharp',
@@ -60,6 +65,7 @@ const EXTENSION_MAP: Record<string, string> = {
   ini: 'ini',
   cfg: 'ini',
   conf: 'ini',
+  gradle: 'ini',
   txt: 'plaintext',
   log: 'plaintext',
   diff: 'diff',
@@ -67,6 +73,11 @@ const EXTENSION_MAP: Record<string, string> = {
 };
 
 export function extensionForLanguage(filePath: string): string {
+  const base = filePath.split('/').pop() ?? filePath;
+  const lower = base.toLowerCase();
+  if (lower === 'dockerfile') return 'dockerfile';
+  if (lower === 'makefile') return 'makefile';
+  if (lower === '.gitignore' || lower === '.gitattributes') return 'plaintext';
   const dot = filePath.lastIndexOf('.');
   if (dot === -1) return 'plaintext';
   const ext = filePath.slice(dot + 1).toLowerCase();

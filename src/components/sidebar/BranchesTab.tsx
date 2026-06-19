@@ -4,8 +4,10 @@ import { useState } from 'react';
 import { GitBranch, Tag, Cloud, Check, Plus, Trash2, Loader2 } from 'lucide-react';
 import { useBranches } from '../../queries/useRepo';
 import { useCheckout, useCreateBranch, useDeleteBranch } from '../../queries/useMutations';
+import { useQueryClient } from '@tanstack/react-query';
 import type { Branch, RefKind } from '@shared/git';
 import { ConfirmDialog } from '../ConfirmDialog';
+import { api } from '../../ipc/api';
 
 export function BranchesTab() {
   const { data, isLoading, error } = useBranches();
@@ -13,6 +15,32 @@ export function BranchesTab() {
   const [showCreate, setShowCreate] = useState(false);
   const [filter, setFilter] = useState('');
   const del = useDeleteBranch();
+  const qc = useQueryClient();
+  const [showTagCreate, setShowTagCreate] = useState(false);
+  const [tagName, setTagName] = useState('');
+  const [tagStart, setTagStart] = useState('HEAD');
+
+  const handleTagCreate = async () => {
+    if (!tagName.trim()) return;
+    try {
+      await api.terminal.run(`git tag -a ${tagName.trim()} ${tagStart.trim() || 'HEAD'} -m "${tagName.trim()}"`);
+      setTagName('');
+      setTagStart('HEAD');
+      setShowTagCreate(false);
+      void qc.invalidateQueries({ queryKey: ['branches'] });
+    } catch (err) {
+      console.error('Tag create failed:', err);
+    }
+  };
+
+  const handleTagDelete = async (branch: Branch) => {
+    try {
+      await api.terminal.run(`git tag -d ${branch.shortName}`);
+      void qc.invalidateQueries({ queryKey: ['branches'] });
+    } catch (err) {
+      console.error('Tag delete failed:', err);
+    }
+  };
 
   if (isLoading) return <div className="p-3 text-fg-muted text-xs">Loading…</div>;
   if (error) return <div className="p-3 text-git-deleted text-xs">{(error as Error).message}</div>;
@@ -58,8 +86,41 @@ export function BranchesTab() {
       <Section title="Remote" count={remotes.length}>
         {remotes.map((b) => <BranchRow key={b.name} branch={b} />)}
       </Section>
-      <Section title="Tags" count={tags.length}>
-        {tags.map((b) => <BranchRow key={b.name} branch={b} />)}
+      <Section title="Tags" count={tags.length} actions={
+        <button className="icon-btn !w-5 !h-5" onClick={() => setShowTagCreate(!showTagCreate)} title="New tag">
+          <Plus className="w-3 h-3" />
+        </button>
+      }>
+        {showTagCreate && (
+          <div className="px-3 py-2 border-b border-border-subtle space-y-2">
+            <input
+              className="input w-full"
+              placeholder="Tag name"
+              value={tagName}
+              onChange={(e) => setTagName(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') handleTagCreate(); }}
+              autoFocus
+            />
+            <input
+              className="input w-full"
+              placeholder="Start point (default: HEAD)"
+              value={tagStart}
+              onChange={(e) => setTagStart(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') handleTagCreate(); }}
+            />
+            <div className="flex items-center justify-end gap-1">
+              <button className="btn !text-xxs !px-2 !py-0.5" onClick={() => { setShowTagCreate(false); setTagName(''); setTagStart('HEAD'); }}>Cancel</button>
+              <button
+                className="btn btn-primary !text-xxs !px-2 !py-0.5"
+                onClick={handleTagCreate}
+                disabled={!tagName.trim()}
+              >
+                Create Tag
+              </button>
+            </div>
+          </div>
+        )}
+        {tags.map((b) => <BranchRow key={b.name} branch={b} onDelete={handleTagDelete} />)}
       </Section>
 
       <ConfirmDialog
@@ -162,6 +223,15 @@ function BranchRow({ branch, onDelete }: { branch: Branch; onDelete?: (b: Branch
                 onClick={(e) => { e.stopPropagation(); onDelete(branch); }}
                 disabled={del.isPending}
                 title="Delete branch"
+              >
+                <Trash2 className="w-3 h-3" />
+              </button>
+            )}
+            {branch.kind === 'tag' && onDelete && (
+              <button
+                className="icon-btn !w-5 !h-5 hover:text-git-deleted opacity-60 hover:opacity-100"
+                onClick={(e) => { e.stopPropagation(); onDelete(branch); }}
+                title="Delete tag"
               >
                 <Trash2 className="w-3 h-3" />
               </button>

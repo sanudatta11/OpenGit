@@ -36,7 +36,7 @@ async function createWindow(): Promise<BrowserWindow> {
       preload: resolvePreload(),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: !process.env['OPENGIT_NO_SANDBOX'],
+      sandbox: !isDev && !process.env['OPENGIT_NO_SANDBOX'],
       webviewTag: false,
       spellcheck: false,
     },

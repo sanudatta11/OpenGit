@@ -2,7 +2,7 @@
 
 import { ipcMain } from 'electron';
 import {
-  IPC, PathListInput, GitError,
+  IPC, PathListInput, HunkStageInput, GitError,
 } from '@shared/ipc';
 import {
   stagePaths, stageAll, unstagePaths, unstageAll,
@@ -39,9 +39,6 @@ export function registerWorkingTreeHandlers(): void {
     const parsed = PathListInput.safeParse(raw);
     if (!parsed.success) throw badInput(parsed.error.message, 'Invalid discard request.');
     const r = requireCurrentRepo();
-    // Caller classifies tracked vs untracked; we run both in parallel-safe sequence.
-    // For simplicity, try checkout first (tracked); if file is untracked, caller
-    // should pass it via the untracked channel. Here we just checkout.
     return discardPaths(r.workTreeRoot, parsed.data.paths);
   });
 
@@ -53,17 +50,17 @@ export function registerWorkingTreeHandlers(): void {
   });
 
   ipcMain.handle(IPC.WORKING_TREE_STAGE_HUNKS, async (_e, raw) => {
+    const parsed = HunkStageInput.safeParse(raw);
+    if (!parsed.success) throw badInput(parsed.error.message, 'Invalid hunk stage request.');
     const r = requireCurrentRepo();
-    const { path, patch } = raw as { path: string; patch: string };
-    if (!path || !patch) throw badInput('Missing path or patch', 'Invalid hunk stage request.');
-    return stageHunks(r.workTreeRoot, path, patch);
+    return stageHunks(r.workTreeRoot, parsed.data.path, parsed.data.patch);
   });
 
   ipcMain.handle(IPC.WORKING_TREE_UNSTAGE_HUNKS, async (_e, raw) => {
+    const parsed = HunkStageInput.safeParse(raw);
+    if (!parsed.success) throw badInput(parsed.error.message, 'Invalid hunk unstage request.');
     const r = requireCurrentRepo();
-    const { path, patch } = raw as { path: string; patch: string };
-    if (!path || !patch) throw badInput('Missing path or patch', 'Invalid hunk unstage request.');
-    return unstageHunks(r.workTreeRoot, path, patch);
+    return unstageHunks(r.workTreeRoot, parsed.data.path, parsed.data.patch);
   });
 }
 

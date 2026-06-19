@@ -46,7 +46,7 @@ export function registerRepoHandlers(): void {
       setCurrentRepo(opened);
       addRecentRepo(opened.info.path);
       const win = BrowserWindow.getFocusedWindow();
-      if (win) startWatching(opened.gitDir, win);
+      if (win) startWatching(opened.gitDir, opened.workTreeRoot, win);
     }
     return result;
   });
@@ -60,7 +60,7 @@ export function registerRepoHandlers(): void {
       setCurrentRepo(opened);
       addRecentRepo(opened.info.path);
       const win = BrowserWindow.getFocusedWindow();
-      if (win) startWatching(opened.gitDir, win);
+      if (win) startWatching(opened.gitDir, opened.workTreeRoot, win);
     }
     return result;
   });
@@ -82,7 +82,7 @@ export function registerRepoHandlers(): void {
       addRecentRepo(opened.info.path);
       // Start watching .git for changes.
       const win = BrowserWindow.getFocusedWindow();
-      if (win) startWatching(opened.gitDir, win);
+      if (win) startWatching(opened.gitDir, opened.workTreeRoot, win);
       return opened.info;
     } catch (err) {
       if (err instanceof GitError) throw err;

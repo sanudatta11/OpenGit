@@ -101,6 +101,8 @@ const api = {
       ipcRenderer.invoke(IPC.COMMIT_FILES, input),
     fileContent: (input: FileContentInput): Promise<FileContentResult> =>
       ipcRenderer.invoke(IPC.FILE_CONTENT, input),
+    commits: (input: { base: string; ref: string; paths?: string[] }): Promise<import('@shared/git').DiffResult[]> =>
+      ipcRenderer.invoke(IPC.DIFF_COMMITS, input),
   },
 
   workingTree: {
@@ -138,6 +140,8 @@ const api = {
       ipcRenderer.invoke(IPC.BRANCH_RENAME, { oldName, newName }),
     setUpstream: (branch: string, upstream: string): Promise<WriteResult> =>
       ipcRenderer.invoke(IPC.BRANCH_SET_UPSTREAM, { branch, upstream }),
+    reset: (ref: string, mode: 'soft' | 'mixed' | 'hard' | 'keep'): Promise<WriteResult> =>
+      ipcRenderer.invoke(IPC.BRANCH_RESET, { ref, mode }),
   },
 
   remote: {
@@ -147,6 +151,12 @@ const api = {
       ipcRenderer.invoke(IPC.REMOTE_PULL, input),
     push: (input: RemotePushInput): Promise<WriteResult<PushResultData>> =>
       ipcRenderer.invoke(IPC.REMOTE_PUSH, input),
+    add: (name: string, url: string): Promise<{ success: boolean }> =>
+      ipcRenderer.invoke(IPC.REMOTE_ADD, { name, url }),
+    remove: (name: string): Promise<{ success: boolean }> =>
+      ipcRenderer.invoke(IPC.REMOTE_REMOVE, { name }),
+    setUrl: (name: string, url: string, push?: boolean): Promise<{ success: boolean }> =>
+      ipcRenderer.invoke(IPC.REMOTE_SET_URL, { name, url, push }),
   },
 
   stash: {
@@ -201,6 +211,13 @@ const api = {
       ipcRenderer.invoke(IPC.BRANCH_REBASE_INTERACTIVE, input),
     apply: (input: { onto: string; items: { action: string; sha: string }[] }): Promise<import('@shared/ipc').WriteResult<import('@shared/ipc').RebaseResultData>> =>
       ipcRenderer.invoke(IPC.REBASE_INTERACTIVE_APPLY, input),
+  },
+
+  auth: {
+    status: (): Promise<{ credentials: { type: string; exists: boolean; path?: string }[]; credentialHelpers: string[] }> =>
+      ipcRenderer.invoke(IPC.AUTH_STATUS),
+    testRemote: (url: string): Promise<{ success: boolean; message: string }> =>
+      ipcRenderer.invoke(IPC.AUTH_TEST_REMOTE, { url }),
   },
 
   worktree: {

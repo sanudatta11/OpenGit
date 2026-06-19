@@ -5,7 +5,7 @@ import { assignLanes } from '../../graph/lane';
 import { laneColorByIndex } from '../../graph/colors';
 import type { Commit } from '@shared/git';
 import { GitCommit, Search, X } from 'lucide-react';
-import { useCheckout, useCreateBranch, useCherryPick, useRevert } from '../../queries/useMutations';
+import { useCheckout, useCreateBranch, useCherryPick, useRevert, useReset, useRebase, useMerge } from '../../queries/useMutations';
 import { ConfirmDialog } from '../ConfirmDialog';
 
 type Density = 'compact' | 'comfortable' | 'detailed';
@@ -58,11 +58,17 @@ export function GraphPane() {
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; commit: Commit } | null>(null);
   const [createBranchAtCommit, setCreateBranchAtCommit] = useState<Commit | null>(null);
   const [newBranchName, setNewBranchName] = useState('');
+  const [resetConfirmCommit, setResetConfirmCommit] = useState<Commit | null>(null);
+  const [resetMode, setResetMode] = useState<'soft' | 'mixed' | 'hard'>('mixed');
+  const [mergeConfirmCommit, setMergeConfirmCommit] = useState<Commit | null>(null);
 
   const checkout = useCheckout();
   const createBranch = useCreateBranch();
   const cherryPick = useCherryPick();
   const revert = useRevert();
+  const reset = useReset();
+  const rebase = useRebase();
+  const merge = useMerge();
 
   const parsed = useMemo(() => parseSearchQuery(searchQuery), [searchQuery]);
   const paths = useMemo(() => (parsed.file ? [parsed.file] : undefined), [parsed.file]);
@@ -282,6 +288,47 @@ export function GraphPane() {
           >
             Revert Commit
           </button>
+          {contextMenu.commit.refs.some((r) => r.isHead && r.kind === 'local') && (
+            <>
+              <button
+                className="w-full text-left px-3 py-1.5 hover:bg-bg-hover text-fg transition-colors"
+                onClick={() => {
+                  setResetConfirmCommit(contextMenu.commit);
+                  setResetMode('mixed');
+                  setContextMenu(null);
+                }}
+              >
+                Reset Current Branch to Here...
+              </button>
+              <button
+                className="w-full text-left px-3 py-1.5 hover:bg-bg-hover text-fg transition-colors"
+                onClick={() => {
+                  void rebase.mutate({ onto: contextMenu.commit.sha });
+                  setContextMenu(null);
+                }}
+              >
+                Rebase Current Branch onto Here...
+              </button>
+              <button
+                className="w-full text-left px-3 py-1.5 hover:bg-bg-hover text-fg transition-colors"
+                onClick={() => {
+                  setMergeConfirmCommit(contextMenu.commit);
+                  setContextMenu(null);
+                }}
+              >
+                Merge into Current Branch...
+              </button>
+            </>
+          )}
+          <button
+            className="w-full text-left px-3 py-1.5 hover:bg-bg-hover text-fg transition-colors"
+            onClick={() => {
+              selectCommit(contextMenu.commit.sha);
+              setContextMenu(null);
+            }}
+          >
+            Diff with HEAD
+          </button>
           <div className="border-t border-border my-1" />
           <button
             className="w-full text-left px-3 py-1.5 hover:bg-bg-hover text-fg transition-colors"
@@ -320,6 +367,48 @@ export function GraphPane() {
           autoFocus
         />
       </ConfirmDialog>
+
+      <ConfirmDialog
+        open={!!resetConfirmCommit}
+        title="Reset Branch"
+        message={`Reset current branch to commit ${resetConfirmCommit?.sha.slice(0, 7)}?`}
+        confirmLabel={`Reset (${resetMode})`}
+        danger={resetMode === 'hard'}
+        onConfirm={() => {
+          if (resetConfirmCommit) {
+            void reset.mutate({ ref: resetConfirmCommit.sha, mode: resetMode });
+            setResetConfirmCommit(null);
+          }
+        }}
+        onCancel={() => setResetConfirmCommit(null)}
+      >
+        <div className="mt-2 flex items-center gap-2">
+          <span className="text-xs text-fg-muted">Mode:</span>
+          {(['soft', 'mixed', 'hard'] as const).map((m) => (
+            <button
+              key={m}
+              className={`text-xs px-2 py-0.5 rounded capitalize transition-colors ${resetMode === m ? 'bg-accent/20 text-accent font-semibold' : 'text-fg-muted hover:bg-bg-hover'}`}
+              onClick={() => setResetMode(m)}
+            >
+              {m}
+            </button>
+          ))}
+        </div>
+      </ConfirmDialog>
+
+      <ConfirmDialog
+        open={!!mergeConfirmCommit}
+        title="Merge"
+        message={`Merge commit ${mergeConfirmCommit?.sha.slice(0, 7)} into the current branch?`}
+        confirmLabel="Merge"
+        onConfirm={() => {
+          if (mergeConfirmCommit) {
+            void merge.mutate({ ref: mergeConfirmCommit.sha });
+            setMergeConfirmCommit(null);
+          }
+        }}
+        onCancel={() => setMergeConfirmCommit(null)}
+      />
     </div>
   );
 }

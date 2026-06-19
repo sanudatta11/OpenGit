@@ -340,6 +340,8 @@ export function WorkingTreeDiff({ entry, view }: { entry: StatusEntry; view: Dif
 function CommitForm() {
   const [message, setMessage] = useState('');
   const [amend, setAmend] = useState(false);
+  const [signCommit, setSignCommit] = useState(false);
+  const [noVerify, setNoVerify] = useState(false);
   const commit = useCommit();
   const status = useStatus();
   const hasStaged = (status.data?.entries ?? []).some((e) => e.staged);
@@ -347,11 +349,13 @@ function CommitForm() {
   const handleCommit = () => {
     if (!message.trim()) return;
     void commit.mutate(
-      { message: message.trim(), amend },
+      { message: message.trim(), amend, signoff: signCommit, noVerify },
       {
         onSuccess: () => {
           setMessage('');
           setAmend(false);
+          setSignCommit(false);
+          setNoVerify(false);
         },
       },
     );
@@ -373,15 +377,35 @@ function CommitForm() {
         disabled={commit.isPending}
       />
       <div className="flex items-center justify-between mt-2">
-        <label className="flex items-center gap-1.5 text-xs text-fg-muted cursor-pointer">
-          <input
-            type="checkbox"
-            checked={amend}
-            onChange={(e) => setAmend(e.target.checked)}
-            className="accent-accent"
-          />
-          Amend
-        </label>
+        <div className="flex items-center gap-3">
+          <label className="flex items-center gap-1.5 text-xs text-fg-muted cursor-pointer">
+            <input
+              type="checkbox"
+              checked={amend}
+              onChange={(e) => setAmend(e.target.checked)}
+              className="accent-accent"
+            />
+            Amend
+          </label>
+          <label className="flex items-center gap-1.5 text-xs text-fg-muted cursor-pointer">
+            <input
+              type="checkbox"
+              checked={noVerify}
+              onChange={(e) => setNoVerify(e.target.checked)}
+              className="accent-accent"
+            />
+            No verify
+          </label>
+          <label className="flex items-center gap-1.5 text-xs text-fg-muted cursor-pointer">
+            <input
+              type="checkbox"
+              checked={signCommit}
+              onChange={(e) => setSignCommit(e.target.checked)}
+              className="accent-accent"
+            />
+            Sign with GPG/SSH
+          </label>
+        </div>
         <button
           className="btn btn-primary"
           onClick={handleCommit}

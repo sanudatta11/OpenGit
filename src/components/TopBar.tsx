@@ -1,8 +1,9 @@
 // src/components/TopBar.tsx — top toolbar: repo name, branch, ahead/behind, fetch/pull/push, actions.
 
 import { GitBranch, ArrowUp, ArrowDown, CircleDot, Terminal, RefreshCw, FolderOpen, Cloud, Loader2, Settings } from 'lucide-react';
+import { useMemo } from 'react';
 import { useRepoStore } from '../stores/repo';
-import { useStatus, useRemotes } from '../queries/useRepo';
+import { useStatus, useBranches, useRemotes } from '../queries/useRepo';
 import { useOpenRepo } from '../queries/useRepo';
 import { useFetch, usePull, usePush } from '../queries/useMutations';
 import { useQueryClient } from '@tanstack/react-query';
@@ -12,6 +13,7 @@ export function TopBar({ onOpenSettings }: { onOpenSettings: () => void }) {
   const toggleLogDrawer = useRepoStore((s) => s.toggleLogDrawer);
   const logDrawerOpen = useRepoStore((s) => s.logDrawerOpen);
   const status = useStatus();
+  const branches = useBranches();
   const remotes = useRemotes();
   const openRepo = useOpenRepo();
   const fetch_ = useFetch();
@@ -20,6 +22,24 @@ export function TopBar({ onOpenSettings }: { onOpenSettings: () => void }) {
   const qc = useQueryClient();
 
   const hasRemote = (remotes.data?.length ?? 0) > 0;
+  const defaultRemote = useMemo(() => remotes.data?.[0]?.name ?? 'origin', [remotes.data]);
+  const currentBranch = branches.data?.find((b) => b.isHead);
+  const upstreamRemote = useMemo(() => {
+    if (!currentBranch?.upstream) return null;
+    const parts = currentBranch.upstream.split('/');
+    if (parts.length >= 2) return parts[0];
+    return null;
+  }, [currentBranch]);
+  const upstreamBranch = useMemo(() => {
+    if (!currentBranch?.upstream) return null;
+    const parts = currentBranch.upstream.split('/');
+    if (parts.length >= 2) return parts.slice(1).join('/');
+    return null;
+  }, [currentBranch]);
+  const remoteForOps = upstreamRemote || defaultRemote;
+  const branchForPush = upstreamBranch || (currentBranch?.shortName ?? '');
+
+  const hasUpstream = !!(currentBranch?.upstream);
   const refresh = () => { void qc.invalidateQueries(); };
 
   const handleOpen = async () => {
@@ -51,15 +71,15 @@ export function TopBar({ onOpenSettings }: { onOpenSettings: () => void }) {
         <div className="flex items-center gap-0.5">
           <button
             className="icon-btn"
-            onClick={() => fetch_.mutate({ remote: 'origin', prune: true })}
+            onClick={() => fetch_.mutate({ remote: remoteForOps, prune: true })}
             disabled={busy}
-            title="Fetch (with prune)"
+            title={`Fetch (${remoteForOps})`}
           >
             {fetch_.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Cloud className="w-4 h-4" />}
           </button>
           <button
             className="icon-btn"
-            onClick={() => pull.mutate({ remote: 'origin', ffOnly: false })}
+            onClick={() => pull.mutate({ remote: remoteForOps, ffOnly: false })}
             disabled={busy}
             title="Pull"
           >
@@ -67,7 +87,7 @@ export function TopBar({ onOpenSettings }: { onOpenSettings: () => void }) {
           </button>
           <button
             className="icon-btn"
-            onClick={() => push.mutate({ remote: 'origin', forceWithLease: false, setUpstream: false })}
+            onClick={() => push.mutate({ remote: remoteForOps, branch: branchForPush, forceWithLease: false, setUpstream: !hasUpstream })}
             disabled={busy}
             title="Push"
           >

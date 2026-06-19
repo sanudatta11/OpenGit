@@ -973,6 +973,34 @@ function abortSubcommand(kind: OperationKind): { cmd: string } {
   }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Branch reset
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function resetBranch(
+  workTree: string,
+  ref: string,
+  mode: 'soft' | 'mixed' | 'hard' | 'keep',
+): Promise<WriteResult> {
+  const args = ['reset'];
+  if (mode !== 'mixed') args.push(`--${mode}`);
+  args.push(ref);
+
+  const r = await gitRun({
+    cwd: workTree,
+    args,
+    channel: 'branch:reset',
+    reject: false,
+  });
+  return {
+    success: r.ok,
+    stdout: r.stdout,
+    stderr: r.stderr,
+    changedRefs: ['HEAD'],
+    requiresRefresh: r.ok,
+  };
+}
+
 // Need join for rebase step reading
 import { join } from 'node:path';
 

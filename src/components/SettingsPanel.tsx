@@ -32,6 +32,13 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
         <div className="flex-1 overflow-y-auto p-4 space-y-6">
           <GitPathSection />
           <DiffSection />
+          <ThemeSection />
+          <FontSizeSection />
+          <DefaultBranchSection />
+          <PullStrategySection />
+          <CommitSection />
+          <SigningSection />
+          <ExternalEditorSection />
           <RecentReposSection />
         </div>
       </div>
@@ -139,6 +146,246 @@ function DiffSection() {
           />
           Show untracked files in status
         </label>
+      </div>
+    </section>
+  );
+}
+
+function ThemeSection() {
+  const { data } = useQuery({
+    queryKey: ['settings'],
+    queryFn: () => api.settings.get(),
+  });
+  const qc = useQueryClient();
+  const setSetting = useMutation({
+    mutationFn: (input: Partial<SettingsData>) => api.settings.set(input),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['settings'] }),
+  });
+
+  return (
+    <section>
+      <h4 className="label mb-2">Theme</h4>
+      <div className="flex gap-1">
+        {(['system', 'dark', 'light'] as const).map((v) => (
+          <button
+            key={v}
+            className={`btn !text-xxs ${data?.theme === v ? 'btn-primary' : ''}`}
+            onClick={() => void setSetting.mutate({ theme: v })}
+          >
+            {v.charAt(0).toUpperCase() + v.slice(1)}
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function FontSizeSection() {
+  const { data } = useQuery({
+    queryKey: ['settings'],
+    queryFn: () => api.settings.get(),
+  });
+  const qc = useQueryClient();
+  const setSetting = useMutation({
+    mutationFn: (input: Partial<SettingsData>) => api.settings.set(input),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['settings'] }),
+  });
+
+  return (
+    <section>
+      <h4 className="label mb-2">Font Size: {data?.fontSize ?? 14}px</h4>
+      <input
+        type="range"
+        min={10}
+        max={22}
+        value={data?.fontSize ?? 14}
+        onChange={(e) => void setSetting.mutate({ fontSize: Number(e.target.value) })}
+        className="w-full accent-accent"
+      />
+    </section>
+  );
+}
+
+function DefaultBranchSection() {
+  const { data } = useQuery({
+    queryKey: ['settings'],
+    queryFn: () => api.settings.get(),
+  });
+  const qc = useQueryClient();
+  const setSetting = useMutation({
+    mutationFn: (input: Partial<SettingsData>) => api.settings.set(input),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['settings'] }),
+  });
+  const [branch, setBranch] = useState('');
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    if (data) setBranch(data.defaultBranch ?? 'main');
+  }, [data]);
+
+  const handleSave = () => {
+    void setSetting.mutate({ defaultBranch: branch.trim() || 'main' }, {
+      onSuccess: () => { setSaved(true); setTimeout(() => setSaved(false), 1500); },
+    });
+  };
+
+  return (
+    <section>
+      <h4 className="label mb-2">Default Branch</h4>
+      <div className="flex gap-2">
+        <input
+          className="input flex-1 font-mono"
+          value={branch}
+          onChange={(e) => setBranch(e.target.value)}
+        />
+        <button className="btn" onClick={handleSave} disabled={setSetting.isPending}>
+          {setSetting.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : saved ? <Check className="w-3.5 h-3.5 text-git-added" /> : 'Save'}
+        </button>
+      </div>
+    </section>
+  );
+}
+
+function PullStrategySection() {
+  const { data } = useQuery({
+    queryKey: ['settings'],
+    queryFn: () => api.settings.get(),
+  });
+  const qc = useQueryClient();
+  const setSetting = useMutation({
+    mutationFn: (input: Partial<SettingsData>) => api.settings.set(input),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['settings'] }),
+  });
+
+  return (
+    <section>
+      <h4 className="label mb-2">Default Pull Strategy</h4>
+      <div className="flex gap-2">
+        {(['merge', 'rebase', 'ff-only'] as const).map((v) => (
+          <label key={v} className="flex items-center gap-1.5 cursor-pointer text-xs text-fg-muted hover:text-fg">
+            <input
+              type="radio"
+              name="pullStrategy"
+              checked={data?.pullStrategy === v}
+              onChange={() => void setSetting.mutate({ pullStrategy: v })}
+              className="accent-accent"
+            />
+            <span className="capitalize">{v === 'ff-only' ? 'FF Only' : v}</span>
+          </label>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function CommitSection() {
+  const { data } = useQuery({
+    queryKey: ['settings'],
+    queryFn: () => api.settings.get(),
+  });
+  const qc = useQueryClient();
+  const setSetting = useMutation({
+    mutationFn: (input: Partial<SettingsData>) => api.settings.set(input),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['settings'] }),
+  });
+
+  return (
+    <section>
+      <h4 className="label mb-2">Commit</h4>
+      <div className="space-y-2">
+        <div>
+          <label className="text-xs text-fg-muted block mb-1">Subject length: {data?.commitSubjectLength ?? 72}</label>
+          <input
+            type="range"
+            min={40}
+            max={120}
+            value={data?.commitSubjectLength ?? 72}
+            onChange={(e) => void setSetting.mutate({ commitSubjectLength: Number(e.target.value) })}
+            className="w-full accent-accent"
+          />
+        </div>
+        <label className="flex items-center gap-2 text-xs text-fg-muted cursor-pointer">
+          <input
+            type="checkbox"
+            checked={data?.conventionalCommitValidation ?? false}
+            onChange={(e) => void setSetting.mutate({ conventionalCommitValidation: e.target.checked })}
+            className="accent-accent"
+          />
+          Enforce conventional commit format
+        </label>
+      </div>
+    </section>
+  );
+}
+
+function SigningSection() {
+  const { data } = useQuery({
+    queryKey: ['settings'],
+    queryFn: () => api.settings.get(),
+  });
+  const qc = useQueryClient();
+  const setSetting = useMutation({
+    mutationFn: (input: Partial<SettingsData>) => api.settings.set(input),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['settings'] }),
+  });
+
+  return (
+    <section>
+      <h4 className="label mb-2">Commit Signing</h4>
+      <div className="flex gap-2">
+        {(['none', 'gpg', 'ssh'] as const).map((v) => (
+          <label key={v} className="flex items-center gap-1.5 cursor-pointer text-xs text-fg-muted hover:text-fg">
+            <input
+              type="radio"
+              name="signingMode"
+              checked={data?.signingMode === v}
+              onChange={() => void setSetting.mutate({ signingMode: v })}
+              className="accent-accent"
+            />
+            <span className="uppercase">{v}</span>
+          </label>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function ExternalEditorSection() {
+  const { data } = useQuery({
+    queryKey: ['settings'],
+    queryFn: () => api.settings.get(),
+  });
+  const qc = useQueryClient();
+  const setSetting = useMutation({
+    mutationFn: (input: Partial<SettingsData>) => api.settings.set(input),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['settings'] }),
+  });
+  const [editor, setEditor] = useState('');
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    if (data) setEditor(data.defaultExternalEditor ?? '');
+  }, [data]);
+
+  const handleSave = () => {
+    void setSetting.mutate({ defaultExternalEditor: editor.trim() || null }, {
+      onSuccess: () => { setSaved(true); setTimeout(() => setSaved(false), 1500); },
+    });
+  };
+
+  return (
+    <section>
+      <h4 className="label mb-2">External Editor</h4>
+      <div className="flex gap-2">
+        <input
+          className="input flex-1 font-mono"
+          placeholder="e.g. code, nvim, subl"
+          value={editor}
+          onChange={(e) => setEditor(e.target.value)}
+        />
+        <button className="btn" onClick={handleSave} disabled={setSetting.isPending}>
+          {setSetting.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : saved ? <Check className="w-3.5 h-3.5 text-git-added" /> : 'Save'}
+        </button>
       </div>
     </section>
   );

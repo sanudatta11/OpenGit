@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { GitBranch, GitMerge, GitPullRequest, Search, Settings, Terminal, Upload, X } from 'lucide-react';
 import { useBranches } from '../queries/useRepo';
-import { useCheckout, useFetch, usePull, usePush, useStashCreate } from '../queries/useMutations';
+import { useCheckout, useFetch, useMerge, usePull, usePush, useStashCreate } from '../queries/useMutations';
 import { useRepoStore } from '../stores/repo';
 
 interface CommandPaletteProps {
@@ -31,6 +31,7 @@ export function CommandPalette({ open, onClose, onOpenRepository, onOpenSettings
   const push = usePush();
   const stash = useStashCreate();
   const toggleLogDrawer = useRepoStore((s) => s.toggleLogDrawer);
+  const mergeMutation = useMerge();
 
   useEffect(() => {
     if (open) setQuery('');
@@ -61,12 +62,12 @@ export function CommandPalette({ open, onClose, onOpenRepository, onOpenSettings
         label: `Merge ${branch.shortName} into current branch`,
         detail: 'Preview available from operation panel',
         icon: GitMerge,
-        run: () => undefined,
+        run: () => mergeMutation.mutate({ ref: branch.shortName }),
         aliases: [`merge ${branch.shortName}`, `merge ${branch.shortName} into current branch`],
       });
     }
     return base;
-  }, [branches.data, checkout, fetch_, onOpenRepository, onOpenSettings, pull, push, stash, toggleLogDrawer]);
+  }, [branches.data, checkout, fetch_, mergeMutation, onOpenRepository, onOpenSettings, pull, push, stash, toggleLogDrawer]);
 
   const ranked = useMemo(() => rankCommands(commands, query).slice(0, 8), [commands, query]);
 
