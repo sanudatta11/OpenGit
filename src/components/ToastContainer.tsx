@@ -33,7 +33,7 @@ export function ToastContainer() {
           >
             <Icon className="w-4 h-4 shrink-0" />
             <span className="flex-1 truncate">{t.message}</span>
-            <button className="icon-btn !w-4 !h-4 shrink-0 opacity-60 hover:opacity-100" onClick={() => dismiss(t.id)}>
+            <button className="icon-btn !w-6 !h-6 shrink-0 opacity-60 hover:opacity-100" onClick={() => dismiss(t.id)}>
               <X className="w-3 h-3" />
             </button>
           </div>

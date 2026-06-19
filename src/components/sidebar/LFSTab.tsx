@@ -55,7 +55,7 @@ export function LFSTab() {
     <div className="py-1 text-xs">
       <div className="px-3 py-1 label flex items-center justify-between">
         <span>LFS Patterns</span>
-        <button className="icon-btn !w-5 !h-5" onClick={() => refetch()} title="Refresh">
+        <button className="icon-btn !w-6 !h-6" onClick={() => refetch()} title="Refresh">
           <RefreshCw className="w-3 h-3" />
         </button>
       </div>
@@ -70,7 +70,7 @@ export function LFSTab() {
             onKeyDown={(e) => { if (e.key === 'Enter') handleTrack(); }}
           />
           <button
-            className="btn btn-primary !text-xxs !px-2 !py-0.5 shrink-0"
+            className="btn btn-primary !text-xs !px-2 !py-0.5 shrink-0"
             onClick={handleTrack}
             disabled={trackLoading || !pattern.trim()}
           >
@@ -88,7 +88,7 @@ export function LFSTab() {
           <Database className="w-3.5 h-3.5 shrink-0 text-fg-muted" />
           <span className="font-mono text-fg truncate flex-1">{p}</span>
           <button
-            className="icon-btn !w-5 !h-5 hover:text-git-deleted shrink-0"
+            className="icon-btn !w-6 !h-6 hover:text-git-deleted shrink-0"
             onClick={() => setConfirmUntrack(p)}
             title={`Untrack ${p}`}
           >

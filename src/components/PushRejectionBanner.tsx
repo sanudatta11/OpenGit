@@ -50,7 +50,7 @@ export function PushRejectionBanner() {
         >
           {isRejected ? 'Push rejected — branch is behind remote' : 'Push failed'}
         </div>
-        <div className="text-xxs text-fg-muted mt-0.5 truncate">{errorMsg}</div>
+        <div className="text-xs text-fg-muted mt-0.5 truncate">{errorMsg}</div>
       </div>
       <div className="flex items-center gap-1 shrink-0">
         {isRejected && (

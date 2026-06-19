@@ -167,7 +167,7 @@ function FileRow({ file, selected, onClick }: { file: DiffFile; selected: boolea
       <span className="text-xs truncate flex-1">{label}</span>
       <span className="text-xxs shrink-0 flex items-center gap-1">
         <button
-          className="icon-btn !w-5 !h-5"
+          className="icon-btn !w-6 !h-6"
           title="File history"
           onClick={(e) => { e.stopPropagation(); setFileHistory(file.path); }}
         >

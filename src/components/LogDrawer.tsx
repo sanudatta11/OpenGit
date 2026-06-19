@@ -152,7 +152,7 @@ export function LogDrawer() {
         <div className="flex items-center gap-2">
           {viewMode === 'terminal' && isRunning && (
             <button
-              className="flex items-center gap-1 text-xxs px-2 py-0.5 rounded bg-git-deleted/20 hover:bg-git-deleted/30 text-git-deleted transition-colors border border-git-deleted/30"
+              className="flex items-center gap-1 text-xs px-2 py-0.5 rounded bg-git-deleted/20 hover:bg-git-deleted/30 text-git-deleted transition-colors border border-git-deleted/30"
               onClick={handleKill}
               title="Terminate running process (Ctrl+C)"
             >
@@ -162,7 +162,7 @@ export function LogDrawer() {
           )}
           {viewMode === 'terminal' && (
             <button
-              className="text-xxs px-1.5 py-0.5 rounded text-fg-muted hover:bg-bg-hover transition-colors border border-border"
+              className="text-xs px-1.5 py-0.5 rounded text-fg-muted hover:bg-bg-hover transition-colors border border-border"
               onClick={clear}
               title="Clear output history"
             >
@@ -182,7 +182,7 @@ export function LogDrawer() {
             <div className="text-fg-dim text-xs text-center py-4">No operation log entries yet.</div>
           )}
           {[...logEntries].reverse().map((entry) => (
-            <div key={entry.id} className="flex items-start gap-2 text-xxs py-0.5 border-b border-border/20">
+            <div key={entry.id} className="flex items-start gap-2 text-xs py-0.5 border-b border-border/20">
               <span className={`shrink-0 mt-0.5 ${entry.ok ? 'text-git-added' : 'text-git-deleted'}`}>
                 {entry.ok ? '✓' : '✗'}
               </span>
@@ -213,7 +213,7 @@ export function LogDrawer() {
             {lines.map((line, idx) => {
               if (line.type === 'info') {
                 return (
-                  <div key={idx} className="text-fg-dim/70 text-xxs italic border-l-2 border-border/40 pl-2 py-0.5">
+                  <div key={idx} className="text-fg-muted text-xs italic border-l-2 border-border/40 pl-2 py-0.5">
                     {line.text}
                   </div>
                 );

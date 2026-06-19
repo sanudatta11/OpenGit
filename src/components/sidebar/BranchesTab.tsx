@@ -99,7 +99,7 @@ export function BranchesTab() {
       </div>
 
       <Section title="Local" count={locals.length} actions={
-        <button className="icon-btn !w-5 !h-5" onClick={() => setShowCreate(!showCreate)} title="New branch">
+        <button className="icon-btn !w-6 !h-6" onClick={() => setShowCreate(!showCreate)} title="New branch">
           <Plus className="w-3 h-3" />
         </button>
       }>
@@ -112,7 +112,7 @@ export function BranchesTab() {
         {remotes.map((b) => <BranchRow key={b.name} branch={b} onCreateWorktree={handleCreateWorktree} />)}
       </Section>
       <Section title="Tags" count={tags.length} actions={
-        <button className="icon-btn !w-5 !h-5" onClick={() => setShowTagCreate(!showTagCreate)} title="New tag">
+        <button className="icon-btn !w-6 !h-6" onClick={() => setShowTagCreate(!showTagCreate)} title="New tag">
           <Plus className="w-3 h-3" />
         </button>
       }>
@@ -274,7 +274,7 @@ function BranchRow({ branch, onDelete, onCreateWorktree }: { branch: Branch; onD
               )}
               {branch.kind === 'local' && !branch.isHead && onDelete && (
                 <button
-                  className="icon-btn !w-5 !h-5 hover:text-git-deleted opacity-60 hover:opacity-100"
+                  className="icon-btn !w-6 !h-6 hover:text-git-deleted opacity-60 hover:opacity-100"
                   onClick={(e) => { e.stopPropagation(); onDelete(branch); }}
                   disabled={del.isPending}
                   title="Delete branch"
@@ -284,7 +284,7 @@ function BranchRow({ branch, onDelete, onCreateWorktree }: { branch: Branch; onD
               )}
               {branch.kind === 'tag' && onDelete && (
                 <button
-                  className="icon-btn !w-5 !h-5 hover:text-git-deleted opacity-60 hover:opacity-100"
+                  className="icon-btn !w-6 !h-6 hover:text-git-deleted opacity-60 hover:opacity-100"
                   onClick={(e) => { e.stopPropagation(); onDelete(branch); }}
                   title="Delete tag"
                 >
@@ -367,7 +367,7 @@ function CreateBranchForm({ onClose }: { onClose: () => void }) {
         onChange={(e) => setStart(e.target.value)}
       />
       <div className="flex items-center justify-between">
-        <label className="flex items-center gap-1.5 text-xxs text-fg-muted cursor-pointer">
+        <label className="flex items-center gap-1.5 text-xs text-fg-muted cursor-pointer">
           <input
             type="checkbox"
             checked={checkout}
@@ -387,7 +387,7 @@ function CreateBranchForm({ onClose }: { onClose: () => void }) {
           </button>
         </div>
       </div>
-      {create.error && <div className="text-xxs text-git-deleted">{(create.error as Error).message}</div>}
+      {create.error && <div className="text-xs text-git-deleted">{(create.error as Error).message}</div>}
     </div>
   );
 }
@@ -406,9 +406,9 @@ function GitFlowSection() {
   return (
     <div className="mt-1 space-y-2">
       <div className="space-y-1">
-        <span className="text-xxs text-fg-dim font-medium">Start Feature</span>
+        <span className="text-xs text-fg-dim font-medium">Start Feature</span>
         <div className="flex items-center gap-1">
-          <span className="text-xxs text-fg-dim shrink-0">feature/</span>
+          <span className="text-xs text-fg-dim shrink-0">feature/</span>
           <input
             className="input w-full !text-xxs !py-0.5"
             placeholder="name"
@@ -427,9 +427,9 @@ function GitFlowSection() {
       </div>
 
       <div className="space-y-1">
-        <span className="text-xxs text-fg-dim font-medium">Start Hotfix</span>
+        <span className="text-xs text-fg-dim font-medium">Start Hotfix</span>
         <div className="flex items-center gap-1">
-          <span className="text-xxs text-fg-dim shrink-0">hotfix/</span>
+          <span className="text-xs text-fg-dim shrink-0">hotfix/</span>
           <input
             className="input w-full !text-xxs !py-0.5"
             placeholder="name"
@@ -448,9 +448,9 @@ function GitFlowSection() {
       </div>
 
       <div className="space-y-1">
-        <span className="text-xxs text-fg-dim font-medium">Start Release</span>
+        <span className="text-xs text-fg-dim font-medium">Start Release</span>
         <div className="flex items-center gap-1">
-          <span className="text-xxs text-fg-dim shrink-0">release/</span>
+          <span className="text-xs text-fg-dim shrink-0">release/</span>
           <input
             className="input w-full !text-xxs !py-0.5"
             placeholder="name"

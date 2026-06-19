@@ -89,14 +89,23 @@
 }
 
 @layer base {
+  html {
+    font-size: 100%;
+  }
   html, body, #root {
     height: 100%;
     margin: 0;
     overflow: hidden;
   }
   body {
-    @apply bg-bg text-fg font-sans text-sm antialiased;
+    @apply bg-bg text-fg font-sans antialiased;
+    font-size: 1rem;
+    line-height: 1.5;
     user-select: none;
+  }
+  :focus-visible {
+    outline: 2px solid rgb(var(--color-accent) / 1);
+    outline-offset: 2px;
   }
   ::-webkit-scrollbar {
     width: 10px;
@@ -120,6 +129,9 @@
            hover:bg-bg-hover hover:border-border-strong transition-colors
            disabled:opacity-40 disabled:cursor-not-allowed;
   }
+  .btn:focus-visible {
+    @apply ring-2 ring-accent ring-offset-2 ring-offset-bg;
+  }
   .btn-primary {
     @apply bg-accent text-white border-accent hover:bg-accent-hover hover:border-accent-hover;
   }
@@ -127,15 +139,24 @@
     @apply text-git-deleted hover:bg-git-deleted/10 hover:border-git-deleted/50;
   }
   .icon-btn {
-    @apply inline-flex items-center justify-center w-7 h-7 rounded text-fg-muted
+    @apply inline-flex items-center justify-center w-8 h-8 rounded text-fg-muted
            hover:text-fg hover:bg-bg-hover transition-colors;
+  }
+  .icon-btn:focus-visible {
+    @apply ring-2 ring-accent ring-offset-2 ring-offset-bg;
   }
   .panel {
     @apply bg-bg-panel border-border;
   }
   .input {
     @apply bg-bg-input border border-border rounded px-2 py-1 text-xs text-fg
-           focus:outline-none focus:border-accent transition-colors;
+           transition-colors;
+  }
+  .input:focus {
+    @apply border-accent;
+  }
+  .input:focus-visible {
+    @apply ring-2 ring-accent ring-offset-2 ring-offset-bg;
   }
   .row-hover {
     @apply hover:bg-bg-hover cursor-pointer;

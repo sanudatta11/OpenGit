@@ -144,7 +144,7 @@ function CommitRow({ sha, author, subject }: { sha: string; author: string; subj
     >
       <span className="font-mono text-fg-muted shrink-0 mt-0.5">{sha.slice(0, 7)}</span>
       <span className="text-fg truncate leading-tight flex-1">{subject}</span>
-      <span className="text-fg-dim shrink-0 text-xxs mt-0.5">{author}</span>
+      <span className="text-fg-dim shrink-0 text-xs mt-0.5">{author}</span>
     </button>
   );
 }
@@ -179,7 +179,7 @@ function FileRow({ file }: { file: import('@shared/ipc').BranchCompareFile }) {
         {statusLabel}
       </span>
       <span className="text-xs font-mono truncate flex-1">{label}</span>
-      <span className="text-xxs shrink-0 flex items-center gap-1.5">
+      <span className="text-xs shrink-0 flex items-center gap-1.5">
         {file.additions > 0 && <span className="text-git-added">+{file.additions}</span>}
         {file.deletions > 0 && <span className="text-git-deleted">-{file.deletions}</span>}
       </span>

@@ -106,7 +106,7 @@ export function CommandPalette({ open, onClose, onOpenRepository, onOpenSettings
                 <Icon className="w-4 h-4 text-accent shrink-0" />
                 <span className="flex-1 min-w-0">
                   <span className="block text-sm text-fg truncate">{command.label}</span>
-                  <span className="block text-xxs text-fg-muted truncate">{command.detail}</span>
+                  <span className="block text-xs text-fg-muted truncate">{command.detail}</span>
                 </span>
               </button>
             );

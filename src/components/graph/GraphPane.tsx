@@ -286,11 +286,11 @@ export function GraphPane() {
         </div>
 
         <div className="flex items-center gap-1 select-none">
-          <span className="text-xxs text-fg-muted mr-1">Density:</span>
+          <span className="text-xs text-fg-muted mr-1">Density:</span>
           {(['compact', 'comfortable', 'detailed'] as Density[]).map((d) => (
             <button
               key={d}
-              className={`text-xxs px-2 py-0.5 rounded capitalize transition-colors ${density === d ? 'bg-accent/20 text-accent font-semibold' : 'text-fg-muted hover:bg-bg-hover'}`}
+              className={`text-xs px-2 py-0.5 rounded capitalize transition-colors ${density === d ? 'bg-accent/20 text-accent font-semibold' : 'text-fg-muted hover:bg-bg-hover'}`}
               onClick={() => setDensity(d)}
             >
               {d}
@@ -302,7 +302,7 @@ export function GraphPane() {
       </div>
 
       {filterActive() && (
-        <div className="border-b border-accent/30 bg-accent/5 px-3 py-1.5 flex items-center gap-2 shrink-0 text-xxs animate-slide-down">
+        <div className="border-b border-accent/30 bg-accent/5 px-3 py-1.5 flex items-center gap-2 shrink-0 text-xs animate-slide-down">
           <Eye className="w-3 h-3 text-accent shrink-0" />
           <div className="flex-1 min-w-0 flex items-center gap-2 flex-wrap text-fg-muted">
             {soloedRefs.length > 0 && (
@@ -320,17 +320,17 @@ export function GraphPane() {
               </span>
             )}
           </div>
-          <button className="icon-btn !w-5 !h-5" onClick={clearAllFilters} title="Clear all filters">
+          <button className="icon-btn !w-6 !h-6" onClick={clearAllFilters} title="Clear all filters">
             <X className="w-3 h-3" />
           </button>
         </div>
       )}
 
       {fileHistoryPath && (
-        <div className="border-b border-accent/30 bg-accent/5 px-3 py-1.5 flex items-center gap-2 shrink-0 text-xxs">
+        <div className="border-b border-accent/30 bg-accent/5 px-3 py-1.5 flex items-center gap-2 shrink-0 text-xs">
           <Clock className="w-3 h-3 text-accent shrink-0" />
           <span className="text-fg-muted flex-1">File history: <span className="font-mono text-fg">{fileHistoryPath}</span></span>
-          <button className="icon-btn !w-5 !h-5" onClick={() => setFileHistory(null)} title="Clear file history">
+          <button className="icon-btn !w-6 !h-6" onClick={() => setFileHistory(null)} title="Clear file history">
             <X className="w-3 h-3" />
           </button>
         </div>
@@ -355,7 +355,9 @@ export function GraphPane() {
                 style={{ left: refRailWidth, width: graphWidth, transform: `translateY(${offsetY}px)` }}
               >
                 <GraphCanvas
+                  allRows={rows}
                   rows={visibleRows}
+                  firstRow={firstRow}
                   offsetY={0}
                   graphWidth={graphWidth}
                   rowHeight={rowHeight}
@@ -560,7 +562,9 @@ export function GraphPane() {
 }
 
 interface GraphCanvasProps {
+  allRows: GraphLayoutRow[];
   rows: GraphLayoutRow[];
+  firstRow: number;
   offsetY: number;
   graphWidth: number;
   rowHeight: number;
@@ -568,7 +572,7 @@ interface GraphCanvasProps {
   selectedSha?: string;
 }
 
-function GraphCanvas({ rows, offsetY, graphWidth, rowHeight, density, selectedSha }: GraphCanvasProps) {
+function GraphCanvas({ allRows, rows, firstRow, offsetY, graphWidth, rowHeight, density, selectedSha }: GraphCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [dpr, setDpr] = useState(window.devicePixelRatio || 1);
 
@@ -596,6 +600,12 @@ function GraphCanvas({ rows, offsetY, graphWidth, rowHeight, density, selectedSh
     const accentColor = getComputedStyle(document.documentElement).getPropertyValue('--color-accent').trim() || '#3b82f6';
     const headColor = getComputedStyle(document.documentElement).getPropertyValue('--color-git-head').trim() || '#3fb950';
 
+    // Build SHA → absolute row index map for child lookups
+    const rowIndexBySha = new Map<string, number>();
+    for (let idx = 0; idx < allRows.length; idx++) {
+      rowIndexBySha.set(allRows[idx]!.sha, idx);
+    }
+
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i]!;
       const yTop = i * rowHeight;
@@ -613,19 +623,28 @@ function GraphCanvas({ rows, offsetY, graphWidth, rowHeight, density, selectedSh
       }
 
       for (const edge of row.edges) {
-        if (edge.kind === 'vertical') continue;
+        const childSha = row.commit.parents[edge.parentIndex];
+        if (!childSha) continue;
+        const childAbsIndex = rowIndexBySha.get(childSha);
+        if (childAbsIndex === undefined) continue;
+        const childLocalIndex = childAbsIndex - firstRow;
+        if (childLocalIndex < 0 || childLocalIndex >= rows.length) continue;
+
+        const childYCenter = childLocalIndex * rowHeight + rowHeight / 2;
+        const curveHeight = (childYCenter - yCenter) * 0.5;
+
         ctx.strokeStyle = colorWithAlpha(graphColorByKey(edge.colorKey), 0.82);
         ctx.lineWidth = 1.9;
         ctx.lineCap = 'round';
         ctx.beginPath();
-        ctx.moveTo(laneX(edge.fromLane), yCenter);
+        ctx.moveTo(laneX(edge.fromLane), yBottom);
         ctx.bezierCurveTo(
           laneX(edge.fromLane),
-          yCenter + rowHeight / 2,
+          yBottom + curveHeight,
           laneX(edge.toLane),
-          yBottom - rowHeight / 2,
+          childYCenter - curveHeight,
           laneX(edge.toLane),
-          yBottom,
+          childYCenter,
         );
         ctx.stroke();
       }
@@ -692,7 +711,7 @@ function GraphCanvas({ rows, offsetY, graphWidth, rowHeight, density, selectedSh
         ctx.stroke();
       }
     }
-  }, [rows, graphWidth, dpr, rowHeight, density, selectedSha]);
+  }, [allRows, rows, firstRow, graphWidth, dpr, rowHeight, density, selectedSha]);
 
   return (
     <canvas

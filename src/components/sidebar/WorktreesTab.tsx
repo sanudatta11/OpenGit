@@ -41,14 +41,14 @@ export function WorktreesTab() {
         <div className="flex items-center gap-1">
           {data && data.length > 1 && (
             <button
-              className="icon-btn !w-5 !h-5"
+              className="icon-btn !w-6 !h-6"
               onClick={() => setConfirmPrune(true)}
               title="Prune stale worktrees"
             >
               <Sparkles className="w-3 h-3" />
             </button>
           )}
-          <button className="icon-btn !w-5 !h-5" onClick={() => setShowCreate(!showCreate)} title="New worktree">
+          <button className="icon-btn !w-6 !h-6" onClick={() => setShowCreate(!showCreate)} title="New worktree">
             <Plus className="w-3 h-3" />
           </button>
         </div>
@@ -151,9 +151,9 @@ function WorktreeRow({ wt, onRemove }: { wt: Worktree; onRemove: () => void }) {
           {wt.detached && <span className="text-xxs text-fg-dim shrink-0">detached</span>}
           {isActive && <Check className="w-3 h-3 text-accent shrink-0 ml-auto" />}
         </div>
-        <div className="mt-0.5 ml-5 text-xxs text-fg-dim truncate" title={wt.path}>{parentPath}/</div>
+        <div className="mt-0.5 ml-5 text-xs text-fg-dim truncate" title={wt.path}>{parentPath}/</div>
         {wt.branch && (
-          <div className="mt-0.5 ml-5 text-xxs text-git-branch font-mono truncate">
+          <div className="mt-0.5 ml-5 text-xs text-git-branch font-mono truncate">
             {wt.branch.replace('refs/heads/', '')}
           </div>
         )}
@@ -170,7 +170,7 @@ function WorktreeRow({ wt, onRemove }: { wt: Worktree; onRemove: () => void }) {
           )}
           {!wt.isMain && (
             <button
-              className="icon-btn !w-5 !h-5 hover:text-git-deleted ml-auto"
+              className="icon-btn !w-6 !h-6 hover:text-git-deleted ml-auto"
               onClick={onRemove}
               title="Remove worktree"
             >
@@ -185,8 +185,8 @@ function WorktreeRow({ wt, onRemove }: { wt: Worktree; onRemove: () => void }) {
         <div className="px-3 py-2 border-b border-border-subtle space-y-2">
           <input className="input w-full" placeholder="Lock reason (optional)" value={lockReason} onChange={(e) => setLockReason(e.target.value)} autoFocus />
           <div className="flex justify-end gap-1">
-            <button className="btn !text-xxs !px-2 !py-0.5" onClick={() => setShowLockDialog(false)}>Cancel</button>
-            <button className="btn btn-primary !text-xxs !px-2 !py-0.5" onClick={() => { lockMutation.mutate(lockReason || undefined); setShowLockDialog(false); setLockReason(''); }}>Lock</button>
+            <button className="btn !text-xs !px-2 !py-0.5" onClick={() => setShowLockDialog(false)}>Cancel</button>
+            <button className="btn btn-primary !text-xs !px-2 !py-0.5" onClick={() => { lockMutation.mutate(lockReason || undefined); setShowLockDialog(false); setLockReason(''); }}>Lock</button>
           </div>
         </div>
       )}
@@ -261,16 +261,16 @@ function CreateWorktreeForm({ onClose }: { onClose: () => void }) {
         onChange={(e) => setLock(e.target.value)}
       />
       <div className="flex justify-end gap-1">
-        <button className="btn !text-xxs !px-2 !py-0.5" onClick={onClose}>Cancel</button>
+        <button className="btn !text-xs !px-2 !py-0.5" onClick={onClose}>Cancel</button>
         <button
-          className="btn btn-primary !text-xxs !px-2 !py-0.5"
+          className="btn btn-primary !text-xs !px-2 !py-0.5"
           onClick={handleSubmit}
           disabled={create.isPending || !path.trim()}
         >
           {create.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Create'}
         </button>
       </div>
-      {create.error && <div className="text-xxs text-git-deleted">{(create.error as Error).message}</div>}
+      {create.error && <div className="text-xs text-git-deleted">{(create.error as Error).message}</div>}
     </div>
   );
 }

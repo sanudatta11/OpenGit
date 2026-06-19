@@ -76,7 +76,7 @@ export function WorkingTree() {
     <div className="flex flex-col h-full min-h-0">
       {!selectedEntry && (
         <>
-          <div className="px-3 py-2 border-b border-border bg-bg/25 text-xxs text-fg-muted flex items-center gap-3 shrink-0">
+          <div className="px-3 py-2 border-b border-border bg-bg/25 text-xs text-fg-muted flex items-center gap-3 shrink-0">
             <span className="text-fg font-medium">WIP on <span className="text-git-branch">{branchName}</span></span>
             <span className="text-fg-dim">|</span>
             <span className="text-git-staged">{staged.length} staged</span>
@@ -106,11 +106,11 @@ export function WorkingTree() {
           {selectedFiles.size >= 2 && (
             <div className="px-3 py-2 border-t border-border bg-accent/5 flex items-center gap-2 text-xs shrink-0">
               <span className="text-fg-muted">{selectedFiles.size} selected</span>
-              <button className="btn btn-primary !text-xxs !px-2 !py-0.5" onClick={handleStageSelected} disabled={stage.isPending || unstage.isPending}>
+              <button className="btn btn-primary !text-xs !px-2 !py-0.5" onClick={handleStageSelected} disabled={stage.isPending || unstage.isPending}>
                 Stage selected
               </button>
-              <button className="btn !text-xxs !px-2 !py-0.5" onClick={handleDiscardSelected}>Discard selected</button>
-              <button className="btn !text-xxs !px-2 !py-0.5" onClick={() => setSelectedFiles(new Set())}>Clear</button>
+              <button className="btn !text-xs !px-2 !py-0.5" onClick={handleDiscardSelected}>Discard selected</button>
+              <button className="btn !text-xs !px-2 !py-0.5" onClick={() => setSelectedFiles(new Set())}>Clear</button>
             </div>
           )}
           <CommitForm />
@@ -181,7 +181,7 @@ function StageAllButton() {
   const stageAll = useStageAll();
   return (
     <button
-      className="text-xxs flex items-center gap-1 px-1.5 py-0.5 rounded text-git-added hover:bg-git-added/10"
+      className="text-xs flex items-center gap-1 px-1.5 py-0.5 rounded text-git-added hover:bg-git-added/10"
       onClick={() => stageAll.mutate()}
       disabled={stageAll.isPending}
       title="Stage all"
@@ -196,7 +196,7 @@ function UnstageAllButton() {
   const unstageAll = useUnstageAll();
   return (
     <button
-      className="text-xxs flex items-center gap-1 px-1.5 py-0.5 rounded text-git-modified hover:bg-git-modified/10"
+      className="text-xs flex items-center gap-1 px-1.5 py-0.5 rounded text-git-modified hover:bg-git-modified/10"
       onClick={() => unstageAll.mutate()}
       disabled={unstageAll.isPending}
       title="Unstage all"
@@ -326,7 +326,7 @@ function FileRow({ entry, selected, onClick, onDiscard, checked, onToggle }: { e
       <div className="flex items-center gap-0.5 shrink-0">
         {showStage && (
           <button
-            className="icon-btn !w-5 !h-5"
+            className="icon-btn !w-6 !h-6"
             onClick={handleStage}
             disabled={stage.isPending}
             title="Stage"
@@ -336,7 +336,7 @@ function FileRow({ entry, selected, onClick, onDiscard, checked, onToggle }: { e
         )}
         {showUnstage && (
           <button
-            className="icon-btn !w-5 !h-5"
+            className="icon-btn !w-6 !h-6"
             onClick={handleUnstage}
             disabled={unstage.isPending}
             title="Unstage"
@@ -346,7 +346,7 @@ function FileRow({ entry, selected, onClick, onDiscard, checked, onToggle }: { e
         )}
         {showDiscard && (
           <button
-            className="icon-btn !w-5 !h-5 hover:text-git-deleted"
+            className="icon-btn !w-6 !h-6 hover:text-git-deleted"
             onClick={handleDiscard}
             title="Discard"
           >
@@ -460,11 +460,11 @@ function CommitForm() {
         disabled={commit.isPending}
         spellCheck
       />
-      <div className={`text-xxs text-right ${subjectLength > maxSubject ? 'text-git-deleted' : 'text-fg-dim'}`}>
+      <div className={`text-xs text-right ${subjectLength > maxSubject ? 'text-git-deleted' : 'text-fg-dim'}`}>
         {subjectLength}/{maxSubject}
       </div>
       {amend && headCommit.data?.commits[0] && (
-        <div className="text-xxs text-fg-muted mb-1">Amending: {headCommit.data.commits[0].sha.slice(0, 7)}</div>
+        <div className="text-xs text-fg-muted mb-1">Amending: {headCommit.data.commits[0].sha.slice(0, 7)}</div>
       )}
       <div className="flex items-center justify-between mt-2">
         <button className="flex items-center gap-1 text-xs text-fg-muted hover:text-fg py-1" onClick={() => setShowOptions(!showOptions)}>

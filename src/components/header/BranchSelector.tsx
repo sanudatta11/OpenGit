@@ -192,7 +192,7 @@ export function BranchSelector() {
                     >
                       <Cloud className="w-3.5 h-3.5 text-git-remote shrink-0" />
                       <span className="flex-1 text-xs truncate">{b.shortName}</span>
-                      <span className="text-xxs text-fg-dim shrink-0">{remoteName}</span>
+                      <span className="text-xs text-fg-dim shrink-0">{remoteName}</span>
                     </button>
                   );
                 })}

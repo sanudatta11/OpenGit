@@ -61,11 +61,11 @@ function BannerRow({ state, onAbort }: { state: InProgressState; onAbort: () => 
         </div>
         {conflictCount > 0 && (
           <>
-            <div className="text-xxs text-fg-muted mt-0.5">
+            <div className="text-xs text-fg-muted mt-0.5">
               {conflictCount} conflict{conflictCount === 1 ? '' : 's'} to resolve
             </div>
             <button
-              className="text-xxs text-accent hover:underline mt-1 inline-flex items-center gap-0.5"
+              className="text-xs text-accent hover:underline mt-1 inline-flex items-center gap-0.5"
               onClick={() => useRepoStore.getState().setSidebarTab('actions')}
             >
               Resolve conflicts

@@ -27,7 +27,7 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
         <div className="p-4 flex items-center justify-between border-b border-border shrink-0">
           <div className="flex items-center gap-2">
             <Settings className="w-4 h-4 text-fg-muted" />
-            <h3 className="text-sm font-semibold text-fg">Settings</h3>
+            <h2 className="text-sm font-semibold text-fg">Settings</h2>
           </div>
           <button className="icon-btn" onClick={onClose}><X className="w-4 h-4" /></button>
         </div>
@@ -80,7 +80,7 @@ function GitPathSection() {
 
   return (
     <section>
-      <h4 className="label mb-2">Git Binary</h4>
+      <h3 className="label mb-2">Git Binary</h3>
       <p className="text-xs text-fg-muted mb-2">
         Path to the git executable. Leave empty to auto-detect from PATH.
       </p>
@@ -114,7 +114,7 @@ function DiffSection() {
 
   return (
     <section>
-      <h4 className="label mb-2">Diff Viewer</h4>
+      <h3 className="label mb-2">Diff Viewer</h3>
       <div className="space-y-2">
         <div>
           <label className="text-xs text-fg-muted block mb-1">Default view</label>
@@ -168,7 +168,7 @@ function ThemeSection() {
 
   return (
     <section>
-      <h4 className="label mb-2">Theme</h4>
+      <h3 className="label mb-2">Theme</h3>
       <div className="flex gap-1">
         {(['system', 'dark', 'light'] as const).map((v) => (
           <button
@@ -197,7 +197,7 @@ function FontSizeSection() {
 
   return (
     <section>
-      <h4 className="label mb-2">Font Size: {data?.fontSize ?? 14}px</h4>
+      <h3 className="label mb-2">Font Size: {data?.fontSize ?? 14}px</h3>
       <input
         type="range"
         min={10}
@@ -235,7 +235,7 @@ function DefaultBranchSection() {
 
   return (
     <section>
-      <h4 className="label mb-2">Default Branch</h4>
+      <h3 className="label mb-2">Default Branch</h3>
       <div className="flex gap-2">
         <input
           className="input flex-1 font-mono"
@@ -263,7 +263,7 @@ function PullStrategySection() {
 
   return (
     <section>
-      <h4 className="label mb-2">Default Pull Strategy</h4>
+      <h3 className="label mb-2">Default Pull Strategy</h3>
       <div className="flex gap-2">
         {(['merge', 'rebase', 'ff-only'] as const).map((v) => (
           <label key={v} className="flex items-center gap-1.5 cursor-pointer text-xs text-fg-muted hover:text-fg">
@@ -295,7 +295,7 @@ function CommitSection() {
 
   return (
     <section>
-      <h4 className="label mb-2">Commit</h4>
+      <h3 className="label mb-2">Commit</h3>
       <div className="space-y-2">
         <div>
           <label className="text-xs text-fg-muted block mb-1">Subject length: {data?.commitSubjectLength ?? 72}</label>
@@ -335,7 +335,7 @@ function SigningSection() {
 
   return (
     <section>
-      <h4 className="label mb-2">Commit Signing</h4>
+      <h3 className="label mb-2">Commit Signing</h3>
       <div className="flex gap-2">
         {(['none', 'gpg', 'ssh'] as const).map((v) => (
           <label key={v} className="flex items-center gap-1.5 cursor-pointer text-xs text-fg-muted hover:text-fg">
@@ -369,7 +369,7 @@ function AutoFetchSection() {
 
   return (
     <section>
-      <h4 className="label mb-2">Auto-fetch</h4>
+      <h3 className="label mb-2">Auto-fetch</h3>
       <p className="text-xs text-fg-muted mb-2">Automatically fetch from all remotes at the given interval (minutes).</p>
       <div className="flex gap-1">
         {intervals.map((v) => (
@@ -411,7 +411,7 @@ function ExternalEditorSection() {
 
   return (
     <section>
-      <h4 className="label mb-2">External Editor</h4>
+      <h3 className="label mb-2">External Editor</h3>
       <div className="flex gap-2">
         <input
           className="input flex-1 font-mono"
@@ -447,7 +447,7 @@ function UpdatesSection() {
 
   return (
     <section>
-      <h4 className="label mb-2">Updates</h4>
+      <h3 className="label mb-2">Updates</h3>
       <p className="text-xs text-fg-muted mb-2">
         Check for new versions of OpenGit. Updates download in the background and install on restart.
       </p>
@@ -483,7 +483,7 @@ function RecentReposSection() {
 
   return (
     <section>
-      <h4 className="label mb-2">Recent Repositories</h4>
+      <h3 className="label mb-2">Recent Repositories</h3>
       {isLoading && <div className="text-xs text-fg-muted">Loading…</div>}
       {repos && repos.length === 0 && <div className="text-xs text-fg-dim">No recent repos.</div>}
       <div className="space-y-1">
@@ -494,10 +494,10 @@ function RecentReposSection() {
               <FolderOpen className="w-3.5 h-3.5 text-fg-muted shrink-0" />
               <div className="flex-1 min-w-0">
                 <div className="text-xs text-fg truncate">{name}</div>
-                <div className="text-xxs text-fg-dim truncate">{path}</div>
+                <div className="text-xs text-fg-dim truncate">{path}</div>
               </div>
               <button
-                className="icon-btn !w-5 !h-5 opacity-0 group-hover:opacity-100 hover:text-git-deleted"
+                className="icon-btn !w-6 !h-6 opacity-0 group-hover:opacity-100 hover:text-git-deleted"
                 onClick={() => removeRecent.mutate(path)}
                 title="Remove from recent"
               >

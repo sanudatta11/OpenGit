@@ -112,7 +112,7 @@ export function LaunchPanel({ onOpenSettings }: { onOpenSettings: () => void }) 
               <div key={path} className="group flex items-center gap-2 rounded px-2 py-2 hover:bg-bg-hover">
                 <button className="flex-1 min-w-0 text-left" onClick={() => openPath(path)} disabled={busy}>
                   <div className="text-sm text-fg truncate">{path.split('/').pop() ?? path}</div>
-                  <div className="text-xxs text-fg-dim truncate">{path}</div>
+                  <div className="text-xs text-fg-dim truncate">{path}</div>
                 </button>
                 <button
                   className="icon-btn !w-7 !h-7 opacity-60 group-hover:opacity-100 hover:text-git-deleted"

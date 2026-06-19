@@ -97,7 +97,7 @@ function RepositoryOverview() {
       </div>
 
       {upstream && (
-        <div className="flex items-center gap-1.5 text-xxs text-fg-muted">
+        <div className="flex items-center gap-1.5 text-xs text-fg-muted">
           <Cloud className="w-3 h-3 text-git-remote shrink-0" />
           <span className="truncate" title={upstream}>upstream: {upstream}</span>
           {(ahead > 0 || behind > 0) && (
@@ -110,13 +110,13 @@ function RepositoryOverview() {
       )}
 
       {remoteUrl && (
-        <div className="flex items-center gap-1.5 text-xxs text-fg-dim">
+        <div className="flex items-center gap-1.5 text-xs text-fg-dim">
           <Cloud className="w-3 h-3 text-fg-dim shrink-0" />
           <span className="truncate" title={remoteUrl}>{remoteUrl}</span>
         </div>
       )}
 
-      <div className="flex items-center gap-1.5 text-xxs text-fg-muted">
+      <div className="flex items-center gap-1.5 text-xs text-fg-muted">
         <CircleDot className={`w-3 h-3 shrink-0 ${dirtyCount > 0 ? 'text-git-modified' : 'text-git-added'}`} />
         <span>{dirtyCount === 0 ? 'Clean working tree' : `${dirtyCount} files changed`}</span>
       </div>

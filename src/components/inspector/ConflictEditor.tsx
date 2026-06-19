@@ -280,7 +280,7 @@ function FileConflictResolver({
               )}
             </button>
             {!allResolved && (
-              <p className="text-center text-xxs text-fg-dim mt-1.5">You must make a choice for all conflicts to save.</p>
+              <p className="text-center text-xs text-fg-dim mt-1.5">You must make a choice for all conflicts to save.</p>
             )}
           </div>
         </>
@@ -412,7 +412,7 @@ function FileConflictResolver({
               )}
             </button>
             {!allResolved && (
-              <span className="text-xxs text-fg-dim">Resolve all conflicts first</span>
+              <span className="text-xs text-fg-dim">Resolve all conflicts first</span>
             )}
           </div>
         </>

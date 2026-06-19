@@ -31,7 +31,7 @@ export function StashTab() {
     <div className="py-1 text-xs">
       <div className="px-3 py-1 label flex items-center justify-between">
         <span>Stashes</span>
-        <button className="icon-btn !w-5 !h-5" onClick={() => setShowCreate(!showCreate)} title="New stash">
+        <button className="icon-btn !w-6 !h-6" onClick={() => setShowCreate(!showCreate)} title="New stash">
           <Plus className="w-3 h-3" />
         </button>
       </div>
@@ -121,26 +121,26 @@ function StashRow({ entry, onDrop, onPop, onToggleDiff, expanded, diffLoading, d
         >
           {entry.ref}
         </button>
-        <span className="text-xxs text-fg-dim ml-auto shrink-0">{formatRelative(date)}</span>
+        <span className="text-xs text-fg-dim ml-auto shrink-0">{formatRelative(date)}</span>
       </div>
       <div className="mt-1 text-xs text-fg truncate" title={entry.subject}>{entry.subject}</div>
       {entry.branch && (
-        <div className="mt-0.5 text-xxs text-fg-dim">on {entry.branch}</div>
+        <div className="mt-0.5 text-xs text-fg-dim">on {entry.branch}</div>
       )}
       {expanded && (
         <div className="mt-2 border-t border-border-subtle pt-2 max-h-40 overflow-y-auto">
           {diffLoading ? (
-            <div className="text-xxs text-fg-muted flex items-center gap-1"><Loader2 className="w-3 h-3 animate-spin" /> Loading diff...</div>
+            <div className="text-xs text-fg-muted flex items-center gap-1"><Loader2 className="w-3 h-3 animate-spin" /> Loading diff...</div>
           ) : diffContent ? (
-            <pre className="text-xxs font-mono text-fg-muted whitespace-pre-wrap">{diffContent.slice(0, 4000)}{diffContent.length > 4000 ? '\n...truncated' : ''}</pre>
+            <pre className="text-xs font-mono text-fg-muted whitespace-pre-wrap">{diffContent.slice(0, 4000)}{diffContent.length > 4000 ? '\n...truncated' : ''}</pre>
           ) : (
-            <div className="text-xxs text-fg-dim">No diff available.</div>
+            <div className="text-xs text-fg-dim">No diff available.</div>
           )}
         </div>
       )}
       <div className="mt-1.5 flex items-center gap-1">
         <button
-          className="icon-btn !w-5 !h-5"
+          className="icon-btn !w-6 !h-6"
           onClick={() => apply.mutate({ ref: entry.ref })}
           disabled={apply.isPending || pop.isPending}
           title="Apply (keep stash)"
@@ -148,7 +148,7 @@ function StashRow({ entry, onDrop, onPop, onToggleDiff, expanded, diffLoading, d
           {apply.isPending && apply.variables?.ref === entry.ref ? <Loader2 className="w-3 h-3 animate-spin" /> : <Play className="w-3 h-3" />}
         </button>
         <button
-          className="icon-btn !w-5 !h-5"
+          className="icon-btn !w-6 !h-6"
           onClick={onPop}
           disabled={apply.isPending || pop.isPending}
           title="Pop (apply + drop)"
@@ -156,7 +156,7 @@ function StashRow({ entry, onDrop, onPop, onToggleDiff, expanded, diffLoading, d
           <ArrowDownToLine className="w-3 h-3" />
         </button>
         <button
-          className="icon-btn !w-5 !h-5 hover:text-git-deleted ml-auto"
+          className="icon-btn !w-6 !h-6 hover:text-git-deleted ml-auto"
           onClick={onDrop}
           disabled={drop.isPending}
           title="Drop"
@@ -191,18 +191,18 @@ function CreateStashForm({ onClose }: { onClose: () => void }) {
         onKeyDown={(e) => { if (e.key === 'Enter') handleSubmit(); }}
         autoFocus
       />
-      <label className="flex items-center gap-1.5 text-xxs text-fg-muted cursor-pointer">
+      <label className="flex items-center gap-1.5 text-xs text-fg-muted cursor-pointer">
         <input type="checkbox" checked={includeUntracked} onChange={(e) => setIncludeUntracked(e.target.checked)} className="accent-accent" />
         Include untracked
       </label>
-      <label className="flex items-center gap-1.5 text-xxs text-fg-muted cursor-pointer">
+      <label className="flex items-center gap-1.5 text-xs text-fg-muted cursor-pointer">
         <input type="checkbox" checked={keepIndex} onChange={(e) => setKeepIndex(e.target.checked)} className="accent-accent" />
         Keep index
       </label>
       <div className="flex justify-end gap-1">
-        <button className="btn !text-xxs !px-2 !py-0.5" onClick={onClose}>Cancel</button>
+        <button className="btn !text-xs !px-2 !py-0.5" onClick={onClose}>Cancel</button>
         <button
-          className="btn btn-primary !text-xxs !px-2 !py-0.5"
+          className="btn btn-primary !text-xs !px-2 !py-0.5"
           onClick={handleSubmit}
           disabled={create.isPending}
         >

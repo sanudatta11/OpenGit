@@ -87,14 +87,14 @@ export function RemotesTab() {
             <span className="font-medium text-fg">{r.name}</span>
             <div className="flex-1" />
             <button
-              className="icon-btn !w-5 !h-5 hover:text-accent"
+              className="icon-btn !w-6 !h-6 hover:text-accent"
               onClick={() => { setEditingName(r.name); setEditUrl(r.fetchUrl ?? ''); }}
               title="Edit remote URL"
             >
               <Pencil className="w-3 h-3" />
             </button>
             <button
-              className="icon-btn !w-5 !h-5 hover:text-git-deleted"
+              className="icon-btn !w-6 !h-6 hover:text-git-deleted"
               onClick={() => handleRemove(r.name)}
               title="Remove remote"
             >
@@ -111,14 +111,14 @@ export function RemotesTab() {
                 autoFocus
               />
               <button
-                className="btn !text-xxs !px-2 !py-0.5 btn-primary"
+                className="btn !text-xs !px-2 !py-0.5 btn-primary"
                 onClick={() => handleSaveUrl(r.name)}
                 disabled={saving}
               >
                 {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Save'}
               </button>
               <button
-                className="btn !text-xxs !px-2 !py-0.5"
+                className="btn !text-xs !px-2 !py-0.5"
                 onClick={() => setEditingName(null)}
               >
                 Cancel
@@ -150,9 +150,9 @@ export function RemotesTab() {
             onKeyDown={(e) => { if (e.key === 'Enter') handleAdd(); }}
           />
           <div className="flex items-center justify-end gap-1">
-            <button className="btn !text-xxs !px-2 !py-0.5" onClick={() => { setShowAdd(false); setNewRemoteName(''); setNewRemoteUrl(''); }}>Cancel</button>
+            <button className="btn !text-xs !px-2 !py-0.5" onClick={() => { setShowAdd(false); setNewRemoteName(''); setNewRemoteUrl(''); }}>Cancel</button>
             <button
-              className="btn btn-primary !text-xxs !px-2 !py-0.5"
+              className="btn btn-primary !text-xs !px-2 !py-0.5"
               onClick={handleAdd}
               disabled={adding || !newRemoteName.trim() || !newRemoteUrl.trim()}
             >
@@ -164,7 +164,7 @@ export function RemotesTab() {
 
       {!showAdd && (
         <div className="px-3 py-2">
-          <button className="btn w-full justify-center text-xxs" onClick={() => setShowAdd(true)}>
+          <button className="btn w-full justify-center text-xs" onClick={() => setShowAdd(true)}>
             <Plus className="w-3 h-3" /> Add Remote
           </button>
         </div>

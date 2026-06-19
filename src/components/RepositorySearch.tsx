@@ -99,7 +99,7 @@ export function RepositorySearch({ open, onClose }: RepositorySearchProps) {
             autoFocus
             placeholder="Search branches, commits, files, tags..."
           />
-          {isPending && <span className="text-xxs text-fg-dim animate-pulse">Searching...</span>}
+          {isPending && <span className="text-xs text-fg-dim animate-pulse">Searching...</span>}
           <button className="icon-btn" onClick={onClose} title="Close">
             <X className="w-4 h-4" />
           </button>
@@ -118,7 +118,7 @@ export function RepositorySearch({ open, onClose }: RepositorySearchProps) {
                   <Icon className={`w-4 h-4 shrink-0 ${colorForKind(item.kind)}`} />
                   <span className="flex-1 min-w-0">
                     <span className="block text-sm text-fg truncate font-medium">{item.label}</span>
-                    <span className="block text-xxs text-fg-muted truncate">{item.detail}</span>
+                    <span className="block text-xs text-fg-muted truncate">{item.detail}</span>
                   </span>
                 </button>
               );

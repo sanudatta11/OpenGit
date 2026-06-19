@@ -58,12 +58,12 @@ export function SubmodulesTab() {
       <div className="px-3 py-1 label flex items-center justify-between">
         <span>Submodules</span>
         <div className="flex items-center gap-1">
-          <button className="icon-btn !w-5 !h-5" onClick={() => refetch()} title="Refresh">
+          <button className="icon-btn !w-6 !h-6" onClick={() => refetch()} title="Refresh">
             <RefreshCw className="w-3 h-3" />
           </button>
           {subs.length > 0 && (
             <button
-              className="btn !text-xxs !px-2 !py-0.5"
+              className="btn !text-xs !px-2 !py-0.5"
               onClick={handleInitAll}
               disabled={initLoading}
             >
@@ -85,15 +85,15 @@ export function SubmodulesTab() {
             <span className="text-xxs font-mono text-fg-dim">{s.sha.slice(0, 7)}</span>
           </div>
           {s.branch && (
-            <div className="mt-0.5 text-xxs text-fg-dim ml-5.5">
+            <div className="mt-0.5 text-xs text-fg-dim ml-5.5">
               branch: {s.branch}
             </div>
           )}
           <div className="mt-1 flex items-center gap-1 ml-5.5">
             <CircleDot className={`w-2.5 h-2.5 shrink-0 ${dirty(s) ? 'text-git-modified' : 'text-git-added'}`} />
-            <span className="text-xxs text-fg-dim">{dirty(s) ? 'dirty' : 'clean'}</span>
+            <span className="text-xs text-fg-dim">{dirty(s) ? 'dirty' : 'clean'}</span>
             <button
-              className="icon-btn !w-5 !h-5 hover:text-git-deleted ml-auto"
+              className="icon-btn !w-6 !h-6 hover:text-git-deleted ml-auto"
               onClick={() => setConfirmDeinit(s.path)}
               title="Deinit submodule"
             >
@@ -112,7 +112,7 @@ export function SubmodulesTab() {
         onConfirm={handleDeinit}
         onCancel={() => { setConfirmDeinit(null); setDeinitForce(false); }}
       >
-        <label className="flex items-center gap-1.5 mt-2 text-xxs text-fg-muted cursor-pointer">
+        <label className="flex items-center gap-1.5 mt-2 text-xs text-fg-muted cursor-pointer">
           <input
             type="checkbox"
             checked={deinitForce}

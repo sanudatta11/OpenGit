@@ -83,7 +83,7 @@ export function EmptyState({ onOpenSettings }: { onOpenSettings: () => void }) {
                   <FolderOpen className="w-4 h-4 text-fg-muted shrink-0" />
                   <div className="flex-1 min-w-0">
                     <div className="text-sm text-fg truncate">{name}</div>
-                    <div className="text-xxs text-fg-dim truncate">{path}</div>
+                    <div className="text-xs text-fg-dim truncate">{path}</div>
                   </div>
                 </button>
               );

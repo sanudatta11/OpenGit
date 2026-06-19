@@ -62,10 +62,10 @@ export default {
         sans: ['ui-sans-serif', 'system-ui', 'Inter', 'sans-serif'],
       },
       fontSize: {
-        xxs: ['10px', '14px'],
-        xs: ['11px', '16px'],
-        sm: ['12px', '18px'],
-        md: ['13px', '20px'],
+        xxs: ['0.75rem', '1.1'],
+        xs: ['0.875rem', '1.25'],
+        sm: ['1rem', '1.5'],
+        md: ['1.125rem', '1.6'],
       },
       keyframes: {
         'slide-in': {
