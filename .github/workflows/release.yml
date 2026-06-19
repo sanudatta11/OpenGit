@@ -79,7 +79,7 @@ jobs:
     name: Build (${{ matrix.os }})
     needs: meta
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
         include:
           - os: macos-latest
@@ -106,6 +106,8 @@ jobs:
       - run: npm ci
 
       - name: Build renderer + main + preload
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
         run: npx electron-vite build
 
       - name: Package (electron-builder, version from tag)
