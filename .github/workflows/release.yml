@@ -32,6 +32,11 @@ jobs:
           node-version: '20'
           cache: 'npm'
       - run: npm ci
+      - name: Configure git for tests
+        run: |
+          git config --global init.defaultBranch main
+          git config --global user.name "OpenGit CI"
+          git config --global user.email "ci@opengit.dev"
       - run: npm run typecheck
       - run: npx eslint "src/**/*.{ts,tsx}" "shared/**/*.ts" "electron/**/*.{ts,tsx}"
       - run: npm test
