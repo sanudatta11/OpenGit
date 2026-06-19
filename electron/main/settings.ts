@@ -23,6 +23,7 @@ export interface Settings {
   inspectorWidth: number;
   autoFetchInterval: number;
   betaUpdates: boolean;
+  openRepos: string[];
 }
 
 const DEFAULTS: Settings = {
@@ -43,6 +44,7 @@ const DEFAULTS: Settings = {
   inspectorWidth: 360,
   autoFetchInterval: 0,
   betaUpdates: false,
+  openRepos: [],
 };
 
 const MAX_RECENT = 10;
@@ -87,4 +89,16 @@ export function addRecentRepo(path: string): void {
 export function removeRecentRepo(path: string): void {
   const settings = loadSettings();
   saveSettings({ recentRepos: settings.recentRepos.filter((r) => r !== path) });
+}
+
+export function addOpenRepo(path: string): void {
+  const settings = loadSettings();
+  const filtered = settings.openRepos.filter((r) => r !== path);
+  filtered.push(path);
+  saveSettings({ openRepos: filtered });
+}
+
+export function removeOpenRepo(path: string): void {
+  const settings = loadSettings();
+  saveSettings({ openRepos: settings.openRepos.filter((r) => r !== path) });
 }

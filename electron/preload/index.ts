@@ -94,6 +94,10 @@ const api = {
       ipcRenderer.invoke(IPC.REPO_STATE),
     head: (): Promise<RepoInfo | null> =>
       ipcRenderer.invoke(IPC.REPO_HEAD),
+    setActive: (path: string): Promise<RepoInfo | null> =>
+      ipcRenderer.invoke(IPC.REPO_SET_ACTIVE, path),
+    list: (): Promise<RepoInfo[]> =>
+      ipcRenderer.invoke(IPC.REPO_LIST),
   },
 
   diff: {

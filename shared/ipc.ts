@@ -21,6 +21,8 @@ export const IPC = {
   REPO_REMOTES: 'repo:remotes',
   REPO_STATE: 'repo:state',
   REPO_HEAD: 'repo:head',
+  REPO_SET_ACTIVE: 'repo:setActive',
+  REPO_LIST: 'repo:list',
 
   WORKING_TREE_STAGE: 'workingTree:stage',
   WORKING_TREE_UNSTAGE: 'workingTree:unstage',

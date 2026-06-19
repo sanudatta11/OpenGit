@@ -8,6 +8,10 @@ import { useToastStore } from '../stores/toast';
 import { usePushBannerStore } from '../stores/pushBanner';
 import { useUndoStore } from '../stores/undo';
 
+function activePath(): string | null {
+  return useRepoStore.getState().activeRepo?.path ?? null;
+}
+
 // Input types with optional defaults (renderer-side; main fills in defaults via Zod).
 interface CommitInput { message: string; amend?: boolean; signoff?: boolean; noVerify?: boolean; author?: { name: string; email: string } }
 interface CheckoutInput { ref: string; create?: boolean; force?: boolean }
@@ -22,9 +26,9 @@ function useRefreshOnSuccess() {
   const qc = useQueryClient();
   return (requiresRefresh?: boolean) => {
     if (requiresRefresh) {
-      void qc.invalidateQueries({ queryKey: qk.status });
-      void qc.invalidateQueries({ queryKey: qk.branches });
-      void qc.invalidateQueries({ queryKey: qk.state });
+      void qc.invalidateQueries({ queryKey: qk.status(activePath()) });
+      void qc.invalidateQueries({ queryKey: qk.branches(activePath()) });
+      void qc.invalidateQueries({ queryKey: qk.state(activePath()) });
       void qc.invalidateQueries({ queryKey: ['log'] });
     }
   };
@@ -181,9 +185,9 @@ export function useFetchAll() {
   return useMutation({
     mutationFn: (prune?: boolean) => api.remote.fetchAll(prune),
     onSuccess: (r) => {
-      void qc.invalidateQueries({ queryKey: qk.status });
-      void qc.invalidateQueries({ queryKey: qk.branches });
-      void qc.invalidateQueries({ queryKey: qk.remotes });
+      void qc.invalidateQueries({ queryKey: qk.status(activePath()) });
+      void qc.invalidateQueries({ queryKey: qk.branches(activePath()) });
+      void qc.invalidateQueries({ queryKey: qk.remotes(activePath()) });
       void qc.invalidateQueries({ queryKey: ['log'] });
       if (r.data) {
         toast().addToast(`Fetched ${r.data.fetched} refs from all remotes`, 'success');
@@ -201,7 +205,7 @@ export function useStashList() {
   return useQuery({
     queryKey: ['stash'],
     queryFn: () => api.stash.list(),
-    enabled: !!useRepoStore.getState().repo,
+    enabled: !!useRepoStore.getState().activeRepo,
     staleTime: 10_000,
     refetchOnWindowFocus: false,
   });

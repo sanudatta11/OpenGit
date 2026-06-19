@@ -1,24 +1,23 @@
-// src/components/TopBar.tsx — top toolbar: repo name, branch, ahead/behind, fetch/pull/push, actions.
+// src/components/TopBar.tsx — top toolbar: tabs, branch, fetch/pull/push, actions.
 
-import { GitBranch, ArrowUp, ArrowDown, CircleDot, Terminal, RefreshCw, FolderOpen, Cloud, Loader2, Settings, Search, ChevronDown, RotateCcw } from 'lucide-react';
+import { GitBranch, ArrowUp, ArrowDown, CircleDot, Terminal, RefreshCw, Cloud, Loader2, Settings, Search, ChevronDown, RotateCcw } from 'lucide-react';
 import { useMemo, useState, useEffect, useRef } from 'react';
-import { useRepoStore } from '../stores/repo';
+import { useRepoStore, repoName } from '../stores/repo';
 import { useStatus, useBranches, useRemotes } from '../queries/useRepo';
-import { useOpenRepo } from '../queries/useRepo';
 import { useFetch, usePull, usePush, useCheckout, useFetchAll } from '../queries/useMutations';
 import { useQueryClient, useMutation } from '@tanstack/react-query';
 import type { Branch } from '@shared/git';
 import { useUndoStore } from '../stores/undo';
 import { useToastStore } from '../stores/toast';
 import { api } from '../ipc/api';
+import { TabBar } from './TabBar';
 
 export function TopBar({ onOpenSettings }: { onOpenSettings: () => void }) {
-  const repo = useRepoStore((s) => s.repo)!;
+  const repo = useRepoStore((s) => s.activeRepo)!;
   const toggleLogDrawer = useRepoStore((s) => s.toggleLogDrawer);
   const logDrawerOpen = useRepoStore((s) => s.logDrawerOpen);
   const branches = useBranches();
   const remotes = useRemotes();
-  const openRepo = useOpenRepo();
   const fetch_ = useFetch();
   const pull = usePull();
   const push = usePush();
@@ -52,12 +51,7 @@ export function TopBar({ onOpenSettings }: { onOpenSettings: () => void }) {
     }
   };
 
-  const handleOpen = async () => {
-    const path = await window.api.dialog.pickRepo();
-    if (path) await openRepo.mutateAsync(path);
-  };
-
-  const repoName = repo.path.split('/').pop() ?? repo.path;
+  const shortName = repoName(repo);
   const busy = fetch_.isPending || pull.isPending || push.isPending || fetchAll.isPending;
 
   const undoStore = useUndoStore();
@@ -88,13 +82,10 @@ export function TopBar({ onOpenSettings }: { onOpenSettings: () => void }) {
 
   return (
     <div className="h-10 flex items-center px-3 gap-3 border-b border-border bg-bg-panel shrink-0">
-      <button className="icon-btn" onClick={handleOpen} title="Open repository">
-        <FolderOpen className="w-4 h-4" />
-      </button>
+      <TabBar />
 
       <div className="flex items-center gap-2 min-w-0">
-        <span className="text-fg font-semibold text-sm truncate">{repoName}</span>
-        <span className="text-fg-dim text-xs truncate hidden md:inline">{repo.path}</span>
+        <span className="text-fg-dim text-xs truncate hidden md:inline">{shortName}</span>
       </div>
 
       <div className="flex-1" />
@@ -158,7 +149,7 @@ export function TopBar({ onOpenSettings }: { onOpenSettings: () => void }) {
 }
 
 function BranchSelector() {
-  const repo = useRepoStore((s) => s.repo)!;
+  const repo = useRepoStore((s) => s.activeRepo)!;
   const branches = useBranches();
   const status = useStatus();
   const checkout = useCheckout();

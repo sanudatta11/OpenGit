@@ -105,7 +105,7 @@ function WorktreeRow({ wt, onRemove }: { wt: Worktree; onRemove: () => void }) {
 
   const openRepo = useOpenRepo();
   const qc = useQueryClient();
-  const repoPath = useRepoStore((s) => s.repo?.path);
+  const repoPath = useRepoStore((s) => s.activeRepo?.path);
   const isActive = repoPath === wt.path;
 
   const lockMutation = useMutation({

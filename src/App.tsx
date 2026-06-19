@@ -1,26 +1,22 @@
-// src/App.tsx — top-level shell. Decides between empty state and workspace.
+// src/App.tsx — top-level shell. Shows LaunchPanel when no repos, Workspace when repos open.
 
 import { useEffect, useState } from 'react';
 import { useRepoStore } from './stores/repo';
-import { useRepoHead } from './queries/useRepo';
+import { useRehydrateRepos } from './queries/useRepo';
 import { useUpdaterEvents } from './queries/useUpdater';
 import { Workspace } from './components/Workspace';
 import { LaunchPanel } from './components/LaunchPanel';
 import { SettingsPanel } from './components/SettingsPanel';
 
 export default function App() {
-  const repo = useRepoStore((s) => s.repo);
-  const setRepo = useRepoStore((s) => s.setRepo);
-  const head = useRepoHead();
+  const repos = useRepoStore((s) => s.repos);
   const [settingsOpen, setSettingsOpen] = useState(false);
+
+  // Rehydrate open repos from main process on mount.
+  useRehydrateRepos();
 
   // Subscribe to auto-updater events -> toasts (no-op in dev).
   useUpdaterEvents();
-
-  // Rehydrate repo info if the renderer reloads.
-  useEffect(() => {
-    if (head.data && !repo) setRepo(head.data);
-  }, [head.data, repo, setRepo]);
 
   // Keyboard: Ctrl/Cmd+, opens settings.
   useEffect(() => {
@@ -36,7 +32,7 @@ export default function App() {
 
   return (
     <>
-      {!repo ? (
+      {repos.length === 0 ? (
         <LaunchPanel onOpenSettings={() => setSettingsOpen(true)} />
       ) : (
         <Workspace onOpenSettings={() => setSettingsOpen(true)} />

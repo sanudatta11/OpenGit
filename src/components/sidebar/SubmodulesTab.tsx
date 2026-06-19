@@ -9,7 +9,7 @@ import { ConfirmDialog } from '../ConfirmDialog';
 
 export function SubmodulesTab() {
   const qc = useQueryClient();
-  const repo = useRepoStore((s) => s.repo);
+  const repo = useRepoStore((s) => s.activeRepo);
   const [initLoading, setInitLoading] = useState(false);
   const [confirmDeinit, setConfirmDeinit] = useState<string | null>(null);
   const [deinitForce, setDeinitForce] = useState(false);

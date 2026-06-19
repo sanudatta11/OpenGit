@@ -14,9 +14,9 @@ import {
 } from '../git/repo';
 import { createRepository, cloneRepository } from '../git/lifecycle';
 import { getCachedRefs, fetchRefs } from '../git/refsCache';
-import { setCurrentRepo, getCurrentRepo, requireCurrentRepo } from '../git/session';
-import { addRecentRepo, removeRecentRepo } from '../settings';
-import { startWatching } from '../watcher';
+import { setCurrentRepo, getCurrentRepo, requireCurrentRepo, switchActiveRepo, removeRepo as removeSessionRepo, getOpenRepoInfos } from '../git/session';
+import { addRecentRepo, removeRecentRepo, addOpenRepo, removeOpenRepo } from '../settings';
+import { startWatching, stopWatching } from '../watcher';
 import { BrowserWindow } from 'electron';
 
 export function registerRepoHandlers(): void {
@@ -81,9 +81,10 @@ export function registerRepoHandlers(): void {
       const opened = await openRepo(parsed.data.path);
       setCurrentRepo(opened);
       addRecentRepo(opened.info.path);
-      // Start watching .git for changes.
+      addOpenRepo(opened.info.path);
+      // Start watching .git for changes (per-repo watcher).
       const win = BrowserWindow.getFocusedWindow();
-      if (win) startWatching(opened.gitDir, opened.workTreeRoot, win);
+      if (win) startWatching(opened.gitDir, opened.workTreeRoot, win, opened.info.path);
       return opened.info;
     } catch (err) {
       if (err instanceof GitError) throw err;
@@ -101,7 +102,12 @@ export function registerRepoHandlers(): void {
   });
 
   ipcMain.handle(IPC.REPO_CLOSE, async () => {
-    setCurrentRepo(null);
+    const r = getCurrentRepo();
+    if (r) {
+      removeSessionRepo(r.info.path);
+      removeOpenRepo(r.info.path);
+      void stopWatching(r.info.path);
+    }
     return { success: true };
   });
 
@@ -128,9 +134,9 @@ export function registerRepoHandlers(): void {
     }
     const r = requireCurrentRepo();
     // Use cached refs if available; otherwise fetch + cache.
-    let refsBySha = getCachedRefs()?.refsBySha ?? null;
+    let refsBySha = getCachedRefs(r.info.path)?.refsBySha ?? null;
     if (!refsBySha) {
-      const fetched = await fetchRefs(r.workTreeRoot, r.gitDir);
+      const fetched = await fetchRefs(r.workTreeRoot, r.gitDir, r.info.path);
       refsBySha = fetched.refsBySha;
     }
     return getLog(r.workTreeRoot, {
@@ -162,6 +168,19 @@ export function registerRepoHandlers(): void {
     const r = getCurrentRepo();
     if (!r) return null;
     return r.info;
+  });
+
+  ipcMain.handle(IPC.REPO_SET_ACTIVE, async (_e, raw: unknown) => {
+    if (typeof raw !== 'string' || !raw) throw new GitError({
+      code: 'BadInput', message: 'Expected repo path string', stdout: '', stderr: '',
+      friendly: 'Invalid request to switch active repo.',
+    });
+    switchActiveRepo(raw);
+    return getCurrentRepo()?.info ?? null;
+  });
+
+  ipcMain.handle(IPC.REPO_LIST, async () => {
+    return getOpenRepoInfos();
   });
 
   ipcMain.handle(IPC.REPO_SEARCH, async (_e, raw) => {

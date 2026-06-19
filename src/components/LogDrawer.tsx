@@ -9,7 +9,7 @@ import { api } from '../ipc/api';
 
 export function LogDrawer() {
   const toggle = useRepoStore((s) => s.toggleLogDrawer);
-  const repo = useRepoStore((s) => s.repo);
+  const repo = useRepoStore((s) => s.activeRepo);
   const qc = useQueryClient();
 
   const {

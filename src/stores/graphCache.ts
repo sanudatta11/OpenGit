@@ -57,7 +57,7 @@ export const useGraphCacheStore = create<GraphCacheState>((set) => ({
 // Reset on repo close.
 import { useRepoStore } from './repo';
 useRepoStore.subscribe((state) => {
-  if (!state.repo) {
+  if (!state.activeRepo) {
     useGraphCacheStore.getState().reset();
   }
 });

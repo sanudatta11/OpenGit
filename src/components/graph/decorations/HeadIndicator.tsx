@@ -4,20 +4,21 @@
 import type { RefLabel } from '@shared/git';
 
 interface HeadIndicatorProps {
-  ref: RefLabel;
+  label: RefLabel;
 }
 
-export function HeadIndicator({ ref }: HeadIndicatorProps) {
-  const label =
-    ref.kind === 'HEAD'
+export function HeadIndicator({ label }: HeadIndicatorProps) {
+  if (!label) return null;
+  const txt =
+    label.kind === 'HEAD'
       ? 'HEAD'
-      : ref.kind === 'local'
-        ? `HEAD (${ref.shortName})`
-        : ref.shortName;
+      : label.kind === 'local'
+        ? `HEAD (${label.shortName})`
+        : label.shortName;
 
   return (
     <span className="px-1.5 py-0 rounded text-xxs bg-git-head/20 text-git-head font-mono shrink-0">
-      {label}
+      {txt}
     </span>
   );
 }

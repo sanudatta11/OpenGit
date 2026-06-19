@@ -6,9 +6,12 @@ import { join } from 'node:path';
 import { existsSync } from 'node:fs';
 import { discoverGitBin, cancelAll } from './git/client';
 import { registerAllHandlers } from './ipc';
-import { stopWatching } from './watcher';
+import { stopWatching, startWatching } from './watcher';
 import { initUpdater } from './updater';
 import { GitError } from '@shared/ipc';
+import { loadSettings } from './settings';
+import { openRepo } from './git/repo';
+import { addRepo, getRepo } from './git/session';
 
 const isDev = !app.isPackaged;
 
@@ -93,10 +96,27 @@ app.whenReady().then(async () => {
   // 2. Register IPC handlers.
   registerAllHandlers();
 
-  // 3. Create the main window.
-  await createWindow();
+  // 3. Reopen persisted repos from previous session.
+  const settings = loadSettings();
+  for (const path of settings.openRepos) {
+    try {
+      const opened = await openRepo(path);
+      addRepo(opened);
+    } catch (err) {
+      console.warn('[opengit] failed to reopen repo:', path, (err as Error).message);
+    }
+  }
 
-  // 4. Start auto-updater (only in packaged builds; dev has no app-update.yml).
+  // 4. Create the main window.
+  const win = await createWindow();
+
+  // 5. Start watchers for auto-reopened repos.
+  for (const repoPath of settings.openRepos) {
+    const r = getRepo(repoPath);
+    if (r) startWatching(r.gitDir, r.workTreeRoot, win, repoPath);
+  }
+
+  // 6. Start auto-updater (only in packaged builds; dev has no app-update.yml).
   if (app.isPackaged) {
     try {
       initUpdater();

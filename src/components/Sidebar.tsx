@@ -60,7 +60,7 @@ export function Sidebar({ sidebarWidth }: { sidebarWidth?: number }) {
 import { CircleDot } from 'lucide-react';
 
 function RepositoryOverview() {
-  const repo = useRepoStore((s) => s.repo);
+  const repo = useRepoStore((s) => s.activeRepo);
   const status = useStatus();
   const remotes = useRemotes();
 

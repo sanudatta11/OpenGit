@@ -23,4 +23,4 @@ export const useUndoStore = create<UndoStore>((set) => ({
 }));
 
 import { useRepoStore } from './repo';
-useRepoStore.subscribe((state) => { if (!state.repo) useUndoStore.getState().setLastAction(null); });
+useRepoStore.subscribe((state) => { if (!state.activeRepo) useUndoStore.getState().setLastAction(null); });

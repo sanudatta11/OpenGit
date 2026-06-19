@@ -24,7 +24,8 @@ export function BranchesTab() {
   const [createWorktreeBranch, setCreateWorktreeBranch] = useState<Branch | null>(null);
   const [worktreePath, setWorktreePath] = useState('');
   const [worktreeLock, setWorktreeLock] = useState('');
-  const repoName = useRepoStore((s) => s.repo?.path?.split('/').pop() ?? 'repo');
+  const repoPath = useRepoStore((s) => s.activeRepo?.path);
+  const repoName = repoPath?.split('/').pop() ?? 'repo';
   const [showFlow, setShowFlow] = useState(false);
 
   const handleCreateWorktree = (b: Branch) => {

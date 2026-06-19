@@ -11,7 +11,7 @@ type Mode = 'open' | 'clone' | 'create';
 
 export function LaunchPanel({ onOpenSettings }: { onOpenSettings: () => void }) {
   const qc = useQueryClient();
-  const setRepo = useRepoStore((s) => s.setRepo);
+  const addRepo = useRepoStore((s) => s.addRepo);
   const [mode, setMode] = useState<Mode>('open');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
@@ -28,7 +28,7 @@ export function LaunchPanel({ onOpenSettings }: { onOpenSettings: () => void }) 
 
   const adoptCurrentRepo = async () => {
     const head = await api.repo.head();
-    if (head) setRepo(head);
+    if (head) addRepo(head);
     void qc.invalidateQueries();
   };
 
@@ -37,7 +37,7 @@ export function LaunchPanel({ onOpenSettings }: { onOpenSettings: () => void }) 
     setError(null);
     try {
       const repo = await api.repo.open(path);
-      setRepo(repo);
+      addRepo(repo);
       void qc.invalidateQueries();
     } catch (err) {
       setError(err);

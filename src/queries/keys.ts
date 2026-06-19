@@ -1,20 +1,21 @@
-// src/queries/keys.ts — TanStack Query key factories.
+// src/queries/keys.ts — TanStack Query key factories (per-repo aware).
 
 export const qk = {
   repo: ['repo'] as const,
-  status: ['status'] as const,
-  branches: ['branches'] as const,
-  remotes: ['remotes'] as const,
-  state: ['state'] as const,
-  log: (range: string | undefined, skip: number, limit: number, paths?: string[]) =>
-    ['log', { range, skip, limit, paths }] as const,
-  commitFiles: (sha: string) => ['commitFiles', sha] as const,
-  diff: (path: string, ref: string | undefined, base: string | undefined) =>
-    ['diff', { path, ref, base }] as const,
-  fileContent: (path: string, ref: string | undefined) =>
-    ['fileContent', { path, ref }] as const,
-  blame: (path: string, ref: string | undefined) =>
-    ['blame', { path, ref }] as const,
-  branchCompare: (branchA: string | null, branchB: string | null) =>
-    ['branchCompare', branchA, branchB] as const,
+  status: (repoPath: string | null) => ['status', repoPath] as const,
+  branches: (repoPath: string | null) => ['branches', repoPath] as const,
+  remotes: (repoPath: string | null) => ['remotes', repoPath] as const,
+  state: (repoPath: string | null) => ['state', repoPath] as const,
+  log: (range: string | undefined, skip: number, limit: number, paths: string[] | undefined, repoPath: string | null) =>
+    ['log', { range, skip, limit, paths }, repoPath] as const,
+  commitFiles: (sha: string, repoPath: string | null) =>
+    ['commitFiles', sha, repoPath] as const,
+  diff: (path: string, ref: string | undefined, base: string | undefined, repoPath: string | null) =>
+    ['diff', { path, ref, base }, repoPath] as const,
+  fileContent: (path: string, ref: string | undefined, repoPath: string | null) =>
+    ['fileContent', { path, ref }, repoPath] as const,
+  blame: (path: string, ref: string | undefined, repoPath: string | null) =>
+    ['blame', { path, ref }, repoPath] as const,
+  branchCompare: (branchA: string | null, branchB: string | null, repoPath: string | null) =>
+    ['branchCompare', branchA, branchB, repoPath] as const,
 };

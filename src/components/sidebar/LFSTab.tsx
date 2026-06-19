@@ -8,7 +8,7 @@ import { useRepoStore } from '../../stores/repo';
 import { ConfirmDialog } from '../ConfirmDialog';
 
 export function LFSTab() {
-  const repo = useRepoStore((s) => s.repo);
+  const repo = useRepoStore((s) => s.activeRepo);
   const [pattern, setPattern] = useState('');
   const [trackLoading, setTrackLoading] = useState(false);
   const [confirmUntrack, setConfirmUntrack] = useState<string | null>(null);

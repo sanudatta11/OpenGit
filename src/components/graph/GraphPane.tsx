@@ -90,8 +90,6 @@ export function GraphPane() {
   const filterActive = useGraphFilterStore((s) => s.isActive);
   const clearAllFilters = useGraphFilterStore((s) => s.clearAll);
 
-  const branchLanes = useGraphCacheStore((s) => s.branchLanes);
-  const reservedLanes = useGraphCacheStore((s) => s.reservedLanes);
   const updateGraphCache = useGraphCacheStore((s) => s.update);
 
   const logRange = useMemo(() => {
@@ -152,19 +150,31 @@ export function GraphPane() {
     // display (GraphRow hides their badges); they must NOT affect lane
     // positions — otherwise lanes jump when a user mutes/unmutes a branch.
     const clones = filteredCommits.map((c) => ({ ...c, lane: -1, parentLanes: [] }));
-    return assignLanes(clones, { branchLanes, reservedLanes });
-  }, [filteredCommits, branchLanes, reservedLanes]);
+    // Read cache imperatively to avoid reactive loop: we write to the store
+    // in the effect below, and reading reactively would re-trigger this memo.
+    const cache = useGraphCacheStore.getState();
+    return assignLanes(clones, { branchLanes: cache.branchLanes, reservedLanes: cache.reservedLanes });
+  }, [filteredCommits]);
 
   useEffect(() => {
-    if (assigned) {
-      const prev = useGraphCacheStore.getState();
-      updateGraphCache({
-        branchLanes: { ...prev.branchLanes, ...assigned.branchLanes },
-        reservedLanes: new Set([...prev.reservedLanes, ...assigned.reservedLanes]),
-        maxLaneUsed: Math.max(prev.maxLaneUsed, assigned.maxLaneUsed),
-        assignedShas: new Set([...prev.assignedShas, ...assigned.assignedShas]),
-      });
+    if (!assigned) return;
+    const prev = useGraphCacheStore.getState();
+    // Avoid infinite loop: only update the store if new branch reservations
+    // or SHAs were actually added during this pass.
+    let hasNew = false;
+    for (const key of Object.keys(assigned.branchLanes)) {
+      if (!(key in prev.branchLanes)) { hasNew = true; break; }
     }
+    for (const sha of assigned.assignedShas) {
+      if (!prev.assignedShas.has(sha)) { hasNew = true; break; }
+    }
+    if (!hasNew) return;
+    updateGraphCache({
+      branchLanes: { ...prev.branchLanes, ...assigned.branchLanes },
+      reservedLanes: new Set([...prev.reservedLanes, ...assigned.reservedLanes]),
+      maxLaneUsed: Math.max(prev.maxLaneUsed, assigned.maxLaneUsed),
+      assignedShas: new Set([...prev.assignedShas, ...assigned.assignedShas]),
+    });
   }, [assigned, updateGraphCache]);
 
   const [scrollTop, setScrollTop] = useState(0);
@@ -696,13 +706,13 @@ function GraphRow({ commit, graphWidth, selected, onClick, density, rowHeight }:
 
       <div className="flex-1 min-w-0 flex flex-col justify-center pr-3">
         <div className="flex items-center gap-1.5 min-w-0">
-          {headRef && <HeadIndicator ref={headRef} />}
+          {headRef && <HeadIndicator label={headRef} />}
 
           {visibleRefs.slice(0, MAX_VISIBLE).map((r) =>
             r.kind === 'tag' ? (
-              <TagBadge key={`tag:${r.shortName}`} ref={r} onContextMenu={(e) => handleRefContext(e, r)} />
+              <TagBadge key={`tag:${r.shortName}`} label={r} onContextMenu={(e) => handleRefContext(e, r)} />
             ) : (
-              <BranchBadge key={`${r.kind}:${r.shortName}`} ref={r} onContextMenu={(e) => handleRefContext(e, r)} />
+              <BranchBadge key={`${r.kind}:${r.shortName}`} label={r} onContextMenu={(e) => handleRefContext(e, r)} />
             ),
           )}
 

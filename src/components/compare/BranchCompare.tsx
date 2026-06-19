@@ -8,8 +8,8 @@ import { useRepoStore } from '../../stores/repo';
 export function BranchCompare() {
   const branchesQ = useBranches();
   const repoStoreBranch = useRepoStore((s) => {
-    if (!s.repo) return null;
-    return s.repo.currentBranch;
+    if (!s.activeRepo) return null;
+    return s.activeRepo.currentBranch;
   });
 
   const localBranches = (branchesQ.data ?? []).filter((b) => b.kind === 'local' || b.kind === 'remote');

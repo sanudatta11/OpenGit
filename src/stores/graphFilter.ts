@@ -35,7 +35,7 @@ export const useGraphFilterStore = create<GraphFilterStore>((set, get) => ({
 // Reset on repo close.
 import { useRepoStore } from './repo';
 useRepoStore.subscribe((state) => {
-  if (!state.repo) {
+  if (!state.activeRepo) {
     useGraphFilterStore.getState().clearAll();
   }
 });

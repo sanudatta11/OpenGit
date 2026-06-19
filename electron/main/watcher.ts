@@ -1,5 +1,6 @@
 // electron/main/watcher.ts — chokidar watcher on .git/ for repo refresh events.
 // Debounced 150ms → broadcasts a WatchEvent to the renderer.
+// Multi-repo: one watcher per repo path, managed via startWatching/stopWatching.
 
 import chokidar, { type FSWatcher } from 'chokidar';
 import { join } from 'node:path';
@@ -8,10 +9,14 @@ import { BrowserWindow } from 'electron';
 import { IPC, type WatchEvent, type WatchEventKind } from '@shared/ipc';
 import { invalidateCache } from './git/refsCache';
 
-let watcher: FSWatcher | null = null;
-let workWatcher: FSWatcher | null = null;
-let debounceTimer: NodeJS.Timeout | null = null;
-const pendingKinds = new Set<WatchEventKind>();
+interface RepoWatcher {
+  watcher: FSWatcher;
+  workWatcher: FSWatcher;
+  debounceTimer: NodeJS.Timeout | null;
+  pendingKinds: Set<WatchEventKind>;
+}
+
+const watchers = new Map<string, RepoWatcher>();
 
 const PATH_TO_KIND: Readonly<Record<string, WatchEventKind>> = {
   HEAD: 'head',
@@ -22,8 +27,8 @@ const PATH_TO_KIND: Readonly<Record<string, WatchEventKind>> = {
   BISECT_LOG: 'bisect',
 };
 
-export function startWatching(gitDir: string, workTreeRoot: string, win: BrowserWindow): void {
-  void stopWatching();
+function startRepoWatcher(gitDir: string, workTreeRoot: string, win: BrowserWindow, repoPath: string): void {
+  void stopWatching(repoPath);
 
   const refsDir = join(gitDir, 'refs');
   const rebaseMergeDir = join(gitDir, 'rebase-merge');
@@ -38,72 +43,81 @@ export function startWatching(gitDir: string, workTreeRoot: string, win: Browser
     if (f !== 'HEAD' && f !== 'index') paths.push(p);
   }
 
-  watcher = chokidar.watch(paths, {
-    ignoreInitial: true,
-    awaitWriteFinish: { stabilityThreshold: 50, pollInterval: 20 },
-  });
+  const rw: RepoWatcher = {
+    watcher: chokidar.watch(paths, {
+      ignoreInitial: true,
+      awaitWriteFinish: { stabilityThreshold: 50, pollInterval: 20 },
+    }),
+    workWatcher: chokidar.watch('.', {
+      cwd: workTreeRoot,
+      ignoreInitial: true,
+      ignored: /(\.git\/|node_modules|\.next)/,
+      depth: 0,
+    }),
+    debounceTimer: null,
+    pendingKinds: new Set(),
+  };
 
-  watcher.on('all', (_event, path) => {
+  const debounceAndSend = () => {
+    if (rw.debounceTimer) clearTimeout(rw.debounceTimer);
+    rw.debounceTimer = setTimeout(() => {
+      const kinds = [...rw.pendingKinds];
+      rw.pendingKinds.clear();
+      rw.debounceTimer = null;
+      for (const kind of kinds) {
+        const evt: WatchEvent = { kind, ts: Date.now() };
+        if (!win.isDestroyed()) win.webContents.send(IPC.WATCH_EVENT, evt);
+      }
+    }, 150);
+  };
+
+  rw.watcher.on('all', (_event, path) => {
     const base = path.split('/').pop() ?? path;
     if (path.includes('rebase-merge/') || path.includes('rebase-apply/')) {
-      pendingKinds.add('rebase');
+      rw.pendingKinds.add('rebase');
     } else if (path.includes('/refs/')) {
-      pendingKinds.add('refs');
+      rw.pendingKinds.add('refs');
       invalidateCache();
     } else {
       const kind = PATH_TO_KIND[base];
-      if (kind) pendingKinds.add(kind);
-      else pendingKinds.add('index');
+      if (kind) rw.pendingKinds.add(kind);
+      else rw.pendingKinds.add('index');
       if (kind === 'head') invalidateCache();
     }
-
-    if (debounceTimer) clearTimeout(debounceTimer);
-    debounceTimer = setTimeout(() => {
-      const kinds = [...pendingKinds];
-      pendingKinds.clear();
-      debounceTimer = null;
-      for (const kind of kinds) {
-        const evt: WatchEvent = { kind, ts: Date.now() };
-        if (!win.isDestroyed()) win.webContents.send(IPC.WATCH_EVENT, evt);
-      }
-    }, 150);
+    debounceAndSend();
   });
 
-  workWatcher = chokidar.watch('.', {
-    cwd: workTreeRoot,
-    ignoreInitial: true,
-    ignored: /(\.git\/|node_modules|\.next)/,
-    depth: 0,
+  rw.workWatcher.on('all', () => {
+    rw.pendingKinds.add('index');
+    debounceAndSend();
   });
 
-  workWatcher.on('all', () => {
-    pendingKinds.add('index');
-
-    if (debounceTimer) clearTimeout(debounceTimer);
-    debounceTimer = setTimeout(() => {
-      const kinds = [...pendingKinds];
-      pendingKinds.clear();
-      debounceTimer = null;
-      for (const kind of kinds) {
-        const evt: WatchEvent = { kind, ts: Date.now() };
-        if (!win.isDestroyed()) win.webContents.send(IPC.WATCH_EVENT, evt);
-      }
-    }, 150);
-  });
+  watchers.set(repoPath, rw);
 }
 
-export async function stopWatching(): Promise<void> {
-  if (debounceTimer) {
-    clearTimeout(debounceTimer);
-    debounceTimer = null;
+export function startWatching(gitDir: string, workTreeRoot: string, win: BrowserWindow, repoPath?: string): void {
+  const key = repoPath ?? workTreeRoot;
+  startRepoWatcher(gitDir, workTreeRoot, win, key);
+}
+
+export async function stopWatching(repoPath?: string): Promise<void> {
+  if (repoPath) {
+    const rw = watchers.get(repoPath);
+    if (rw) {
+      if (rw.debounceTimer) clearTimeout(rw.debounceTimer);
+      rw.pendingKinds.clear();
+      await rw.watcher.close();
+      await rw.workWatcher.close();
+      watchers.delete(repoPath);
+    }
+    return;
   }
-  pendingKinds.clear();
-  if (watcher) {
-    await watcher.close();
-    watcher = null;
-  }
-  if (workWatcher) {
-    await workWatcher.close();
-    workWatcher = null;
+  // Stop all watchers.
+  for (const [key, rw] of watchers) {
+    if (rw.debounceTimer) clearTimeout(rw.debounceTimer);
+    rw.pendingKinds.clear();
+    await rw.watcher.close();
+    await rw.workWatcher.close();
+    watchers.delete(key);
   }
 }
