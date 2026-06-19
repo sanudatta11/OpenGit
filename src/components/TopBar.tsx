@@ -1,13 +1,16 @@
 // src/components/TopBar.tsx — top toolbar: repo name, branch, ahead/behind, fetch/pull/push, actions.
 
-import { GitBranch, ArrowUp, ArrowDown, CircleDot, Terminal, RefreshCw, FolderOpen, Cloud, Loader2, Settings, Search, ChevronDown } from 'lucide-react';
+import { GitBranch, ArrowUp, ArrowDown, CircleDot, Terminal, RefreshCw, FolderOpen, Cloud, Loader2, Settings, Search, ChevronDown, RotateCcw } from 'lucide-react';
 import { useMemo, useState, useEffect, useRef } from 'react';
 import { useRepoStore } from '../stores/repo';
 import { useStatus, useBranches, useRemotes } from '../queries/useRepo';
 import { useOpenRepo } from '../queries/useRepo';
 import { useFetch, usePull, usePush, useCheckout, useFetchAll } from '../queries/useMutations';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQueryClient, useMutation } from '@tanstack/react-query';
 import type { Branch } from '@shared/git';
+import { useUndoStore } from '../stores/undo';
+import { useToastStore } from '../stores/toast';
+import { api } from '../ipc/api';
 
 export function TopBar({ onOpenSettings }: { onOpenSettings: () => void }) {
   const repo = useRepoStore((s) => s.repo)!;
@@ -57,6 +60,32 @@ export function TopBar({ onOpenSettings }: { onOpenSettings: () => void }) {
   const repoName = repo.path.split('/').pop() ?? repo.path;
   const busy = fetch_.isPending || pull.isPending || push.isPending || fetchAll.isPending;
 
+  const undoStore = useUndoStore();
+  const undo = useMutation({
+    mutationFn: () => {
+      if (!undoStore.lastAction) throw new Error('No action to undo');
+      return api.operations.undo({
+        kind: undoStore.lastAction.kind,
+        branch: undoStore.lastAction.branch,
+        sha: undoStore.lastAction.sha,
+      });
+    },
+    onSuccess: () => {
+      useUndoStore.getState().setLastAction(null);
+      useToastStore.getState().addToast('Undo successful', 'success');
+      void qc.invalidateQueries();
+    },
+    onError: (err) => {
+      useToastStore.getState().addToast(`Undo failed: ${(err as Error).message}`, 'error');
+    },
+  });
+
+  const handleUndo = () => {
+    if (undoStore.lastAction && !undo.isPending) {
+      undo.mutate();
+    }
+  };
+
   return (
     <div className="h-10 flex items-center px-3 gap-3 border-b border-border bg-bg-panel shrink-0">
       <button className="icon-btn" onClick={handleOpen} title="Open repository">
@@ -101,6 +130,16 @@ export function TopBar({ onOpenSettings }: { onOpenSettings: () => void }) {
 
       <BranchSelector />
 
+      {undoStore.lastAction !== null && (
+        <button
+          className="icon-btn text-git-modified"
+          onClick={handleUndo}
+          disabled={undo.isPending}
+          title={undoStore.lastAction.label}
+        >
+          {undo.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <RotateCcw className="w-4 h-4" />}
+        </button>
+      )}
       <button className="icon-btn" onClick={refresh} title="Refresh (F5)">
         {fetchAll.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
       </button>

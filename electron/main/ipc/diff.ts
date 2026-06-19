@@ -1,8 +1,9 @@
 // electron/main/ipc/diff.ts — diff + file content IPC handlers.
 
 import { ipcMain } from 'electron';
-import { IPC, DiffFileInput, CommitFilesInput, FileContentInput, DiffCommitsInput, GitError } from '@shared/ipc';
+import { IPC, DiffFileInput, CommitFilesInput, FileContentInput, DiffCommitsInput, BlameInput, GitError } from '@shared/ipc';
 import { getDiff, getCommitFiles, getFileContent } from '../git/repo';
+import { getBlame } from '../git/operations';
 import { requireCurrentRepo } from '../git/session';
 import { gitText } from '../git/client';
 import { parseUnifiedDiff } from '../git/parse';
@@ -76,6 +77,21 @@ export function registerDiffHandlers(): void {
     }
     const r = requireCurrentRepo();
     return getDiffCommits(r.workTreeRoot, parsed.data.base, parsed.data.ref, parsed.data.paths);
+  });
+
+  ipcMain.handle(IPC.DIFF_BLAME, async (_e, raw) => {
+    const parsed = BlameInput.safeParse(raw);
+    if (!parsed.success) {
+      throw new GitError({
+        code: 'BadInput',
+        message: parsed.error.message,
+        stdout: '',
+        stderr: '',
+        friendly: 'Invalid blame request.',
+      });
+    }
+    const r = requireCurrentRepo();
+    return getBlame(r.workTreeRoot, parsed.data.path, parsed.data.ref);
   });
 }
 

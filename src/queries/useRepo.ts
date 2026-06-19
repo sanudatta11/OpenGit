@@ -123,3 +123,13 @@ export function useFileContent(input: { path: string; ref?: string; maxBytes?: n
     refetchOnWindowFocus: false,
   });
 }
+
+export function useBlame(path: string, ref?: string) {
+  return useQuery({
+    queryKey: qk.blame(path, ref),
+    queryFn: () => api.diff.blame({ path, ref }),
+    enabled: !!path && !!useRepoStore.getState().repo,
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+  });
+}

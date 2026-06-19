@@ -1027,6 +1027,66 @@ export async function resetBranch(
   };
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Undo
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function undoAction(
+  workTree: string,
+  action: { kind: string; branch?: string; sha?: string },
+): Promise<WriteResult> {
+  let args: string[];
+  switch (action.kind) {
+    case 'commit':
+      args = ['reset', '--soft', 'HEAD@{1}'];
+      break;
+    case 'merge':
+      args = ['reset', '--merge', 'ORIG_HEAD'];
+      break;
+    case 'rebase':
+      args = ['reset', '--hard', 'ORIG_HEAD'];
+      break;
+    case 'cherry-pick':
+      args = ['reset', '--hard', 'ORIG_HEAD'];
+      break;
+    case 'revert':
+      args = ['reset', '--hard', 'ORIG_HEAD'];
+      break;
+    case 'branch-create':
+      if (action.branch) args = ['branch', '-D', action.branch];
+      else args = ['reset', '--hard', 'ORIG_HEAD'];
+      break;
+    case 'branch-delete':
+      // Recover from reflog; attempt to find the branch tip before deletion
+      if (action.branch) {
+        args = ['branch', action.branch, `${action.branch}@{1}`];
+      } else {
+        args = ['reset', '--hard', 'ORIG_HEAD'];
+      }
+      break;
+    case 'stash-apply':
+    case 'stash-pop':
+      args = ['reset', '--hard', 'ORIG_HEAD'];
+      break;
+    default:
+      args = ['reset', '--hard', 'ORIG_HEAD'];
+  }
+
+  const r = await gitRun({
+    cwd: workTree,
+    args,
+    channel: 'operation:undo',
+    reject: false,
+  });
+  return {
+    success: r.ok,
+    stdout: r.stdout,
+    stderr: r.stderr,
+    changedRefs: r.ok ? ['HEAD'] : [],
+    requiresRefresh: r.ok,
+  };
+}
+
 // Need join for rebase step reading
 import { join } from 'node:path';
 
@@ -1166,6 +1226,73 @@ export async function unlockWorktree(
     changedRefs: [],
     requiresRefresh: r.ok,
   };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Blame
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface BlameEntry {
+  sha: string;
+  author: string;
+  authorEmail: string;
+  authorDate: string;
+  lineNo: number;
+  content: string;
+}
+
+export async function getBlame(workTree: string, path: string, ref?: string): Promise<BlameEntry[]> {
+  const args = ['blame', '--porcelain'];
+  if (ref) args.push(ref);
+  args.push('--', path);
+
+  const r = await gitRun({ cwd: workTree, args, channel: 'diff:blame', reject: false });
+  if (!r.ok) return [];
+
+  const lines = r.stdout.split('\n');
+  const entries: BlameEntry[] = [];
+  let currentSha = '';
+  let currentAuthor = '';
+  let currentAuthorEmail = '';
+  let currentAuthorDate = '';
+  let currentLineNo = 0;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (!line) continue;
+
+    // Commit header: ^?SHA orig-line final-line [num-lines]
+    const commitMatch = line.match(/^(\^?[0-9a-f]{40})\s+(\d+)\s+(\d+)(?:\s+(\d+))?/);
+    if (commitMatch) {
+      currentSha = commitMatch[1]!.replace(/^\^/, '');
+      currentLineNo = parseInt(commitMatch[3]!, 10);
+      // Read headers until content line or next commit
+      while (i + 1 < lines.length) {
+        const peek = lines[i + 1];
+        if (!peek || peek.match(/^(\^?[0-9a-f]{40})\s/) || peek.startsWith('\t')) break;
+        i++;
+        if (peek.startsWith('author ')) currentAuthor = peek.slice(7);
+        else if (peek.startsWith('author-mail ')) currentAuthorEmail = peek.slice(12).replace(/[<>]/g, '');
+        else if (peek.startsWith('author-time ')) currentAuthorDate = peek.slice(12);
+      }
+      continue;
+    }
+
+    // Content line: \t<content>
+    if (line.startsWith('\t')) {
+      entries.push({
+        sha: currentSha,
+        author: currentAuthor,
+        authorEmail: currentAuthorEmail,
+        authorDate: currentAuthorDate,
+        lineNo: currentLineNo,
+        content: line.slice(1),
+      });
+      currentLineNo++;
+    }
+  }
+
+  return entries;
 }
 
 export async function removeWorktreeAndBranch(

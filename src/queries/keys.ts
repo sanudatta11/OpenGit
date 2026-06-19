@@ -13,6 +13,8 @@ export const qk = {
     ['diff', { path, ref, base }] as const,
   fileContent: (path: string, ref: string | undefined) =>
     ['fileContent', { path, ref }] as const,
+  blame: (path: string, ref: string | undefined) =>
+    ['blame', { path, ref }] as const,
   branchCompare: (branchA: string | null, branchB: string | null) =>
     ['branchCompare', branchA, branchB] as const,
 };

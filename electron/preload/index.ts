@@ -103,6 +103,8 @@ const api = {
       ipcRenderer.invoke(IPC.FILE_CONTENT, input),
     commits: (input: { base: string; ref: string; paths?: string[] }): Promise<import('@shared/git').DiffResult[]> =>
       ipcRenderer.invoke(IPC.DIFF_COMMITS, input),
+    blame: (input: { path: string; ref?: string }): Promise<import('@shared/ipc').BlameEntry[]> =>
+      ipcRenderer.invoke(IPC.DIFF_BLAME, input),
   },
 
   workingTree: {
@@ -197,6 +199,8 @@ const api = {
       ipcRenderer.invoke(IPC.OPERATION_CONTINUE, input),
     skip: (input: OperationInput): Promise<WriteResult> =>
       ipcRenderer.invoke(IPC.OPERATION_SKIP, input),
+    undo: (input: { kind: string; branch?: string; sha?: string }): Promise<WriteResult> =>
+      ipcRenderer.invoke(IPC.OPERATION_UNDO, input),
   },
 
   conflict: {

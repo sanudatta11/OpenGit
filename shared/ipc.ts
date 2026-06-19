@@ -73,6 +73,7 @@ export const IPC = {
   OPERATION_ABORT: 'operation:abort',
   OPERATION_CONTINUE: 'operation:continue',
   OPERATION_SKIP: 'operation:skip',
+  OPERATION_UNDO: 'operation:undo',
   OPERATION_MERGE_PREVIEW: 'operation:mergePreview',
   OPERATION_PULL_PREVIEW: 'operation:pullPreview',
   OPERATION_PUSH_PREVIEW: 'operation:pushPreview',
@@ -92,6 +93,7 @@ export const IPC = {
 
   DIFF_FILE: 'diff:file',
   DIFF_COMMITS: 'diff:commits',
+  DIFF_BLAME: 'diff:blame',
   COMMIT_FILES: 'commit:files',
   FILE_CONTENT: 'file:content',
 
@@ -356,6 +358,13 @@ export const OperationInput = z.object({
 });
 export type OperationInput = z.infer<typeof OperationInput>;
 
+export const UndoInput = z.object({
+  kind: z.enum(['commit', 'merge', 'rebase', 'cherry-pick', 'revert', 'branch-create', 'branch-delete', 'stash-apply', 'stash-pop']),
+  branch: z.string().optional(),
+  sha: z.string().optional(),
+});
+export type UndoInput = z.infer<typeof UndoInput>;
+
 export const MergePreviewInput = z.object({
   ref: z.string().min(1),
 });
@@ -444,6 +453,21 @@ export const DiffCommitsInput = z.object({
   paths: z.array(z.string()).optional(),
 });
 export type DiffCommitsInput = z.infer<typeof DiffCommitsInput>;
+
+export const BlameInput = z.object({
+  path: z.string().min(1),
+  ref: z.string().optional(),
+});
+export type BlameInput = z.infer<typeof BlameInput>;
+
+export interface BlameEntry {
+  readonly sha: string;
+  readonly author: string;
+  readonly authorEmail: string;
+  readonly authorDate: string;
+  readonly lineNo: number;
+  readonly content: string;
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Output envelope (writes)

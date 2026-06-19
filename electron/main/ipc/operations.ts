@@ -6,10 +6,12 @@ import {
   BranchMergeInput, BranchRebaseInput, CherryPickInput, OperationInput,
   MergePreviewInput, PullPreviewInput, PushPreviewInput, RebasePlanInput,
   ConflictVersionsInput, RevertInput, ConflictFileInput, ConflictResolveInput,
+  UndoInput,
 } from '@shared/ipc';
 import {
   mergeBranch, rebaseBranch, cherryPick, revertCommits,
   abortOperation, continueOperation, skipOperation,
+  undoAction,
 } from '../git/operations';
 import { mergePreview, pullPreview, pushPreview, rebasePlan } from '../git/previews';
 import { requireCurrentRepo } from '../git/session';
@@ -160,6 +162,13 @@ export function registerOperationsHandlers(): void {
     if (!parsed.success) throw badInput(parsed.error.message);
     const r = requireCurrentRepo();
     return skipOperation(r.workTreeRoot, parsed.data.kind);
+  });
+
+  ipcMain.handle(IPC.OPERATION_UNDO, async (_e, raw) => {
+    const parsed = UndoInput.safeParse(raw);
+    if (!parsed.success) throw badInput(parsed.error.message);
+    const r = requireCurrentRepo();
+    return undoAction(r.workTreeRoot, parsed.data);
   });
 
   ipcMain.handle(IPC.CONFLICT_FILE, async (_e, raw) => {

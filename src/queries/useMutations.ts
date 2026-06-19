@@ -6,6 +6,7 @@ import { qk } from './keys';
 import { useRepoStore } from '../stores/repo';
 import { useToastStore } from '../stores/toast';
 import { usePushBannerStore } from '../stores/pushBanner';
+import { useUndoStore } from '../stores/undo';
 
 // Input types with optional defaults (renderer-side; main fills in defaults via Zod).
 interface CommitInput { message: string; amend?: boolean; signoff?: boolean; noVerify?: boolean; author?: { name: string; email: string } }
@@ -78,7 +79,17 @@ export function useCommit() {
   const refresh = useRefreshOnSuccess();
   return useMutation({
     mutationFn: (input: CommitInput) => api.commit.create(input as never),
-    onSuccess: (r) => refresh(r.requiresRefresh),
+    onSuccess: (r) => {
+      refresh(r.requiresRefresh);
+      if (r.success && r.data?.sha) {
+        useUndoStore.getState().setLastAction({
+          kind: 'commit',
+          label: `Undo commit ${r.data.sha.slice(0, 7)}`,
+          sha: r.data.sha,
+          ts: Date.now(),
+        });
+      }
+    },
   });
 }
 
@@ -96,7 +107,17 @@ export function useCreateBranch() {
   const refresh = useRefreshOnSuccess();
   return useMutation({
     mutationFn: (input: CreateBranchInput) => api.branch.create(input as never),
-    onSuccess: (r) => refresh(r.requiresRefresh),
+    onSuccess: (r, vars) => {
+      refresh(r.requiresRefresh);
+      if (r.success) {
+        useUndoStore.getState().setLastAction({
+          kind: 'branch-create',
+          label: `Undo create branch ${vars.name}`,
+          branch: vars.name,
+          ts: Date.now(),
+        });
+      }
+    },
   });
 }
 
@@ -104,7 +125,17 @@ export function useDeleteBranch() {
   const refresh = useRefreshOnSuccess();
   return useMutation({
     mutationFn: (input: DeleteBranchInput) => api.branch.delete(input as never),
-    onSuccess: (r) => refresh(r.requiresRefresh),
+    onSuccess: (r, vars) => {
+      refresh(r.requiresRefresh);
+      if (r.success) {
+        useUndoStore.getState().setLastAction({
+          kind: 'branch-delete',
+          label: `Undo delete branch ${vars.name}`,
+          branch: vars.name,
+          ts: Date.now(),
+        });
+      }
+    },
   });
 }
 
@@ -190,7 +221,16 @@ export function useStashApply() {
   return useMutation({
     mutationFn: (input: { ref?: string; keepIndex?: boolean }) =>
       api.stash.apply(input as never),
-    onSuccess: (r) => refresh(r.requiresRefresh),
+    onSuccess: (r, vars) => {
+      refresh(r.requiresRefresh);
+      if (r.success) {
+        useUndoStore.getState().setLastAction({
+          kind: 'stash-apply',
+          label: `Undo stash apply ${vars.ref ?? 'stash@{0}'}`,
+          ts: Date.now(),
+        });
+      }
+    },
   });
 }
 
@@ -199,7 +239,16 @@ export function useStashPop() {
   return useMutation({
     mutationFn: (input: { ref?: string; keepIndex?: boolean }) =>
       api.stash.pop(input as never),
-    onSuccess: (r) => refresh(r.requiresRefresh),
+    onSuccess: (r, vars) => {
+      refresh(r.requiresRefresh);
+      if (r.success) {
+        useUndoStore.getState().setLastAction({
+          kind: 'stash-pop',
+          label: `Undo stash pop ${vars.ref ?? 'stash@{0}'}`,
+          ts: Date.now(),
+        });
+      }
+    },
   });
 }
 
@@ -230,7 +279,17 @@ export function useMerge() {
   return useMutation({
     mutationFn: (input: { ref: string; noFf?: boolean; noCommit?: boolean; squash?: boolean }) =>
       api.operations.merge(input as never),
-    onSuccess: (r) => refresh(r.requiresRefresh),
+    onSuccess: (r, vars) => {
+      refresh(r.requiresRefresh);
+      if (r.success) {
+        useUndoStore.getState().setLastAction({
+          kind: 'merge',
+          label: `Undo merge ${vars.ref}`,
+          branch: vars.ref,
+          ts: Date.now(),
+        });
+      }
+    },
   });
 }
 
@@ -239,7 +298,17 @@ export function useRebase() {
   return useMutation({
     mutationFn: (input: { onto: string; interactive?: boolean }) =>
       api.operations.rebase(input as never),
-    onSuccess: (r) => refresh(r.requiresRefresh),
+    onSuccess: (r, vars) => {
+      refresh(r.requiresRefresh);
+      if (r.success) {
+        useUndoStore.getState().setLastAction({
+          kind: 'rebase',
+          label: `Undo rebase onto ${vars.onto}`,
+          branch: vars.onto,
+          ts: Date.now(),
+        });
+      }
+    },
   });
 }
 
@@ -248,7 +317,17 @@ export function useCherryPick() {
   return useMutation({
     mutationFn: (input: { shas: string[]; noCommit?: boolean }) =>
       api.operations.cherryPick(input as never),
-    onSuccess: (r) => refresh(r.requiresRefresh),
+    onSuccess: (r, vars) => {
+      refresh(r.requiresRefresh);
+      if (r.success) {
+        useUndoStore.getState().setLastAction({
+          kind: 'cherry-pick',
+          label: `Undo cherry-pick ${vars.shas.map((s) => s.slice(0, 7)).join(', ')}`,
+          sha: vars.shas[0],
+          ts: Date.now(),
+        });
+      }
+    },
   });
 }
 
@@ -257,7 +336,17 @@ export function useRevert() {
   return useMutation({
     mutationFn: (input: { shas: string[]; noCommit?: boolean }) =>
       api.operations.revert(input.shas, input.noCommit),
-    onSuccess: (r) => refresh(r.requiresRefresh),
+    onSuccess: (r, vars) => {
+      refresh(r.requiresRefresh);
+      if (r.success) {
+        useUndoStore.getState().setLastAction({
+          kind: 'revert',
+          label: `Undo revert ${vars.shas.map((s) => s.slice(0, 7)).join(', ')}`,
+          sha: vars.shas[0],
+          ts: Date.now(),
+        });
+      }
+    },
   });
 }
 

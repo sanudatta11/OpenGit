@@ -8,6 +8,7 @@ import { WorkingTree, WorkingTreeDiff } from './WorkingTree';
 import { OperationPreviewPanel } from './OperationPreviewPanel';
 import { ConflictEditor } from './ConflictEditor';
 import { BranchCompare } from '../compare/BranchCompare';
+import { BlameView } from './BlameView';
 
 type Tab = 'changes' | 'details' | 'diff' | 'actions' | 'compare';
 
@@ -18,6 +19,7 @@ export function Inspector() {
 
   const [activeTab, setActiveTab] = useState<Tab>('changes');
   const [diffView, setDiffView] = useState<'side-by-side' | 'unified'>('side-by-side');
+  const [blameActive, setBlameActive] = useState(false);
 
   // Automatically switch tabs when selections change
   useEffect(() => {
@@ -79,21 +81,29 @@ export function Inspector() {
                 <span className="text-xs text-fg truncate flex-1 font-mono">{selectedFile.path}</span>
                 <div className="flex items-center gap-1">
                   <button
-                    className={`text-xxs px-1.5 py-0.5 rounded ${diffView === 'side-by-side' ? 'bg-accent/20 text-accent' : 'text-fg-muted hover:bg-bg-hover'}`}
-                    onClick={() => setDiffView('side-by-side')}
+                    className={`text-xxs px-1.5 py-0.5 rounded ${!blameActive && diffView === 'side-by-side' ? 'bg-accent/20 text-accent' : 'text-fg-muted hover:bg-bg-hover'}`}
+                    onClick={() => { setDiffView('side-by-side'); setBlameActive(false); }}
                   >
                     Split
                   </button>
                   <button
-                    className={`text-xxs px-1.5 py-0.5 rounded ${diffView === 'unified' ? 'bg-accent/20 text-accent' : 'text-fg-muted hover:bg-bg-hover'}`}
-                    onClick={() => setDiffView('unified')}
+                    className={`text-xxs px-1.5 py-0.5 rounded ${!blameActive && diffView === 'unified' ? 'bg-accent/20 text-accent' : 'text-fg-muted hover:bg-bg-hover'}`}
+                    onClick={() => { setDiffView('unified'); setBlameActive(false); }}
                   >
                     Unified
+                  </button>
+                  <button
+                    className={`text-xxs px-1.5 py-0.5 rounded ${blameActive ? 'bg-accent/20 text-accent' : 'text-fg-muted hover:bg-bg-hover'}`}
+                    onClick={() => setBlameActive(!blameActive)}
+                  >
+                    Blame
                   </button>
                 </div>
               </div>
               <div className="flex-1 min-h-0">
-                {selectedFile.isCommit ? (
+                {blameActive ? (
+                  <BlameView path={selectedFile.path} ref={selectedFile.sha} />
+                ) : selectedFile.isCommit ? (
                   commit ? (
                     <CommitFileDiff commit={commit} file={selectedFile as any} view={diffView} />
                   ) : null
