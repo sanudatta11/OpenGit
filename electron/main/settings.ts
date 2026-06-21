@@ -24,6 +24,7 @@ export interface Settings {
   autoFetchInterval: number;
   betaUpdates: boolean;
   openRepos: string[];
+  graphZoom: number;
 }
 
 const DEFAULTS: Settings = {
@@ -45,6 +46,7 @@ const DEFAULTS: Settings = {
   autoFetchInterval: 0,
   betaUpdates: false,
   openRepos: [],
+  graphZoom: 1.0,
 };
 
 const MAX_RECENT = 10;

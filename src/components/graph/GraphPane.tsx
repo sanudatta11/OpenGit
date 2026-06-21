@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Commit, RefLabel } from '@shared/git';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { api } from '../../ipc/api';
+import type { SettingsData } from '@shared/ipc';
 import type { GraphRow as GraphLayoutRow } from '../../graph/layout';
 import { useLog } from '../../queries/useRepo';
 import { useRepoStore, cacheCommits } from '../../stores/repo';
 import { useGraphFilterStore } from '../../stores/graphFilter';
 import { compileGraphLayout } from '../../graph/layout';
 import { colorWithAlpha, graphColorByKey, laneColorByIndex } from '../../graph/colors';
-import { authorVisual } from '../../graph/authorVisual';
 import {
   applyPendingGraphWidthShrink,
   computeGraphLeadWidthForLaneCount,
@@ -31,7 +33,6 @@ import { HeadIndicator } from './decorations/HeadIndicator';
 
 type Density = 'compact' | 'comfortable' | 'detailed';
 
-const DOT_RADIUS = 4;
 const GRAPH_WIDTH_SHRINK_DELAY_MS = 160;
 const GRAPH_SCROLL_IDLE_MS = 120;
 
@@ -83,7 +84,35 @@ export function GraphPane() {
   const [resetConfirmCommit, setResetConfirmCommit] = useState<Commit | null>(null);
   const [resetMode, setResetMode] = useState<'soft' | 'mixed' | 'hard'>('mixed');
   const [mergeConfirmCommit, setMergeConfirmCommit] = useState<Commit | null>(null);
+  const [refCtx, setRefCtx] = useState<{ x: number; y: number; ref: RefLabel } | null>(null);
+  const { data: settings } = useQuery({
+    queryKey: ['settings'],
+    queryFn: () => api.settings.get(),
+  });
+  const qc = useQueryClient();
+  const setSetting = useMutation({
+    mutationFn: (input: Partial<SettingsData>) => api.settings.set(input),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['settings'] }),
+  });
+
   const [zoom, setZoom] = useState(1.0);
+
+  // Sync zoom state with loaded settings once settings load
+  useEffect(() => {
+    if (settings?.graphZoom !== undefined) {
+      setZoom(settings.graphZoom);
+    }
+  }, [settings?.graphZoom]);
+
+  // Debounced write back of zoom level to settings to avoid disk thrashing during wheel scrolling
+  useEffect(() => {
+    if (!settings) return; // Only write back if settings have finished loading
+    if (settings.graphZoom === zoom) return;
+    const timer = setTimeout(() => {
+      void setSetting.mutate({ graphZoom: zoom });
+    }, 600);
+    return () => clearTimeout(timer);
+  }, [zoom, settings, settings?.graphZoom]);
   const [scrollTop, setScrollTop] = useState(0);
   const [viewportHeight, setViewportHeight] = useState(600);
   const [isScrolling, setIsScrolling] = useState(false);
@@ -92,6 +121,8 @@ export function GraphPane() {
   const scrollIdleTimerRef = useRef<number | null>(null);
   const shrinkTimerRef = useRef<number | null>(null);
   const pendingShrinkLaneCountRef = useRef<number | null>(null);
+  const rafRef = useRef<number | null>(null);
+  const scrollTopRef = useRef(0);
 
   const checkout = useCheckout();
   const createBranch = useCreateBranch();
@@ -126,7 +157,10 @@ export function GraphPane() {
   }, [log.data]);
 
   useEffect(() => {
-    const close = () => setContextMenu(null);
+    const close = () => {
+      setContextMenu(null);
+      setRefCtx(null);
+    };
     window.addEventListener('click', close);
     return () => window.removeEventListener('click', close);
   }, []);
@@ -182,12 +216,24 @@ export function GraphPane() {
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const el = e.currentTarget;
     markScrolling();
-    setScrollTop(el.scrollTop);
+    scrollTopRef.current = el.scrollTop;
+    if (rafRef.current === null) {
+      rafRef.current = requestAnimationFrame(() => {
+        rafRef.current = null;
+        setScrollTop(scrollTopRef.current);
+      });
+    }
     if (el.scrollHeight - el.scrollTop - el.clientHeight < 200) {
       if (log.data?.hasMore && !log.isFetching) {
         setLimit((prev) => prev + 200);
       }
     }
+  };
+
+  const handleRefContext = (e: React.MouseEvent, ref: RefLabel) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setRefCtx({ x: e.clientX, y: e.clientY, ref });
   };
 
   const windowed = computeGraphVisibleWindow(scrollTop, viewportHeight, rowHeight, zoom, rows.length);
@@ -234,6 +280,9 @@ export function GraphPane() {
   }, [isScrolling, renderGraphLaneCount, targetGraphLaneCount]);
 
   useEffect(() => () => {
+    if (rafRef.current !== null) {
+      cancelAnimationFrame(rafRef.current);
+    }
     if (scrollIdleTimerRef.current !== null) {
       window.clearTimeout(scrollIdleTimerRef.current);
     }
@@ -243,7 +292,9 @@ export function GraphPane() {
   }, []);
 
   function markScrolling() {
-    setIsScrolling(true);
+    if (!isScrolling) {
+      setIsScrolling(true);
+    }
 
     if (shrinkTimerRef.current !== null) {
       window.clearTimeout(shrinkTimerRef.current);
@@ -338,11 +389,11 @@ export function GraphPane() {
 
       <div
         ref={containerRef}
-        className="flex-1 min-w-0 overflow-auto relative"
+        className="flex-1 min-w-0 min-h-0 overflow-auto relative"
         onScroll={handleScroll}
         onWheel={handleWheel}
       >
-        <div style={{ transform: `scale(${zoom})`, transformOrigin: 'top left', width: `${100 / zoom}%` }}>
+        <div style={{ zoom, width: `${100 / zoom}%` }}>
           {rows.length === 0 ? (
             <div className="absolute inset-0 flex flex-col items-center justify-center text-fg-muted text-sm gap-2">
               <GitCommit className="w-8 h-8 text-fg-dim" />
@@ -351,7 +402,7 @@ export function GraphPane() {
           ) : (
             <div style={{ height: totalHeight, position: 'relative' }}>
               <div
-                className="sticky z-10 pointer-events-none"
+                className="sticky top-0 z-30 pointer-events-none"
                 style={{ left: refRailWidth, width: graphWidth, transform: `translateY(${offsetY}px)` }}
               >
                 <GraphCanvas
@@ -384,6 +435,7 @@ export function GraphPane() {
                       onClick={() => selectCommit(row.sha)}
                       density={density}
                       rowHeight={rowHeight}
+                      onRefContext={handleRefContext}
                     />
                   </div>
                 ))}
@@ -490,6 +542,23 @@ export function GraphPane() {
         </div>
       )}
 
+      {refCtx && (
+        <div className="fixed z-50 bg-bg-panel border border-border rounded shadow-xl py-1 w-48 text-xs" style={{ left: refCtx.x, top: refCtx.y }} onClick={(e) => e.stopPropagation()}>
+          <button
+            className="w-full text-left px-3 py-1.5 hover:bg-bg-hover text-fg flex items-center gap-2"
+            onClick={() => { useGraphFilterStore.getState().solo(refCtx.ref.shortName); setRefCtx(null); }}
+          >
+            <Eye className="w-3 h-3" /> Solo this branch
+          </button>
+          <button
+            className="w-full text-left px-3 py-1.5 hover:bg-bg-hover text-fg flex items-center gap-2"
+            onClick={() => { useGraphFilterStore.getState().mute(refCtx.ref.shortName); setRefCtx(null); }}
+          >
+            <EyeOff className="w-3 h-3" /> Mute this branch
+          </button>
+        </div>
+      )}
+
       <ConfirmDialog
         open={!!createBranchAtCommit}
         title="Create Branch Here"
@@ -575,6 +644,7 @@ interface GraphCanvasProps {
 function GraphCanvas({ allRows, rows, firstRow, offsetY, graphWidth, rowHeight, density, selectedSha }: GraphCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [dpr, setDpr] = useState(window.devicePixelRatio || 1);
+  const lastDrawKeyRef = useRef('');
 
   useEffect(() => {
     const onDpr = () => setDpr(window.devicePixelRatio || 1);
@@ -583,6 +653,10 @@ function GraphCanvas({ allRows, rows, firstRow, offsetY, graphWidth, rowHeight, 
   }, []);
 
   useEffect(() => {
+    const drawKey = `${firstRow}:${rows.length}:${graphWidth}:${dpr}:${rowHeight}:${density}:${selectedSha ?? ''}`;
+    if (drawKey === lastDrawKeyRef.current) return;
+    lastDrawKeyRef.current = drawKey;
+
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
@@ -600,10 +674,12 @@ function GraphCanvas({ allRows, rows, firstRow, offsetY, graphWidth, rowHeight, 
     const accentColor = getComputedStyle(document.documentElement).getPropertyValue('--color-accent').trim() || '#3b82f6';
     const headColor = getComputedStyle(document.documentElement).getPropertyValue('--color-git-head').trim() || '#3fb950';
 
-    // Build SHA → absolute row index map for child lookups
-    const rowIndexBySha = new Map<string, number>();
-    for (let idx = 0; idx < allRows.length; idx++) {
-      rowIndexBySha.set(allRows[idx]!.sha, idx);
+    // Build the set of all parent SHAs to identify if a commit has children in the visible list
+    const parentShas = new Set<string>();
+    for (const r of allRows) {
+      for (const p of r.commit.parents) {
+        parentShas.add(p);
+      }
     }
 
     for (let i = 0; i < rows.length; i++) {
@@ -612,9 +688,11 @@ function GraphCanvas({ allRows, rows, firstRow, offsetY, graphWidth, rowHeight, 
       const yCenter = yTop + rowHeight / 2;
       const yBottom = yTop + rowHeight;
 
+      // 1. Draw passing lines (active lanes that are NOT this commit node's lane)
       for (const lane of row.activeLanes) {
+        if (lane === row.node.lane) continue;
         ctx.strokeStyle = colorWithAlpha(colorForLane(row, lane), 0.72);
-        ctx.lineWidth = 1.75;
+        ctx.lineWidth = 2.0;
         ctx.lineCap = 'round';
         ctx.beginPath();
         ctx.moveTo(laneX(lane), yTop);
@@ -622,92 +700,101 @@ function GraphCanvas({ allRows, rows, firstRow, offsetY, graphWidth, rowHeight, 
         ctx.stroke();
       }
 
-      for (const edge of row.edges) {
-        const childSha = row.commit.parents[edge.parentIndex];
-        if (!childSha) continue;
-        const childAbsIndex = rowIndexBySha.get(childSha);
-        if (childAbsIndex === undefined) continue;
-        const childLocalIndex = childAbsIndex - firstRow;
-        if (childLocalIndex < 0 || childLocalIndex >= rows.length) continue;
-
-        const childYCenter = childLocalIndex * rowHeight + rowHeight / 2;
-        const curveHeight = (childYCenter - yCenter) * 0.5;
-
-        ctx.strokeStyle = colorWithAlpha(graphColorByKey(edge.colorKey), 0.82);
-        ctx.lineWidth = 1.9;
+      // 2. Draw incoming line to node (from yTop to yCenter) in the node's lane
+      if (parentShas.has(row.sha)) {
+        ctx.strokeStyle = colorWithAlpha(graphColorByKey(row.node.colorKey), 0.72);
+        ctx.lineWidth = 2.0;
         ctx.lineCap = 'round';
         ctx.beginPath();
-        ctx.moveTo(laneX(edge.fromLane), yBottom);
-        ctx.bezierCurveTo(
-          laneX(edge.fromLane),
-          yBottom + curveHeight,
-          laneX(edge.toLane),
-          childYCenter - curveHeight,
-          laneX(edge.toLane),
-          childYCenter,
-        );
+        ctx.moveTo(laneX(row.node.lane), yTop);
+        ctx.lineTo(laneX(row.node.lane), yCenter);
         ctx.stroke();
       }
 
+      // 3. Draw outgoing edges (from yCenter to yBottom)
+      for (const edge of row.edges) {
+        ctx.strokeStyle = colorWithAlpha(graphColorByKey(edge.colorKey), 0.85);
+        ctx.lineWidth = 2.2;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        if (edge.toLane === edge.fromLane) {
+          // Straight down to parent
+          ctx.moveTo(laneX(edge.fromLane), yCenter);
+          ctx.lineTo(laneX(edge.fromLane), yBottom);
+        } else {
+          // Beautiful smooth S-curve to parent lane at the bottom of the row
+          const curveHeight = rowHeight * 0.25;
+          ctx.moveTo(laneX(edge.fromLane), yCenter);
+          ctx.bezierCurveTo(
+            laneX(edge.fromLane),
+            yCenter + curveHeight,
+            laneX(edge.toLane),
+            yBottom - curveHeight,
+            laneX(edge.toLane),
+            yBottom
+          );
+        }
+        ctx.stroke();
+      }
+
+      // 4. Draw Commit Node (GitKraken-style beautiful sleek dot styling)
       const nodeX = laneX(row.node.lane);
       const isMerge = row.node.kind === 'merge';
       const isHead = row.node.kind === 'head' || row.node.kind === 'detached-head';
       const isSelected = row.sha === selectedSha;
       const color = graphColorByKey(row.node.colorKey);
-      const showAuthorAvatar = density !== 'compact' && rowHeight >= 30;
+      
+      const baseRadius = density === 'compact' ? 4 : density === 'comfortable' ? 5 : 6;
 
-      if (showAuthorAvatar) {
-        const avatar = authorVisual(row.commit.author.name, row.commit.author.email);
-        const avatarRadius = isMerge ? 11 : 10;
-
+      // Draw Selected Halo/Glow
+      if (isSelected) {
         ctx.beginPath();
-        ctx.arc(nodeX, yCenter, avatarRadius + 2, 0, Math.PI * 2);
-        ctx.fillStyle = bgColor;
+        ctx.arc(nodeX, yCenter, baseRadius + 5, 0, Math.PI * 2);
+        ctx.fillStyle = colorWithAlpha(accentColor, 0.22);
         ctx.fill();
 
         ctx.beginPath();
-        ctx.arc(nodeX, yCenter, avatarRadius + 1, 0, Math.PI * 2);
-        ctx.strokeStyle = colorWithAlpha(color, 0.96);
+        ctx.arc(nodeX, yCenter, baseRadius + 4, 0, Math.PI * 2);
+        ctx.strokeStyle = colorWithAlpha(accentColor, 0.85);
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+      }
+
+      // Draw HEAD border indicator
+      if (isHead) {
+        ctx.beginPath();
+        ctx.arc(nodeX, yCenter, baseRadius + 3, 0, Math.PI * 2);
+        ctx.strokeStyle = colorWithAlpha(headColor, 0.9);
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      }
+
+      // Draw dot body
+      if (isMerge) {
+        // Hollow circle/ring for merge commits
+        ctx.beginPath();
+        ctx.arc(nodeX, yCenter, baseRadius + 1, 0, Math.PI * 2);
+        ctx.fillStyle = bgColor;
+        ctx.fill();
+        ctx.strokeStyle = color;
         ctx.lineWidth = 2;
         ctx.stroke();
 
         ctx.beginPath();
-        ctx.arc(nodeX, yCenter, avatarRadius - 1, 0, Math.PI * 2);
-        ctx.fillStyle = avatar.fill;
+        ctx.arc(nodeX, yCenter, baseRadius - 2, 0, Math.PI * 2);
+        ctx.fillStyle = color;
         ctx.fill();
-
-        ctx.fillStyle = '#ffffff';
-        ctx.font = '600 8px ui-sans-serif, system-ui, sans-serif';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(avatar.initials, nodeX, yCenter + 0.5);
       } else {
-        const radius = isMerge ? DOT_RADIUS + 2 : DOT_RADIUS;
+        // Solid dot with clean bg border
         ctx.beginPath();
-        ctx.arc(nodeX, yCenter, radius, 0, Math.PI * 2);
+        ctx.arc(nodeX, yCenter, baseRadius, 0, Math.PI * 2);
         ctx.fillStyle = color;
         ctx.fill();
 
-        ctx.strokeStyle = colorWithAlpha(bgColor, 0.96);
-        ctx.lineWidth = 2;
-        ctx.stroke();
-      }
-
-      if (isHead) {
-        const ringRadius = showAuthorAvatar ? (isMerge ? 15 : 14) : (isMerge ? 8 : 6);
         ctx.beginPath();
-        ctx.arc(nodeX, yCenter, ringRadius, 0, Math.PI * 2);
-        ctx.strokeStyle = colorWithAlpha(headColor, 0.88);
-        ctx.lineWidth = 2;
-        ctx.stroke();
-      }
-
-      if (isSelected) {
-        const ringRadius = showAuthorAvatar ? (isMerge ? 17 : 16) : (isMerge ? 10 : 8);
-        ctx.beginPath();
-        ctx.arc(nodeX, yCenter, ringRadius, 0, Math.PI * 2);
-        ctx.strokeStyle = colorWithAlpha(accentColor, 0.7);
-        ctx.lineWidth = 2;
+        ctx.arc(nodeX, yCenter, baseRadius, 0, Math.PI * 2);
+        ctx.strokeStyle = bgColor;
+        ctx.lineWidth = 1.5;
         ctx.stroke();
       }
     }
@@ -742,13 +829,13 @@ interface GraphRowProps {
   onClick: () => void;
   density: Density;
   rowHeight: number;
+  onRefContext: (e: React.MouseEvent, ref: RefLabel) => void;
 }
 
-function GraphRow({ row, graphWidth, selected, onClick, density, rowHeight }: GraphRowProps) {
+function GraphRow({ row, graphWidth, selected, onClick, density, rowHeight, onRefContext }: GraphRowProps) {
   const commit = row.commit;
   const date = new Date(commit.author.date);
   const shortSha = commit.sha.slice(0, 7);
-  const [refCtx, setRefCtx] = useState<{ x: number; y: number; ref: RefLabel } | null>(null);
   const mutedRefs = useGraphFilterStore((s) => s.mutedRefs);
 
   const isDetailed = density === 'detailed';
@@ -758,24 +845,13 @@ function GraphRow({ row, graphWidth, selected, onClick, density, rowHeight }: Gr
   const railInset = graphRefRailInset(density);
   const showInlineMeta = graphRowShowsInlineMeta(density);
   const rowBgClass = selected ? 'bg-accent/10' : 'bg-bg/80 hover:bg-bg-hover/90';
-
-  useEffect(() => {
-    const close = () => setRefCtx(null);
-    window.addEventListener('click', close);
-    return () => window.removeEventListener('click', close);
-  }, []);
+  const graphColBgClass = (selected ? 'bg-accent/10' : 'bg-bg hover:bg-bg-hover') + ' pointer-events-none';
 
   const visibleBranches = row.refs.branches.filter((ref) => !mutedRefs.includes(ref.shortName));
   const visibleTags = row.refs.tags.filter((ref) => !mutedRefs.includes(ref.shortName));
   const visibleRefs = [...visibleBranches, ...visibleTags];
   const MAX_VISIBLE = graphRowMaxVisibleRefs(density);
   const overflow = visibleRefs.length - MAX_VISIBLE;
-
-  const handleRefContext = (e: React.MouseEvent, ref: RefLabel) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setRefCtx({ x: e.clientX, y: e.clientY, ref });
-  };
 
   return (
     <div
@@ -792,9 +868,9 @@ function GraphRow({ row, graphWidth, selected, onClick, density, rowHeight }: Gr
           {row.refs.head && <HeadIndicator label={row.refs.head} />}
           {visibleRefs.slice(0, MAX_VISIBLE).map((ref) =>
             ref.kind === 'tag' ? (
-              <TagBadge key={`tag:${ref.shortName}`} label={ref} onContextMenu={(e) => handleRefContext(e, ref)} />
+              <TagBadge key={`tag:${ref.shortName}`} label={ref} onContextMenu={(e) => onRefContext(e, ref)} />
             ) : (
-              <BranchBadge key={`${ref.kind}:${ref.shortName}`} label={ref} onContextMenu={(e) => handleRefContext(e, ref)} />
+              <BranchBadge key={`${ref.kind}:${ref.shortName}`} label={ref} onContextMenu={(e) => onRefContext(e, ref)} />
             ),
           )}
           {overflow > 0 && (
@@ -805,7 +881,7 @@ function GraphRow({ row, graphWidth, selected, onClick, density, rowHeight }: Gr
         </div>
       </div>
 
-      <div className={`sticky z-20 h-full ${rowBgClass}`} style={{ left: railWidth }} />
+      <div className={`sticky z-20 h-full ${graphColBgClass}`} style={{ left: railWidth }} />
 
       <div className="min-w-0 flex items-center gap-2 px-2">
         <div className="flex-1 min-w-0 flex flex-col justify-center gap-1">
@@ -838,23 +914,6 @@ function GraphRow({ row, graphWidth, selected, onClick, density, rowHeight }: Gr
 
       {!isDetailed && !isCompact && (
         <div className="min-w-0 px-2 text-xs text-fg-dim font-mono text-right">{shortSha}</div>
-      )}
-
-      {refCtx && (
-        <div className="fixed z-50 bg-bg-panel border border-border rounded shadow-xl py-1 w-48 text-xs" style={{ left: refCtx.x, top: refCtx.y }} onClick={(e) => e.stopPropagation()}>
-          <button
-            className="w-full text-left px-3 py-1.5 hover:bg-bg-hover text-fg flex items-center gap-2"
-            onClick={() => { useGraphFilterStore.getState().solo(refCtx.ref.shortName); setRefCtx(null); }}
-          >
-            <Eye className="w-3 h-3" /> Solo this branch
-          </button>
-          <button
-            className="w-full text-left px-3 py-1.5 hover:bg-bg-hover text-fg flex items-center gap-2"
-            onClick={() => { useGraphFilterStore.getState().mute(refCtx.ref.shortName); setRefCtx(null); }}
-          >
-            <EyeOff className="w-3 h-3" /> Mute this branch
-          </button>
-        </div>
       )}
     </div>
   );

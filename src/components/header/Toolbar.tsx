@@ -106,7 +106,7 @@ export function Toolbar({ onOpenSettings }: { onOpenSettings: () => void }) {
             disabled={busy}
             title="Pull"
           >
-            <ArrowDown className="w-4 h-4" />
+            {pull.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowDown className="w-4 h-4" />}
           </button>
           <button
             className="icon-btn"
@@ -114,7 +114,7 @@ export function Toolbar({ onOpenSettings }: { onOpenSettings: () => void }) {
             disabled={busy}
             title="Push"
           >
-            <ArrowUp className="w-4 h-4" />
+            {push.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowUp className="w-4 h-4" />}
           </button>
         </div>
       )}

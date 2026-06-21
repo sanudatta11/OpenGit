@@ -149,7 +149,17 @@ export function useFetch() {
   const refresh = useRefreshOnSuccess();
   return useMutation({
     mutationFn: (input: FetchInput) => api.remote.fetch(input as never),
-    onSuccess: (r) => refresh(r.requiresRefresh),
+    onSuccess: (r, vars) => {
+      refresh(r.requiresRefresh);
+      if (r.success) {
+        useToastStore.getState().addToast(`Fetched remote '${vars.remote ?? 'origin'}'. ${r.data?.fetched ?? 0} refs updated.`, 'success');
+      } else {
+        useToastStore.getState().addToast(`Fetch failed: ${r.stderr || r.stdout || 'Unknown error'}`, 'error');
+      }
+    },
+    onError: (err) => {
+      useToastStore.getState().addToast(`Fetch failed: ${(err as Error).message}`, 'error');
+    },
   });
 }
 
@@ -157,7 +167,17 @@ export function usePull() {
   const refresh = useRefreshOnSuccess();
   return useMutation({
     mutationFn: (input: PullInput) => api.remote.pull(input as never),
-    onSuccess: (r) => refresh(r.requiresRefresh),
+    onSuccess: (r, vars) => {
+      refresh(r.requiresRefresh);
+      if (r.success) {
+        useToastStore.getState().addToast(`Successfully pulled from '${vars.remote ?? 'origin'}'`, 'success');
+      } else {
+        useToastStore.getState().addToast(`Pull failed: ${r.stderr || r.stdout || 'Unknown error'}`, 'error');
+      }
+    },
+    onError: (err) => {
+      useToastStore.getState().addToast(`Pull failed: ${(err as Error).message}`, 'error');
+    },
   });
 }
 
@@ -167,14 +187,23 @@ export function usePush() {
     mutationFn: (input: PushInput) => api.remote.push(input as never),
     onSuccess: (r, vars) => {
       refresh(r.requiresRefresh);
-      if (r.data?.rejected) {
-        usePushBannerStore.getState().setRejection({
-          ...r.data,
-          message: r.stderr,
-          remote: vars.remote,
-          branch: vars.branch,
-        });
+      if (r.success) {
+        useToastStore.getState().addToast(`Successfully pushed to '${vars.remote ?? 'origin'}'`, 'success');
+      } else {
+        if (r.data?.rejected) {
+          usePushBannerStore.getState().setRejection({
+            ...r.data,
+            message: r.stderr,
+            remote: vars.remote,
+            branch: vars.branch,
+          });
+        } else {
+          useToastStore.getState().addToast(`Push failed: ${r.stderr || r.stdout || 'Unknown error'}`, 'error');
+        }
       }
+    },
+    onError: (err) => {
+      useToastStore.getState().addToast(`Push failed: ${(err as Error).message}`, 'error');
     },
   });
 }

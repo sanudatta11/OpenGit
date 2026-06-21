@@ -323,6 +323,7 @@ export const SettingsSetInput = z.object({
   inspectorWidth: z.number().int().min(280).max(600).optional(),
   autoFetchInterval: z.number().int().nonnegative().max(3600).optional(),
   betaUpdates: z.boolean().optional(),
+  graphZoom: z.number().min(0.5).max(2.0).optional(),
 });
 export type SettingsSetInput = z.infer<typeof SettingsSetInput>;
 
@@ -344,6 +345,7 @@ export interface SettingsData {
   inspectorWidth: number;
   autoFetchInterval: number;
   betaUpdates: boolean;
+  graphZoom: number;
 }
 
 export const DiffFileInput = z.object({
