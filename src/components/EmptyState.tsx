@@ -1,6 +1,6 @@
 // src/components/EmptyState.tsx — shown when no repo is open. Offers recent repos + open dialog.
 
-import { FolderOpen, Loader2, AlertTriangle, Clock, Settings } from 'lucide-react';
+import { FolderOpen, Loader2, AlertTriangle, Clock, Settings, ShieldAlert } from 'lucide-react';
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../ipc/api';
@@ -47,6 +47,23 @@ export function EmptyState({ onOpenSettings }: { onOpenSettings: () => void }) {
   const err = openRepo.error as unknown;
   const gitNotFound = err instanceof GitError && err.code === 'GitNotFound';
   const notARepo = err instanceof GitError && err.code === 'NotARepo';
+  const ownershipErr = notARepo && (err as GitError).stderr.toLowerCase().includes('dubious ownership');
+  const [trusting, setTrusting] = useState(false);
+
+  const handleTrust = async () => {
+    if (!(err instanceof GitError)) return;
+    const path = openRepo.variables;
+    if (!path) return;
+    setTrusting(true);
+    try {
+      await api.repo.trust(path);
+      await openRepo.mutateAsync(path);
+    } catch (e) {
+      useToastStore.getState().addToast(`Failed to trust repository: ${e instanceof Error ? e.message : String(e)}`, 'error');
+    } finally {
+      setTrusting(false);
+    }
+  };
 
   return (
     <div className="h-full flex flex-col items-center justify-center gap-6 select-none">
@@ -110,10 +127,20 @@ export function EmptyState({ onOpenSettings }: { onOpenSettings: () => void }) {
 
       {notARepo && (
         <div className="flex items-start gap-2 max-w-md p-3 rounded border border-git-modified/40 bg-git-modified/10 text-fg">
-          <AlertTriangle className="w-4 h-4 mt-0.5 text-git-modified shrink-0" />
-          <div>
-            <div className="font-medium text-git-modified">Not a Git repository</div>
+          {ownershipErr ? <ShieldAlert className="w-4 h-4 mt-0.5 text-git-modified shrink-0" /> : <AlertTriangle className="w-4 h-4 mt-0.5 text-git-modified shrink-0" />}
+          <div className="flex-1">
+            <div className="font-medium text-git-modified">{ownershipErr ? 'Repository ownership issue' : 'Not a Git repository'}</div>
             <p className="text-xs text-fg-muted mt-0.5">{(err as GitError).friendly}</p>
+            {ownershipErr && (
+              <button
+                className="btn btn-primary !text-xs mt-2"
+                disabled={trusting}
+                onClick={handleTrust}
+              >
+                {trusting ? <Loader2 className="w-3 h-3 animate-spin" /> : <ShieldAlert className="w-3 h-3" />}
+                Trust & open
+              </button>
+            )}
           </div>
         </div>
       )}

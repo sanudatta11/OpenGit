@@ -123,7 +123,7 @@ function StashRow({ entry, onDrop, onPop, onToggleDiff, expanded, diffLoading, d
         </button>
         <span className="text-xs text-fg-dim ml-auto shrink-0">{formatRelative(date)}</span>
       </div>
-      <div className="mt-1 text-xs text-fg truncate" title={entry.subject}>{entry.subject}</div>
+      <div className="mt-1 text-xs text-fg min-w-0 break-words" title={entry.subject}>{entry.subject}</div>
       {entry.branch && (
         <div className="mt-0.5 text-xs text-fg-dim">on {entry.branch}</div>
       )}

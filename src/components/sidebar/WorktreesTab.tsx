@@ -143,15 +143,15 @@ function WorktreeRow({ wt, onRemove }: { wt: Worktree; onRemove: () => void }) {
         onContextMenu={handleContextMenu}
         style={{ cursor: 'context-menu' }}
       >
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 min-w-0">
           <FolderTree className={`w-3.5 h-3.5 shrink-0 ${wt.isMain ? 'text-git-head' : 'text-git-worktree'}`} />
-          <span className="text-fg font-medium truncate flex-1" title={wt.path}>{dirName}</span>
+          <span className="text-fg font-medium min-w-0 break-words flex-1" title={wt.path}>{dirName}</span>
           {wt.isMain && <span className="text-xxs text-git-head shrink-0">main</span>}
           {wt.bare && <span className="text-xxs text-fg-dim shrink-0">bare</span>}
           {wt.detached && <span className="text-xxs text-fg-dim shrink-0">detached</span>}
           {isActive && <Check className="w-3 h-3 text-accent shrink-0 ml-auto" />}
         </div>
-        <div className="mt-0.5 ml-5 text-xs text-fg-dim truncate" title={wt.path}>{parentPath}/</div>
+        <div className="mt-0.5 ml-5 text-xs text-fg-dim min-w-0 break-all" title={wt.path}>{parentPath}/</div>
         {wt.branch && (
           <div className="mt-0.5 ml-5 text-xs text-git-branch font-mono truncate">
             {wt.branch.replace('refs/heads/', '')}

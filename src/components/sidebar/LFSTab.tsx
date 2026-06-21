@@ -84,9 +84,9 @@ export function LFSTab() {
       )}
 
       {patterns.map((p) => (
-        <div key={p} className="px-3 py-1.5 border-b border-border-subtle/30 flex items-center gap-2">
+        <div key={p} className="px-3 py-1.5 border-b border-border-subtle/30 flex items-center gap-2 min-w-0">
           <Database className="w-3.5 h-3.5 shrink-0 text-fg-muted" />
-          <span className="font-mono text-fg truncate flex-1">{p}</span>
+          <span className="font-mono text-fg min-w-0 break-all flex-1">{p}</span>
           <button
             className="icon-btn !w-6 !h-6 hover:text-git-deleted shrink-0"
             onClick={() => setConfirmUntrack(p)}

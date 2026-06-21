@@ -1,9 +1,9 @@
 // src/components/inspector/WorkingTree.tsx — staged/unstaged file list + actions + commit form + diff.
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
-  FileEdit, FilePlus, FileMinus, FileOutput, AlertCircle, Check, ChevronRight,
-  Plus, Minus, RotateCcw, Loader2,
+  FileEdit, FilePlus, FileMinus, FileOutput, AlertCircle, ChevronRight,
+  Plus, Minus, RotateCcw, Loader2, CornerDownRight,
 } from 'lucide-react';
 import { useStatus, useFileContent, useBranches, useLog } from '../../queries/useRepo';
 import {
@@ -16,141 +16,169 @@ import { DiffViewer } from '../diff/DiffViewer';
 import { languageForFile } from '../../monaco/language';
 import type { DiffView } from '../diff/DiffViewer';
 import { ConfirmDialog } from '../ConfirmDialog';
-import { HunkStagingView } from './HunkStagingView';
 import { useRepoStore } from '../../stores/repo';
+import { PaneErrorState } from '../ErrorBoundary';
 
 export function WorkingTree() {
   const status = useStatus();
-  const [selectedEntry, setSelectedEntry] = useState<StatusEntry | null>(null);
-  const [diffView, setDiffView] = useState<DiffView | 'hunks'>('side-by-side');
   const [confirmEntry, setConfirmEntry] = useState<StatusEntry | null>(null);
   const discard = useDiscard();
-  const stage = useStage();
-  const unstage = useUnstage();
-  const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set());
   const branchName = useRepoStore((s) => s.activeRepo)?.currentBranch ?? 'HEAD';
+  const selectedFile = useRepoStore((s) => s.selectedFile);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [containerHeight, setContainerHeight] = useState(0);
+  const { data: settings } = useQuery({
+    queryKey: ['settings'],
+    queryFn: () => api.settings.get(),
+  });
+  const [composerHeight, setComposerHeight] = useState(Math.max(settings?.inspectorComposerHeight ?? 210, 140));
+  const composerHeightRef = useRef(composerHeight);
+  composerHeightRef.current = composerHeight;
 
-  const toggleFile = (path: string) => {
-    setSelectedFiles(prev => { const n = new Set(prev); if (n.has(path)) n.delete(path); else n.add(path); return n; });
-  };
+  useEffect(() => {
+    if (settings?.inspectorComposerHeight != null) {
+      setComposerHeight(Math.max(settings.inspectorComposerHeight, 140));
+    }
+  }, [settings?.inspectorComposerHeight]);
 
-  const allEntries = status.data?.entries ?? [];
-  const selectedEntries = allEntries.filter(e => selectedFiles.has(e.path));
+  useEffect(() => {
+    const element = containerRef.current;
+    if (!element) return;
 
-  const handleStageSelected = () => {
-    const unstaged = selectedEntries.filter(e => !e.staged);
-    if (unstaged.length) stage.mutate(unstaged.map(e => e.path), { onSuccess: () => setSelectedFiles(new Set()) });
-  };
+    const updateHeight = () => setContainerHeight(element.clientHeight);
+    updateHeight();
 
-  const handleDiscardSelected = () => {
-    const tracked = selectedEntries.filter(e => e.kind !== 'untracked');
-    const untracked = selectedEntries.filter(e => e.kind === 'untracked');
-    if (tracked.length) discard.mutate({ paths: tracked.map(e => e.path) });
-    if (untracked.length) discard.mutate({ paths: untracked.map(e => e.path), untracked: true });
-    setSelectedFiles(new Set());
-  };
+    const observer = new ResizeObserver(updateHeight);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
+
+  const minWorkspaceHeight = 180;
+  const minComposerHeight = 140;
+  const maxComposerHeight = containerHeight > 0
+    ? Math.max(minComposerHeight, containerHeight - minWorkspaceHeight)
+    : 420;
+  const clampedComposerHeight = Math.min(
+    Math.max(minComposerHeight, composerHeight),
+    maxComposerHeight,
+  );
+  composerHeightRef.current = clampedComposerHeight;
+
+  useEffect(() => {
+    if (composerHeight !== clampedComposerHeight) {
+      setComposerHeight(clampedComposerHeight);
+    }
+  }, [clampedComposerHeight, composerHeight]);
 
   if (status.isLoading && !status.data) {
     return <div className="p-3 text-xs text-fg-muted">Loading status…</div>;
   }
   if (status.error) {
-    return <div className="p-3 text-xs text-git-deleted">{(status.error as Error).message}</div>;
+    return <PaneErrorState title="Failed to load working tree" message={(status.error as Error).message} onRetry={() => void status.refetch()} />;
   }
   if (!status.data) return null;
-
-  if (status.data.isClean && !selectedEntry) {
-    return (
-      <div className="p-3 text-xs text-fg-muted flex items-center gap-2">
-        <Check className="w-4 h-4 text-git-added" />
-        Working tree clean.
-      </div>
-    );
-  }
 
   const staged = status.data.entries.filter((e) => e.staged);
   const unstaged = status.data.entries.filter((e) => e.unstaged);
   const untracked = status.data.entries.filter((e) => e.kind === 'untracked');
   const conflicts = status.data.entries.filter((e) => e.kind === 'unmerged');
 
+  const handleComposerDragStart = (e: React.MouseEvent) => {
+    e.preventDefault();
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+
+    const handleMouseMove = (ev: MouseEvent) => {
+      const nextHeight = rect.bottom - ev.clientY;
+      const clampedHeight = Math.min(
+        Math.max(minComposerHeight, nextHeight),
+        Math.max(minComposerHeight, rect.height - minWorkspaceHeight),
+      );
+      setComposerHeight(clampedHeight);
+    };
+
+    const handleMouseUp = () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+      api.settings.set({ inspectorComposerHeight: Math.round(composerHeightRef.current) });
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  };
+
   return (
-    <div className="flex flex-col h-full min-h-0">
-      {!selectedEntry && (
-        <>
-          <div className="px-3 py-2 border-b border-border bg-bg/25 text-xs text-fg-muted flex items-center gap-3 shrink-0">
-            <span className="text-fg font-medium">WIP on <span className="text-git-branch">{branchName}</span></span>
-            <span className="text-fg-dim">|</span>
-            <span className="text-git-staged">{staged.length} staged</span>
-            <span className="text-git-modified">{unstaged.length} unstaged</span>
-            {untracked.length > 0 && <span className="text-git-untracked">{untracked.length} untracked</span>}
-          </div>
-          {conflicts.length > 0 && (
-            <Section title="Conflicts" count={conflicts.length} color="text-git-conflicted" entries={conflicts} onSelect={setSelectedEntry} selected={selectedEntry} onDiscard={setConfirmEntry} selectedFiles={selectedFiles} onToggleFile={toggleFile} />
-          )}
-          <Section
-            title="Staged" count={staged.length} color="text-git-staged"
-            entries={staged} onSelect={setSelectedEntry} selected={selectedEntry}
-            actions={staged.length > 0 ? <UnstageAllButton /> : undefined}
-            onDiscard={setConfirmEntry}
-            selectedFiles={selectedFiles} onToggleFile={toggleFile}
-          />
-          <Section
-            title="Unstaged" count={unstaged.length} color="text-git-modified"
-            entries={unstaged} onSelect={setSelectedEntry} selected={selectedEntry}
-            actions={unstaged.length > 0 ? <StageAllButton /> : undefined}
-            onDiscard={setConfirmEntry}
-            selectedFiles={selectedFiles} onToggleFile={toggleFile}
-          />
-          {untracked.length > 0 && (
-            <Section title="Untracked" count={untracked.length} color="text-git-untracked" entries={untracked} onSelect={setSelectedEntry} selected={selectedEntry} onDiscard={setConfirmEntry} selectedFiles={selectedFiles} onToggleFile={toggleFile} />
-          )}
-          {selectedFiles.size >= 2 && (
-            <div className="px-3 py-2 border-t border-border bg-accent/5 flex items-center gap-2 text-xs shrink-0">
-              <span className="text-fg-muted">{selectedFiles.size} selected</span>
-              <button className="btn btn-primary !text-xs !px-2 !py-0.5" onClick={handleStageSelected} disabled={stage.isPending || unstage.isPending}>
-                Stage selected
-              </button>
-              <button className="btn !text-xs !px-2 !py-0.5" onClick={handleDiscardSelected}>Discard selected</button>
-              <button className="btn !text-xs !px-2 !py-0.5" onClick={() => setSelectedFiles(new Set())}>Clear</button>
-            </div>
-          )}
-          <CommitForm />
-        </>
-      )}
-      {selectedEntry && (
-        <>
-          <div className="h-8 px-3 flex items-center gap-2 border-b border-border shrink-0">
-            <button className="icon-btn" onClick={() => { setSelectedEntry(null); useRepoStore.getState().selectFile(null); }} title="Back">
-              <ChevronRight className="w-3 h-3 rotate-180" />
-            </button>
-            <span className="text-xs text-fg truncate flex-1 font-mono">{selectedEntry.path}</span>
-            <div className="flex items-center gap-1">
-              <button
-                className={`text-xxs px-1.5 py-0.5 rounded ${diffView === 'side-by-side' ? 'bg-accent/20 text-accent' : 'text-fg-muted hover:bg-bg-hover'}`}
-                onClick={() => setDiffView('side-by-side')}
-              >
-                Split
-              </button>
-              <button
-                className={`text-xxs px-1.5 py-0.5 rounded ${diffView === 'unified' ? 'bg-accent/20 text-accent' : 'text-fg-muted hover:bg-bg-hover'}`}
-                onClick={() => setDiffView('unified')}
-              >
-                Unified
-              </button>
-              <button
-                className={`text-xxs px-1.5 py-0.5 rounded ${diffView === 'hunks' ? 'bg-accent/20 text-accent' : 'text-fg-muted hover:bg-bg-hover'}`}
-                onClick={() => setDiffView('hunks')}
-              >
-                Hunks
-              </button>
+    <div ref={containerRef} className="flex flex-col h-full min-h-0 bg-bg-panel">
+      <div className="px-3 py-2 border-b border-border bg-bg/20 shrink-0">
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <div className="text-[11px] text-fg font-medium truncate">
+              Working tree on <span className="text-git-branch">{branchName}</span>
             </div>
           </div>
-          {diffView === 'hunks' ? (
-            <HunkStagingView path={selectedEntry.path} staged={selectedEntry.staged} />
-          ) : (
-            <WorkingTreeDiff entry={selectedEntry} view={diffView as DiffView} />
-          )}
-        </>
-      )}
+          <div className="flex items-center gap-1.5 text-[10px] text-fg-muted shrink-0">
+            <WorkspaceStat tone="staged" value={staged.length} label="staged" />
+            <WorkspaceStat tone="unstaged" value={unstaged.length} label="unstaged" />
+            {untracked.length > 0 && <WorkspaceStat tone="untracked" value={untracked.length} label="untracked" />}
+          </div>
+        </div>
+      </div>
+      <div className="flex-1 min-h-0 flex flex-col gap-1.5 px-2 py-1.5 overflow-hidden">
+        {conflicts.length > 0 && (
+          <Section
+            title="Conflicts"
+            count={conflicts.length}
+            tone="conflicted"
+            entries={conflicts}
+            selectedPath={selectedFile?.path ?? null}
+            onDiscard={setConfirmEntry}
+            listClassName="max-h-32"
+          />
+        )}
+        <Section
+          title="Staged Files" count={staged.length} tone="staged"
+          entries={staged}
+          selectedPath={selectedFile?.path ?? null}
+          actions={staged.length > 0 ? <UnstageAllButton prominent /> : undefined}
+          onDiscard={setConfirmEntry}
+          emptyMessage="No staged files"
+          emptyHint="Stage files from the sections below to prepare your next commit."
+          listClassName="max-h-32"
+        />
+        <Section
+          title="Unstaged Files" count={unstaged.length} tone="unstaged"
+          entries={unstaged}
+          selectedPath={selectedFile?.path ?? null}
+          actions={unstaged.length > 0 ? <StageAllButton prominent /> : undefined}
+          onDiscard={setConfirmEntry}
+          emptyMessage={status.data.isClean ? 'Working tree clean' : 'No unstaged tracked files'}
+          emptyHint={status.data.isClean ? 'Open, edit, or create files in this repository and they will appear here.' : 'Tracked changes will appear here until you stage them.'}
+          fill
+        />
+        <Section
+          title="Untracked Files"
+          count={untracked.length}
+          tone="untracked"
+          entries={untracked}
+          selectedPath={selectedFile?.path ?? null}
+          onDiscard={setConfirmEntry}
+          emptyMessage="No untracked files"
+          emptyHint="New files will appear here before they are staged."
+          collapsibleWhenEmpty
+          listClassName="max-h-48"
+        />
+      </div>
+      <div
+        className="wk-composer-resizer"
+        onMouseDown={handleComposerDragStart}
+        title="Drag to resize commit composer"
+      />
+      <div
+        style={{ height: clampedComposerHeight }}
+        className="shrink-0 min-h-[140px] overflow-hidden"
+      >
+        <CommitForm />
+      </div>
 
       <ConfirmDialog
         open={!!confirmEntry}
@@ -177,26 +205,60 @@ export function WorkingTree() {
   );
 }
 
-function StageAllButton() {
+function WorkspaceStat({
+  tone,
+  value,
+  label,
+}: {
+  tone: 'staged' | 'unstaged' | 'untracked';
+  value: number;
+  label: string;
+}) {
+  const toneClass = tone === 'staged'
+    ? 'text-git-added border-git-added/25 bg-git-added/8'
+    : tone === 'unstaged'
+      ? 'text-git-modified border-git-modified/25 bg-git-modified/8'
+      : 'text-git-untracked border-git-untracked/25 bg-git-untracked/8';
+
+  return (
+    <span className={`inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 ${toneClass}`}>
+      <span className="font-semibold">{value}</span>
+      <span>{label}</span>
+    </span>
+  );
+}
+
+export function buildCommitMessage(summary: string, description: string): string {
+  const trimmedSummary = summary.trim();
+  const trimmedDescription = description.trim();
+  if (!trimmedDescription) return trimmedSummary;
+  return `${trimmedSummary}\n\n${trimmedDescription}`;
+}
+
+function StageAllButton({ prominent = false }: { prominent?: boolean }) {
   const stageAll = useStageAll();
   return (
     <button
-      className="text-xs flex items-center gap-1 px-1.5 py-0.5 rounded text-git-added hover:bg-git-added/10"
+      className={prominent
+        ? 'btn btn-primary !text-[11px] !px-2.5 !py-1'
+        : 'text-xs flex items-center gap-1 px-1.5 py-0.5 rounded text-git-added hover:bg-git-added/10'}
       onClick={() => stageAll.mutate()}
       disabled={stageAll.isPending}
       title="Stage all"
     >
       {stageAll.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />}
-      All
+      {prominent ? 'Stage All Changes' : 'All'}
     </button>
   );
 }
 
-function UnstageAllButton() {
+function UnstageAllButton({ prominent = false }: { prominent?: boolean }) {
   const unstageAll = useUnstageAll();
   return (
     <button
-      className="text-xs flex items-center gap-1 px-1.5 py-0.5 rounded text-git-modified hover:bg-git-modified/10"
+      className={prominent
+        ? 'btn !text-[11px] !px-2.5 !py-1 border-git-modified/35 text-git-modified hover:bg-git-modified/10 hover:border-git-modified/50'
+        : 'text-xs flex items-center gap-1 px-1.5 py-0.5 rounded text-git-modified hover:bg-git-modified/10'}
       onClick={() => unstageAll.mutate()}
       disabled={unstageAll.isPending}
       title="Unstage all"
@@ -210,49 +272,89 @@ function UnstageAllButton() {
 function Section({
   title,
   count,
-  color,
+  tone,
   entries,
-  onSelect,
-  selected,
+  selectedPath,
   actions,
   onDiscard,
-  selectedFiles,
-  onToggleFile,
+  emptyMessage,
+  emptyHint,
+  collapsibleWhenEmpty,
+  fill,
+  listClassName,
 }: {
   title: string;
   count: number;
-  color: string;
+  tone: 'staged' | 'unstaged' | 'untracked' | 'conflicted';
   entries: StatusEntry[];
-  onSelect: (e: StatusEntry) => void;
-  selected: StatusEntry | null;
+  selectedPath: string | null;
   actions?: React.ReactNode;
   onDiscard: (e: StatusEntry) => void;
-  selectedFiles: Set<string>;
-  onToggleFile: (path: string) => void;
+  emptyMessage?: string;
+  emptyHint?: string;
+  collapsibleWhenEmpty?: boolean;
+  fill?: boolean;
+  listClassName?: string;
 }) {
-  if (count === 0) return null;
+  if (count === 0 && collapsibleWhenEmpty) return null;
+  const toneClass = tone === 'staged'
+    ? 'border-git-added/30 bg-git-added/6'
+    : tone === 'unstaged'
+      ? 'border-git-modified/30 bg-git-modified/6'
+      : tone === 'untracked'
+        ? 'border-git-untracked/30 bg-git-untracked/6'
+        : 'border-git-conflicted/30 bg-git-conflicted/6';
+
   return (
-    <div className="border-b border-border-subtle shrink-0">
-      <div className="px-3 py-1.5 flex items-center justify-between">
-        <span className={`label ${color}`}>{title}</span>
-        <div className="flex items-center gap-1">
+    <section className={`wk-section ${toneClass} ${fill ? 'flex-1 min-h-0 flex flex-col' : 'shrink-0'}`}>
+      <div className="wk-section-header">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="wk-section-title">{title}</span>
+          <span className="wk-count-badge">{count}</span>
+        </div>
+        <div className="flex items-center gap-2">
           {actions}
-          <span className="text-xxs text-fg-dim">{count}</span>
         </div>
       </div>
-      <div className="max-h-48 overflow-y-auto">
-        {entries.map((e) => (
-          <FileRow
-            key={`${e.path}:${e.oldPath ?? ''}`}
-            entry={e}
-            selected={selected?.path === e.path}
-            onClick={() => onSelect(e)}
-            onDiscard={() => onDiscard(e)}
-            checked={selectedFiles.has(e.path)}
-            onToggle={() => onToggleFile(e.path)}
-          />
-        ))}
+      <div className={`bg-bg-panel/90 overflow-y-auto overscroll-contain ${fill ? 'flex-1 min-h-0' : listClassName ?? ''}`}>
+        {entries.length > 0 ? (
+          entries.map((e) => (
+            <FileRow
+              key={`${e.path}:${e.oldPath ?? ''}`}
+              entry={e}
+              selected={selectedPath === e.path}
+              onDiscard={() => onDiscard(e)}
+            />
+          ))
+        ) : (
+          <EmptySectionState tone={tone} message={emptyMessage ?? 'Nothing here yet'} hint={emptyHint} />
+        )}
       </div>
+    </section>
+  );
+}
+
+function EmptySectionState({
+  tone,
+  message,
+  hint,
+}: {
+  tone: 'staged' | 'unstaged' | 'untracked' | 'conflicted';
+  message: string;
+  hint?: string;
+}) {
+  const iconTone = tone === 'staged'
+    ? 'text-git-added'
+    : tone === 'unstaged'
+      ? 'text-git-modified'
+      : tone === 'untracked'
+        ? 'text-git-untracked'
+        : 'text-git-conflicted';
+
+  return (
+    <div className="px-3 py-2.5">
+      <div className={`text-[11px] font-medium ${iconTone}`}>{message}</div>
+      {hint && <div className="mt-0.5 text-[11px] text-fg-dim leading-4">{hint}</div>}
     </div>
   );
 }
@@ -279,13 +381,43 @@ const KIND_COLOR: Record<EntryKind, string> = {
   ignored: 'text-fg-dim',
 };
 
-function FileRow({ entry, selected, onClick, onDiscard, checked, onToggle }: { entry: StatusEntry; selected: boolean; onClick: () => void; onDiscard: () => void; checked: boolean; onToggle: () => void }) {
+function FileRow({ entry, selected, onDiscard }: { entry: StatusEntry; selected: boolean; onDiscard: () => void }) {
   const stage = useStage();
   const unstage = useUnstage();
 
-  const label = entry.oldPath ? `${entry.oldPath} → ${entry.path}` : entry.path;
+  const label = entry.oldPath ? `${entry.oldPath} -> ${entry.path}` : entry.path;
   const Icon = KIND_ICON[entry.kind];
   const color = KIND_COLOR[entry.kind];
+  const pillToneClass = entry.kind === 'modified'
+    ? 'border-git-modified/25 bg-git-modified/10'
+    : entry.kind === 'added'
+      ? 'border-git-added/25 bg-git-added/10'
+      : entry.kind === 'deleted'
+        ? 'border-git-deleted/25 bg-git-deleted/10'
+        : entry.kind === 'renamed' || entry.kind === 'copied'
+          ? 'border-git-renamed/25 bg-git-renamed/10'
+          : entry.kind === 'unmerged'
+            ? 'border-git-conflicted/25 bg-git-conflicted/10'
+            : entry.kind === 'untracked'
+              ? 'border-git-untracked/25 bg-git-untracked/10'
+              : 'border-border bg-bg/40';
+  const statusPill = entry.kind === 'modified'
+    ? 'M'
+    : entry.kind === 'added'
+      ? 'A'
+      : entry.kind === 'deleted'
+        ? 'D'
+        : entry.kind === 'renamed'
+          ? 'R'
+          : entry.kind === 'copied'
+            ? 'C'
+            : entry.kind === 'unmerged'
+              ? '!'
+              : entry.kind === 'untracked'
+                ? '?'
+                : '•';
+  const baseName = entry.path.split('/').pop() ?? entry.path;
+  const parentPath = entry.path.includes('/') ? entry.path.slice(0, entry.path.lastIndexOf('/')) : null;
 
   const handleStage = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -301,7 +433,6 @@ function FileRow({ entry, selected, onClick, onDiscard, checked, onToggle }: { e
   };
 
   const handleClick = () => {
-    onClick();
     useRepoStore.getState().selectFile({
       path: entry.path,
       staged: entry.staged,
@@ -316,17 +447,32 @@ function FileRow({ entry, selected, onClick, onDiscard, checked, onToggle }: { e
 
   return (
     <div
-      className={`w-full text-left px-3 py-1 flex items-center gap-2 ${selected ? 'bg-accent/10' : 'row-hover'}`}
+      className={`group wk-file-row ${selected ? 'wk-file-row-selected' : 'wk-file-row-idle'}`}
       title={entry.path}
       onClick={handleClick}
     >
-      <input type="checkbox" checked={checked} onChange={onToggle} onClick={e => e.stopPropagation()} className="accent-accent shrink-0" />
-      <Icon className={`w-3.5 h-3.5 shrink-0 ${color}`} />
-      <span className="text-xs truncate flex-1">{label}</span>
-      <div className="flex items-center gap-0.5 shrink-0">
+      <span className={`inline-flex h-5 min-w-5 items-center justify-center rounded-md border px-1 text-[10px] font-bold shrink-0 ${color} ${pillToneClass}`}>
+        {statusPill}
+      </span>
+      <div className="wk-file-icon">
+        <Icon className={`w-4 h-4 ${color}`} />
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-1.5 min-w-0">
+          <span className={`text-xs truncate ${selected ? 'text-fg font-semibold' : 'text-fg'}`}>{baseName}</span>
+          {entry.oldPath && <CornerDownRight className="w-3 h-3 text-fg-dim shrink-0" />}
+          {entry.oldPath && (
+            <span className="text-[11px] text-fg-dim truncate">{entry.oldPath.split('/').pop() ?? entry.oldPath}</span>
+          )}
+        </div>
+        <div className="text-[11px] text-fg-dim truncate">
+          {parentPath ?? (entry.oldPath ? label : entry.kind)}
+        </div>
+      </div>
+      <div className="flex items-center gap-1 shrink-0 opacity-100">
         {showStage && (
           <button
-            className="icon-btn !w-6 !h-6"
+            className="wk-file-action wk-file-action-stage"
             onClick={handleStage}
             disabled={stage.isPending}
             title="Stage"
@@ -336,7 +482,7 @@ function FileRow({ entry, selected, onClick, onDiscard, checked, onToggle }: { e
         )}
         {showUnstage && (
           <button
-            className="icon-btn !w-6 !h-6"
+            className="wk-file-action wk-file-action-unstage"
             onClick={handleUnstage}
             disabled={unstage.isPending}
             title="Unstage"
@@ -346,7 +492,7 @@ function FileRow({ entry, selected, onClick, onDiscard, checked, onToggle }: { e
         )}
         {showDiscard && (
           <button
-            className="icon-btn !w-6 !h-6 hover:text-git-deleted"
+            className="wk-file-action wk-file-action-discard"
             onClick={handleDiscard}
             title="Discard"
           >
@@ -369,7 +515,7 @@ export function WorkingTreeDiff({ entry, view }: { entry: StatusEntry; view: Dif
     return <div className="flex-1 flex items-center justify-center text-xs text-fg-muted">Loading diff…</div>;
   }
   if (error) {
-    return <div className="flex-1 flex items-center justify-center text-xs text-git-deleted">{(error as Error).message}</div>;
+    return <PaneErrorState title="Failed to load working tree diff" message={(error as Error).message} />;
   }
 
   const original = headContent.data?.content ?? '';
@@ -390,7 +536,8 @@ export function WorkingTreeDiff({ entry, view }: { entry: StatusEntry; view: Dif
 }
 
 function CommitForm() {
-  const [message, setMessage] = useState('');
+  const [summary, setSummary] = useState('');
+  const [description, setDescription] = useState('');
   const [amend, setAmend] = useState(false);
   const [signCommit, setSignCommit] = useState(false);
   const [noVerify, setNoVerify] = useState(false);
@@ -408,25 +555,28 @@ function CommitForm() {
     queryFn: () => api.settings.get(),
   });
 
-  const subjectLine = message.split('\n')[0] ?? '';
-  const subjectLength = subjectLine.length;
+  const subjectLength = summary.length;
   const maxSubject = settings?.commitSubjectLength ?? 72;
 
   useEffect(() => {
     if (amend && headCommit.data?.commits[0]) {
-      setMessage(headCommit.data.commits[0].subject);
+      setSummary(headCommit.data.commits[0].subject);
+      setDescription(headCommit.data.commits[0].body);
     } else if (!amend) {
-      setMessage('');
+      setSummary('');
+      setDescription('');
     }
   }, [amend]);
 
   const handleCommit = () => {
+    const message = buildCommitMessage(summary, description);
     if (!message.trim()) return;
     void commit.mutate(
       { message: message.trim(), amend, signoff: signCommit, noVerify },
       {
         onSuccess: () => {
-          setMessage('');
+          setSummary('');
+          setDescription('');
           setAmend(false);
           setSignCommit(false);
           setNoVerify(false);
@@ -445,12 +595,31 @@ function CommitForm() {
   };
 
   return (
-    <div className="mt-auto p-3 border-t border-border shrink-0">
+    <div className="wk-composer h-full overflow-y-auto">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <div className="wk-composer-label">Commit</div>
+          <div className="text-sm font-semibold text-fg">Create snapshot from staged changes</div>
+        </div>
+        {hasStaged && (
+          <span className="inline-flex items-center gap-1 rounded-full border border-git-added/25 bg-git-added/10 px-2 py-1 text-[11px] text-git-added">
+            <span className="font-semibold">{status.data?.entries.filter((e) => e.staged).length ?? 0}</span>
+            ready
+          </span>
+        )}
+      </div>
+      <input
+        className="wk-composer-input font-sans"
+        placeholder="Summary"
+        value={summary}
+        onChange={(e) => setSummary(e.target.value)}
+        disabled={commit.isPending}
+      />
       <textarea
-        className="input w-full h-20 resize-none font-sans"
-        placeholder="Commit message (Ctrl+Enter to commit)…"
-        value={message}
-        onChange={(e) => setMessage(e.target.value)}
+        className="wk-composer-textarea font-sans"
+        placeholder="Description (optional, Ctrl+Enter to commit)…"
+        value={description}
+        onChange={(e) => setDescription(e.target.value)}
         onKeyDown={(e) => {
           if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
             e.preventDefault();
@@ -460,21 +629,27 @@ function CommitForm() {
         disabled={commit.isPending}
         spellCheck
       />
-      <div className={`text-xs text-right ${subjectLength > maxSubject ? 'text-git-deleted' : 'text-fg-dim'}`}>
-        {subjectLength}/{maxSubject}
+      <div className="wk-composer-meta">
+        <div className="min-w-0">
+          {amend && headCommit.data?.commits[0] ? (
+            <div className="text-xs text-fg-muted">Amending: {headCommit.data.commits[0].sha.slice(0, 7)}</div>
+          ) : (
+            <div className="text-xs text-fg-dim">Use summary + optional body, then commit staged work.</div>
+          )}
+        </div>
+        <div className={`${subjectLength > maxSubject ? 'text-git-deleted' : 'text-fg-dim'}`}>
+          {subjectLength}/{maxSubject}
+        </div>
       </div>
-      {amend && headCommit.data?.commits[0] && (
-        <div className="text-xs text-fg-muted mb-1">Amending: {headCommit.data.commits[0].sha.slice(0, 7)}</div>
-      )}
       <div className="flex items-center justify-between mt-2">
-        <button className="flex items-center gap-1 text-xs text-fg-muted hover:text-fg py-1" onClick={() => setShowOptions(!showOptions)}>
+        <button className="wk-options-toggle" onClick={() => setShowOptions(!showOptions)}>
           <ChevronRight className={`w-3 h-3 transition-transform ${showOptions ? 'rotate-90' : ''}`} />
           Commit options
         </button>
         <button
-          className="btn btn-primary"
+          className="btn btn-primary !px-3 !py-1.5"
           onClick={handleCommit}
-          disabled={commit.isPending || !message.trim() || (!hasStaged && !amend)}
+          disabled={commit.isPending || !summary.trim() || (!hasStaged && !amend)}
           title={(!hasStaged && !amend) ? 'Nothing staged to commit' : 'Commit (Ctrl+Enter)'}
         >
           {commit.isPending && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
@@ -482,7 +657,7 @@ function CommitForm() {
         </button>
       </div>
       {showOptions && (
-        <div className="flex flex-col gap-1.5 pl-5 mb-2">
+        <div className="wk-options-panel">
           <label className="flex items-center gap-1.5 text-xs text-fg-muted cursor-pointer">
             <input
               type="checkbox"

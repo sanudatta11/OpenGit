@@ -79,10 +79,10 @@ export function SubmodulesTab() {
 
       {subs.map((s) => (
         <div key={s.path} className="px-3 py-1.5 border-b border-border-subtle/30">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 min-w-0">
             <FolderGit className="w-3.5 h-3.5 shrink-0 text-fg-muted" />
-            <span className="text-fg truncate flex-1" title={s.path}>{s.path}</span>
-            <span className="text-xxs font-mono text-fg-dim">{s.sha.slice(0, 7)}</span>
+            <span className="text-fg min-w-0 break-words flex-1" title={s.path}>{s.path}</span>
+            <span className="text-xxs font-mono text-fg-dim shrink-0">{s.sha.slice(0, 7)}</span>
           </div>
           {s.branch && (
             <div className="mt-0.5 text-xs text-fg-dim ml-5.5">

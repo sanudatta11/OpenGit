@@ -197,6 +197,15 @@ export function computeGraphVisibleWindow(
   };
 }
 
+export function graphContentScrollTop(
+  scrollTop: number,
+  rowHeight: number,
+  zoom: number,
+  hasWip: boolean,
+): number {
+  return Math.max(0, scrollTop - (hasWip ? rowHeight * Math.max(zoom, 0) : 0));
+}
+
 function clampPercentile(percentile: number): number {
   if (!Number.isFinite(percentile)) return GRAPH_WIDTH_PERCENTILE;
   return Math.min(1, Math.max(0, percentile));

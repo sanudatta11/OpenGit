@@ -81,10 +81,10 @@ export function RemotesTab() {
       )}
 
       {filtered.map((r) => (
-        <div key={r.name} className="px-3 py-1.5 border-b border-border-subtle">
-          <div className="flex items-center gap-2">
+        <div key={r.name} className="px-3 py-1.5 border-b border-border-subtle min-w-0">
+          <div className="flex items-center gap-2 min-w-0">
             <Cloud className="w-3.5 h-3.5 text-git-remote shrink-0" />
-            <span className="font-medium text-fg">{r.name}</span>
+            <span className="font-medium text-fg min-w-0 break-words">{r.name}</span>
             <div className="flex-1" />
             <button
               className="icon-btn !w-6 !h-6 hover:text-accent"

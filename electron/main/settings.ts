@@ -21,6 +21,13 @@ export interface Settings {
   defaultExternalEditor: string | null;
   sidebarWidth: number;
   inspectorWidth: number;
+  inspectorTopHeight: number;
+  inspectorComposerHeight: number;
+  commitPanelView: 'path' | 'tree';
+  commitPanelSort: 'asc' | 'desc';
+  commitPanelUnstagedExpanded: boolean;
+  commitPanelStagedExpanded: boolean;
+  commitPanelComposerHeight: number;
   autoFetchInterval: number;
   betaUpdates: boolean;
   openRepos: string[];
@@ -42,7 +49,14 @@ const DEFAULTS: Settings = {
   signingMode: 'none',
   defaultExternalEditor: null,
   sidebarWidth: 256,
-  inspectorWidth: 360,
+  inspectorWidth: 460,
+  inspectorTopHeight: 320,
+  inspectorComposerHeight: 210,
+  commitPanelView: 'path',
+  commitPanelSort: 'asc',
+  commitPanelUnstagedExpanded: true,
+  commitPanelStagedExpanded: true,
+  commitPanelComposerHeight: 240,
   autoFetchInterval: 0,
   betaUpdates: false,
   openRepos: [],

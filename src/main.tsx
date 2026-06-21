@@ -66,7 +66,7 @@ function AppShell() {
   }, [isSwitching]);
   return (
     <>
-      <div ref={wrapperRef}>
+      <div ref={wrapperRef} className="h-full">
         <App />
         <RebaseEditor />
       </div>

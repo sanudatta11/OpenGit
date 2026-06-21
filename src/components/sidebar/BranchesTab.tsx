@@ -1,7 +1,7 @@
 // src/components/sidebar/BranchesTab.tsx — list local/remote branches + tags + checkout/create/delete.
 
 import { useState, useEffect } from 'react';
-import { GitBranch, Tag, Cloud, Check, Plus, Trash2, Loader2, ChevronDown } from 'lucide-react';
+import { GitBranch, Tag, Cloud, Check, Plus, Trash2, Loader2, ChevronDown, ChevronRight } from 'lucide-react';
 import { useBranches } from '../../queries/useRepo';
 import { useCheckout, useCreateBranch, useDeleteBranch } from '../../queries/useMutations';
 import { useQueryClient } from '@tanstack/react-query';
@@ -98,7 +98,7 @@ export function BranchesTab() {
         {showFlow && <GitFlowSection />}
       </div>
 
-      <Section title="Local" count={locals.length} actions={
+      <Section title="LOCAL" count={locals.length} collapsible actions={
         <button className="icon-btn !w-6 !h-6" onClick={() => setShowCreate(!showCreate)} title="New branch">
           <Plus className="w-3 h-3" />
         </button>
@@ -108,10 +108,10 @@ export function BranchesTab() {
           <BranchRow key={b.name} branch={b} onDelete={setConfirmDelete} onCreateWorktree={handleCreateWorktree} />
         ))}
       </Section>
-      <Section title="Remote" count={remotes.length}>
+      <Section title="REMOTE" count={remotes.length} collapsible>
         {remotes.map((b) => <BranchRow key={b.name} branch={b} onCreateWorktree={handleCreateWorktree} />)}
       </Section>
-      <Section title="Tags" count={tags.length} actions={
+      <Section title="TAGS" count={tags.length} collapsible actions={
         <button className="icon-btn !w-6 !h-6" onClick={() => setShowTagCreate(!showTagCreate)} title="New tag">
           <Plus className="w-3 h-3" />
         </button>
@@ -146,6 +146,9 @@ export function BranchesTab() {
           </div>
         )}
         {tags.map((b) => <BranchRow key={b.name} branch={b} onDelete={handleTagDelete} />)}
+      </Section>
+      <Section title="PULL REQUESTS" count={0} collapsible showWhenEmpty>
+        <div className="px-3 py-2 text-fg-dim">Pull request integration is not available in this view yet.</div>
       </Section>
 
       <ConfirmDialog
@@ -186,18 +189,30 @@ export function BranchesTab() {
   );
 }
 
-function Section({ title, count, actions, children }: { title: string; count: number; actions?: React.ReactNode; children: React.ReactNode }) {
-  if (count === 0 && !actions) return null;
+function Section({ title, count, actions, collapsible, children, showWhenEmpty = false }: { title: string; count: number; actions?: React.ReactNode; collapsible?: boolean; children: React.ReactNode; showWhenEmpty?: boolean }) {
+  const [collapsed, setCollapsed] = useState(false);
+  if (count === 0 && !actions && !showWhenEmpty) return null;
   return (
     <div className="mb-2">
       <div className="px-3 py-1 label flex items-center justify-between">
-        <span>{title}</span>
-        <div className="flex items-center gap-1">
+        <button
+          className={`flex items-center gap-1 min-w-0 ${collapsible ? 'hover:text-fg transition-colors' : ''}`}
+          onClick={collapsible ? () => setCollapsed((c) => !c) : undefined}
+          disabled={!collapsible}
+        >
+          {collapsible && (
+            collapsed
+              ? <ChevronRight className="w-3 h-3 shrink-0" />
+              : <ChevronDown className="w-3 h-3 shrink-0" />
+          )}
+          <span className="truncate">{title}</span>
+        </button>
+        <div className="flex items-center gap-1 shrink-0">
           {actions}
-          {count > 0 && <span className="text-fg-dim">{count}</span>}
+          <span className="inline-flex min-w-5 justify-center rounded-full bg-bg-elevated px-1.5 py-0.5 text-xxs text-fg-dim">{count}</span>
         </div>
       </div>
-      {children}
+      {!collapsed && children}
     </div>
   );
 }
@@ -293,10 +308,10 @@ function BranchRow({ branch, onDelete, onCreateWorktree }: { branch: Branch; onD
               )}
             </div>
           </div>
-          <div className="text-xxs text-fg-dim flex items-center gap-1.5 truncate mt-0.5 font-mono">
-            <span>{branch.sha.slice(0, 7)}</span>
-            <span>·</span>
-            <span>{formatRelative(new Date(branch.date))}</span>
+          <div className="text-xxs text-fg-dim flex items-center gap-1.5 mt-0.5 font-mono min-w-0">
+            <span className="shrink-0">{branch.sha.slice(0, 7)}</span>
+            <span className="shrink-0">·</span>
+            <span className="shrink-0">{formatRelative(new Date(branch.date))}</span>
           </div>
         </div>
       </div>

@@ -4,40 +4,48 @@ import { useEffect, useRef } from 'react';
 import { useIsFetching, useQueryClient } from '@tanstack/react-query';
 import { useRepoStore } from '../stores/repo';
 import { Loader2 } from 'lucide-react';
+import { qk } from '../queries/keys';
 
 export function RepoSwitchOverlay() {
   const isSwitching = useRepoStore((s) => s.isSwitchingRepo);
-  const setSwitchingRepo = useRepoStore((s) => s.setSwitchingRepo);
-  const fetching = useIsFetching();
+  const repoSwitchTargetPath = useRepoStore((s) => s.repoSwitchTargetPath);
+  const repoSwitchPhase = useRepoStore((s) => s.repoSwitchPhase);
+  const completeRepoSwitch = useRepoStore((s) => s.completeRepoSwitch);
+  const failRepoSwitch = useRepoStore((s) => s.failRepoSwitch);
   const qc = useQueryClient();
   const safetyRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const fetchingCore = useIsFetching({
+    predicate: (query) => {
+      if (!repoSwitchTargetPath) return false;
+      return Array.isArray(query.queryKey) && query.queryKey.includes(repoSwitchTargetPath);
+    },
+  });
 
-  // Clear flag when mutation settled + all queries idle.
   useEffect(() => {
-    if (!isSwitching) return;
+    if (!isSwitching || !repoSwitchTargetPath) return;
 
-    // 6s safety timeout — force-clear if a query hangs.
     if (!safetyRef.current) {
       safetyRef.current = setTimeout(() => {
-        setSwitchingRepo(false);
+        failRepoSwitch();
         safetyRef.current = null;
       }, 6_000);
     }
 
-    if (fetching === 0) {
-      // rAF guard: skip the one-frame gap between removeQueries() and new queries mounting.
-      const id = requestAnimationFrame(() => {
-        if (qc.isFetching() === 0) {
-          setSwitchingRepo(false);
-        }
-      });
-      return () => {
-        cancelAnimationFrame(id);
-        if (safetyRef.current) {
-          clearTimeout(safetyRef.current);
-          safetyRef.current = null;
-        }
-      };
+    if (repoSwitchPhase !== 'settling') return;
+
+    const queriesReady = fetchingCore === 0 && [
+      qk.status(repoSwitchTargetPath),
+      qk.branches(repoSwitchTargetPath),
+      qk.state(repoSwitchTargetPath),
+      qk.remotes(repoSwitchTargetPath),
+      qk.log(undefined, 0, 200, undefined, repoSwitchTargetPath),
+    ].every((queryKey) => {
+      const state = qc.getQueryState(queryKey);
+      return state?.status === 'success' || state?.status === 'error';
+    });
+
+    if (queriesReady) {
+      completeRepoSwitch();
     }
 
     return () => {
@@ -46,7 +54,7 @@ export function RepoSwitchOverlay() {
         safetyRef.current = null;
       }
     };
-  }, [isSwitching, fetching, qc, setSwitchingRepo]);
+  }, [completeRepoSwitch, failRepoSwitch, fetchingCore, isSwitching, qc, repoSwitchPhase, repoSwitchTargetPath]);
 
   if (!isSwitching) return null;
 

@@ -5,18 +5,20 @@ import { useStatus, useOpenRepo } from '../queries/useRepo';
 import { useFetchAll } from '../queries/useMutations';
 import { api } from '../ipc/api';
 import { Sidebar } from './Sidebar';
-import { GraphPane } from './graph/GraphPane';
-import { Inspector } from './inspector/Inspector';
+import { MainContent } from './MainContent';
+import { CommitSidebar } from './commit/CommitSidebar';
 import { LogDrawer } from './LogDrawer';
 import { TopBar } from './TopBar';
 import { InProgressBanner } from './InProgressBanner';
 import { CommandPalette } from './CommandPalette';
 import { RepositorySearch } from './RepositorySearch';
 import { PushRejectionBanner } from './PushRejectionBanner';
+import { ErrorBoundary } from './ErrorBoundary';
 
 export function Workspace({ onOpenSettings }: { onOpenSettings: () => void }) {
   const logDrawerOpen = useRepoStore((s) => s.logDrawerOpen);
   const sidebarCollapsed = useRepoStore((s) => s.sidebarCollapsed);
+  const activePath = useRepoStore((s) => s.activeRepo?.path ?? 'none');
   const status = useStatus();
   const openRepo = useOpenRepo();
 
@@ -26,14 +28,14 @@ export function Workspace({ onOpenSettings }: { onOpenSettings: () => void }) {
   });
 
   const [sidebarWidth, setSidebarWidth] = useState(settings?.sidebarWidth ?? 256);
-  const [inspectorWidth, setInspectorWidth] = useState(settings?.inspectorWidth ?? 360);
+  const [inspectorWidth, setInspectorWidth] = useState(Math.max(settings?.inspectorWidth ?? 460, 420));
 
   useEffect(() => {
     if (settings?.sidebarWidth != null) setSidebarWidth(settings.sidebarWidth);
   }, [settings?.sidebarWidth]);
 
   useEffect(() => {
-    if (settings?.inspectorWidth != null) setInspectorWidth(settings.inspectorWidth);
+    if (settings?.inspectorWidth != null) setInspectorWidth(Math.max(settings.inspectorWidth, 420));
   }, [settings?.inspectorWidth]);
 
   const sidebarWidthRef = useRef(sidebarWidth);
@@ -63,7 +65,7 @@ export function Workspace({ onOpenSettings }: { onOpenSettings: () => void }) {
     const startX = e.clientX;
     const startWidth = inspectorWidthRef.current;
     const handleMouseMove = (ev: MouseEvent) => {
-      const newWidth = Math.min(600, Math.max(280, startWidth - (ev.clientX - startX)));
+      const newWidth = Math.min(760, Math.max(340, startWidth - (ev.clientX - startX)));
       setInspectorWidth(newWidth);
     };
     const handleMouseUp = () => {
@@ -130,13 +132,20 @@ export function Workspace({ onOpenSettings }: { onOpenSettings: () => void }) {
           />
         )}
         <div className="flex-1 flex min-h-0 min-w-0">
-          <GraphPane />
+          <ErrorBoundary key={`main:${activePath}`} title="Repository view crashed">
+            <MainContent />
+          </ErrorBoundary>
           <div
             className="w-1 shrink-0 cursor-col-resize hover:bg-accent/30 transition-colors bg-transparent"
             onMouseDown={handleInspectorDragStart}
           />
-          <div style={{ width: inspectorWidth }} className="shrink-0 h-full">
-            <Inspector />
+          <div style={{ width: inspectorWidth }} className="shrink-0 h-full min-w-0">
+            <ErrorBoundary
+              key={`commit:${activePath}`}
+              title="Commit panel crashed"
+            >
+              <CommitSidebar />
+            </ErrorBoundary>
           </div>
         </div>
       </div>

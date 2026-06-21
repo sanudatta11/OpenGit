@@ -9,6 +9,7 @@ import { useRepoStore, cacheCommits } from '../../stores/repo';
 import { useGraphFilterStore } from '../../stores/graphFilter';
 import { compileGraphLayout } from '../../graph/layout';
 import { colorWithAlpha, graphColorByKey, laneColorByIndex } from '../../graph/colors';
+import { authorVisual } from '../../graph/authorVisual';
 import {
   applyPendingGraphWidthShrink,
   computeGraphLeadWidthForLaneCount,
@@ -20,16 +21,20 @@ import {
   graphRowMaxVisibleRefs,
   graphRowShowsInlineMeta,
   graphRowTemplateColumns,
+  graphContentScrollTop,
   GRAPH_LANE_PADDING,
   GRAPH_LANE_WIDTH,
   updateGraphWidthStabilization,
 } from '../../graph/rowLayout';
-import { GitCommit, Search, X, EyeOff, Eye, Clock } from 'lucide-react';
+import { GitCommit, Search, X, EyeOff, Eye, Clock, ShieldAlert, GitCompare, ListTree } from 'lucide-react';
+import { GitError } from '@shared/ipc';
 import { useCheckout, useCreateBranch, useCherryPick, useRevert, useReset, useRebase, useMerge } from '../../queries/useMutations';
 import { ConfirmDialog } from '../ConfirmDialog';
 import { BranchBadge } from './decorations/BranchBadge';
 import { TagBadge } from './decorations/TagBadge';
 import { HeadIndicator } from './decorations/HeadIndicator';
+import { PaneErrorState } from '../ErrorBoundary';
+import { summarizeWip } from '../commit/model';
 
 type Density = 'compact' | 'comfortable' | 'detailed';
 
@@ -71,8 +76,11 @@ function parseSearchQuery(query: string): ParsedQuery {
 }
 
 export function GraphPane() {
+  const activeRepoPath = useRepoStore((s) => s.activeRepo?.path ?? null);
   const selectedSha = useRepoStore((s) => s.selectedCommitSha);
-  const selectCommit = useRepoStore((s) => s.selectCommit);
+  const openCommitDetails = useRepoStore((s) => s.openCommitDetails);
+  const setMainView = useRepoStore((s) => s.setMainView);
+  const showGraph = useRepoStore((s) => s.showGraph);
   const fileHistoryPath = useRepoStore((s) => s.fileHistoryPath);
   const setFileHistory = useRepoStore((s) => s.setFileHistory);
   const [limit, setLimit] = useState(200);
@@ -132,6 +140,13 @@ export function GraphPane() {
   const rebase = useRebase();
   const merge = useMerge();
 
+  const status = useQuery({
+    queryKey: activeRepoPath ? ['status', activeRepoPath] : ['status', 'none'],
+    queryFn: () => api.repo.status(),
+    enabled: !!activeRepoPath,
+    refetchOnWindowFocus: false,
+  });
+
   const parsed = useMemo(() => parseSearchQuery(searchQuery), [searchQuery]);
   const paths = useMemo(() => {
     if (fileHistoryPath) return [fileHistoryPath];
@@ -153,8 +168,32 @@ export function GraphPane() {
   const rowHeight = graphRowHeight(density);
 
   useEffect(() => {
-    if (log.data?.commits) cacheCommits(log.data.commits);
-  }, [log.data]);
+    if (log.data?.commits && activeRepoPath) cacheCommits(activeRepoPath, log.data.commits);
+  }, [activeRepoPath, log.data]);
+
+  useEffect(() => {
+    setLimit(200);
+    setSearchQuery('');
+    setContextMenu(null);
+    setCreateBranchAtCommit(null);
+    setNewBranchName('');
+    setResetConfirmCommit(null);
+    setMergeConfirmCommit(null);
+    setRefCtx(null);
+    setScrollTop(0);
+    setIsScrolling(false);
+    setRenderGraphLaneCount(1);
+    pendingShrinkLaneCountRef.current = null;
+    if (containerRef.current) containerRef.current.scrollTop = 0;
+    if (scrollIdleTimerRef.current !== null) {
+      window.clearTimeout(scrollIdleTimerRef.current);
+      scrollIdleTimerRef.current = null;
+    }
+    if (shrinkTimerRef.current !== null) {
+      window.clearTimeout(shrinkTimerRef.current);
+      shrinkTimerRef.current = null;
+    }
+  }, [activeRepoPath]);
 
   useEffect(() => {
     const close = () => {
@@ -203,6 +242,8 @@ export function GraphPane() {
   const layout = useMemo(() => compileGraphLayout(filteredCommits), [filteredCommits]);
   const rows = layout.rows;
   const totalHeight = rows.length * rowHeight;
+  const wip = summarizeWip(status.data?.entries ?? []);
+  const hasWip = wip.files > 0;
   const refRailWidth = graphRefRailWidth(density);
 
   const handleWheel = (e: React.WheelEvent) => {
@@ -236,7 +277,8 @@ export function GraphPane() {
     setRefCtx({ x: e.clientX, y: e.clientY, ref });
   };
 
-  const windowed = computeGraphVisibleWindow(scrollTop, viewportHeight, rowHeight, zoom, rows.length);
+  const graphScrollTop = graphContentScrollTop(scrollTop, rowHeight, zoom, hasWip);
+  const windowed = computeGraphVisibleWindow(graphScrollTop, viewportHeight, rowHeight, zoom, rows.length);
   const firstRow = windowed.firstRow;
   const lastRow = windowed.lastRow;
   const visibleRows = rows.slice(firstRow, lastRow);
@@ -315,7 +357,7 @@ export function GraphPane() {
     return <div className="flex-1 flex items-center justify-center text-fg-muted text-sm">Loading commits…</div>;
   }
   if (log.error) {
-    return <div className="flex-1 flex items-center justify-center text-git-deleted text-sm">{(log.error as Error).message}</div>;
+    return <GraphError error={log.error} qc={qc} />;
   }
 
   return (
@@ -337,6 +379,13 @@ export function GraphPane() {
         </div>
 
         <div className="flex items-center gap-1 select-none">
+          <button className="text-xs px-2 py-0.5 rounded text-fg-muted hover:bg-bg-hover hover:text-fg flex items-center gap-1" onClick={() => setMainView({ kind: 'compare' })}>
+            <GitCompare className="w-3.5 h-3.5" /> Compare
+          </button>
+          <button className="text-xs px-2 py-0.5 rounded text-fg-muted hover:bg-bg-hover hover:text-fg flex items-center gap-1" onClick={() => setMainView({ kind: 'operation-actions' })}>
+            <ListTree className="w-3.5 h-3.5" /> Actions
+          </button>
+          <span className="text-fg-dim mx-1">|</span>
           <span className="text-xs text-fg-muted mr-1">Density:</span>
           {(['compact', 'comfortable', 'detailed'] as Density[]).map((d) => (
             <button
@@ -394,15 +443,30 @@ export function GraphPane() {
         onWheel={handleWheel}
       >
         <div style={{ zoom, width: `${100 / zoom}%` }}>
+          {hasWip && (
+            <WipGraphRow
+              graphWidth={graphWidth}
+              rowHeight={rowHeight}
+              density={density}
+              lane={rows[0]?.node.lane ?? 0}
+              colorKey={rows[0]?.node.colorKey ?? 'wip'}
+              additions={wip.additions}
+              modifications={wip.modifications}
+              onClick={() => {
+                showGraph();
+                requestAnimationFrame(() => document.getElementById('commit-sidebar-header')?.focus());
+              }}
+            />
+          )}
           {rows.length === 0 ? (
-            <div className="absolute inset-0 flex flex-col items-center justify-center text-fg-muted text-sm gap-2">
+            <div className="h-40 flex flex-col items-center justify-center text-fg-muted text-sm gap-2">
               <GitCommit className="w-8 h-8 text-fg-dim" />
               No commits found.
             </div>
           ) : (
             <div style={{ height: totalHeight, position: 'relative' }}>
               <div
-                className="sticky top-0 z-30 pointer-events-none"
+                className="absolute top-0 z-30 pointer-events-none"
                 style={{ left: refRailWidth, width: graphWidth, transform: `translateY(${offsetY}px)` }}
               >
                 <GraphCanvas
@@ -414,6 +478,7 @@ export function GraphPane() {
                   rowHeight={rowHeight}
                   density={density}
                   selectedSha={selectedSha ?? undefined}
+                  hasWip={hasWip}
                 />
               </div>
               <div
@@ -432,7 +497,7 @@ export function GraphPane() {
                       row={row}
                       graphWidth={graphWidth}
                       selected={row.sha === selectedSha}
-                      onClick={() => selectCommit(row.sha)}
+                      onClick={() => openCommitDetails(row.sha)}
                       density={density}
                       rowHeight={rowHeight}
                       onRefContext={handleRefContext}
@@ -523,7 +588,7 @@ export function GraphPane() {
           <button
             className="w-full text-left px-3 py-1.5 hover:bg-bg-hover text-fg transition-colors"
             onClick={() => {
-              selectCommit(contextMenu.commit.sha);
+              openCommitDetails(contextMenu.commit.sha);
               setContextMenu(null);
             }}
           >
@@ -639,9 +704,54 @@ interface GraphCanvasProps {
   rowHeight: number;
   density: Density;
   selectedSha?: string;
+  hasWip: boolean;
 }
 
-function GraphCanvas({ allRows, rows, firstRow, offsetY, graphWidth, rowHeight, density, selectedSha }: GraphCanvasProps) {
+function WipGraphRow({
+  graphWidth,
+  rowHeight,
+  density,
+  lane,
+  colorKey,
+  additions,
+  modifications,
+  onClick,
+}: {
+  graphWidth: number;
+  rowHeight: number;
+  density: Density;
+  lane: number;
+  colorKey: string;
+  additions: number;
+  modifications: number;
+  onClick: () => void;
+}) {
+  const x = laneX(lane);
+  const color = graphColorByKey(colorKey);
+  return (
+    <button
+      className="w-full text-left border-b border-border bg-gradient-to-r from-git-modified/10 via-accent/5 to-transparent hover:bg-bg-hover/60 transition-colors"
+      style={{ height: rowHeight, display: 'grid', gridTemplateColumns: graphRowTemplateColumns(graphWidth, density) }}
+      onClick={onClick}
+      title="Working tree changes — open commit panel"
+    >
+      <span />
+      <svg width={graphWidth} height={rowHeight} aria-hidden="true">
+        <line x1={x} x2={x} y1={rowHeight / 2} y2={rowHeight} stroke={color} strokeWidth="2" opacity="0.8" />
+        <circle cx={x} cy={rowHeight / 2} r="8" fill="rgb(var(--color-bg-panel))" stroke={color} strokeWidth="2" strokeDasharray="2 2" />
+      </svg>
+      <span className="min-w-0 flex items-center gap-3 px-2">
+        <span className="font-mono text-sm italic text-fg-muted truncate">// WIP</span>
+        <span className="inline-flex items-center gap-2 text-xs font-semibold">
+          {modifications > 0 && <span className="text-git-modified">✎ {modifications}</span>}
+          {additions > 0 && <span className="text-git-added">+ {additions}</span>}
+        </span>
+      </span>
+    </button>
+  );
+}
+
+function GraphCanvas({ allRows, rows, firstRow, offsetY, graphWidth, rowHeight, density, selectedSha, hasWip }: GraphCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [dpr, setDpr] = useState(window.devicePixelRatio || 1);
   const lastDrawKeyRef = useRef('');
@@ -653,7 +763,7 @@ function GraphCanvas({ allRows, rows, firstRow, offsetY, graphWidth, rowHeight, 
   }, []);
 
   useEffect(() => {
-    const drawKey = `${firstRow}:${rows.length}:${graphWidth}:${dpr}:${rowHeight}:${density}:${selectedSha ?? ''}`;
+    const drawKey = `${firstRow}:${rows.length}:${graphWidth}:${dpr}:${rowHeight}:${density}:${selectedSha ?? ''}:${hasWip}`;
     if (drawKey === lastDrawKeyRef.current) return;
     lastDrawKeyRef.current = drawKey;
 
@@ -701,7 +811,7 @@ function GraphCanvas({ allRows, rows, firstRow, offsetY, graphWidth, rowHeight, 
       }
 
       // 2. Draw incoming line to node (from yTop to yCenter) in the node's lane
-      if (parentShas.has(row.sha)) {
+      if (parentShas.has(row.sha) || (hasWip && firstRow === 0 && i === 0)) {
         ctx.strokeStyle = colorWithAlpha(graphColorByKey(row.node.colorKey), 0.72);
         ctx.lineWidth = 2.0;
         ctx.lineCap = 'round';
@@ -798,7 +908,7 @@ function GraphCanvas({ allRows, rows, firstRow, offsetY, graphWidth, rowHeight, 
         ctx.stroke();
       }
     }
-  }, [allRows, rows, firstRow, graphWidth, dpr, rowHeight, density, selectedSha]);
+  }, [allRows, rows, firstRow, graphWidth, dpr, rowHeight, density, selectedSha, hasWip]);
 
   return (
     <canvas
@@ -837,6 +947,7 @@ function GraphRow({ row, graphWidth, selected, onClick, density, rowHeight, onRe
   const date = new Date(commit.author.date);
   const shortSha = commit.sha.slice(0, 7);
   const mutedRefs = useGraphFilterStore((s) => s.mutedRefs);
+  const author = authorVisual(commit.author.name, commit.author.email);
 
   const isDetailed = density === 'detailed';
   const isCompact = density === 'compact';
@@ -886,6 +997,13 @@ function GraphRow({ row, graphWidth, selected, onClick, density, rowHeight, onRe
       <div className="min-w-0 flex items-center gap-2 px-2">
         <div className="flex-1 min-w-0 flex flex-col justify-center gap-1">
           <div className="flex items-center gap-1 min-w-0 overflow-hidden">
+            <span
+              className="inline-flex w-5 h-5 shrink-0 items-center justify-center rounded-full text-[9px] font-semibold text-white"
+              style={{ backgroundColor: author.fill }}
+              title={`${commit.author.name} <${commit.author.email}>`}
+            >
+              {author.initials}
+            </span>
             <span className={`truncate min-w-0 ${isCompact ? 'text-xs' : 'text-sm'} text-fg ${selected ? '' : 'font-medium'}`}>
               {commit.subject}
             </span>
@@ -914,6 +1032,55 @@ function GraphRow({ row, graphWidth, selected, onClick, density, rowHeight, onRe
 
       {!isDetailed && !isCompact && (
         <div className="min-w-0 px-2 text-xs text-fg-dim font-mono text-right">{shortSha}</div>
+      )}
+    </div>
+  );
+}
+
+function GraphError({ error, qc }: { error: unknown; qc: ReturnType<typeof useQueryClient> }) {
+  const gitErr = GitError.is(error) ? GitError.fromSerialized(error) : null;
+  const isOwnership = gitErr?.code === 'NotARepo' && (gitErr.stderr || gitErr.friendly).toLowerCase().includes('dubious ownership');
+  const [trusting, setTrusting] = useState(false);
+
+  if (!isOwnership) {
+    return (
+      <PaneErrorState
+        title="Failed to load commits"
+        message={gitErr?.friendly || gitErr?.message || (error as Error).message}
+        onRetry={() => void qc.invalidateQueries({ queryKey: ['log'] })}
+      />
+    );
+  }
+
+  return (
+    <div className="flex-1 flex flex-col items-center justify-center text-git-deleted text-sm gap-3 p-6 text-center">
+      {isOwnership ? <ShieldAlert className="w-8 h-8 text-git-modified" /> : <GitCommit className="w-8 h-8 text-fg-dim" />}
+      <div className="max-w-md">
+        <p className="font-semibold mb-1">{isOwnership ? 'Repository ownership issue' : 'Failed to load commits'}</p>
+        <p className="text-xs text-fg-muted">{gitErr?.friendly || gitErr?.message || (error as Error).message}</p>
+        {isOwnership && gitErr.command && (
+          <p className="text-xxs text-fg-dim mt-2 font-mono break-all">{gitErr.command}</p>
+        )}
+      </div>
+      {isOwnership && (
+        <button
+          className="btn btn-primary text-xs"
+          disabled={trusting}
+          onClick={async () => {
+            setTrusting(true);
+            try {
+              await api.repo.trust();
+              await qc.invalidateQueries({ queryKey: ['log'] });
+              await qc.invalidateQueries({ queryKey: ['branches'] });
+            } catch (err) {
+              console.error('trust failed', err);
+            } finally {
+              setTrusting(false);
+            }
+          }}
+        >
+          {trusting ? 'Adding safe.directory…' : 'Trust this repository & retry'}
+        </button>
       )}
     </div>
   );

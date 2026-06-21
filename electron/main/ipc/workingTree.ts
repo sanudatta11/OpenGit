@@ -6,7 +6,7 @@ import {
 } from '@shared/ipc';
 import {
   stagePaths, stageAll, unstagePaths, unstageAll,
-  discardPaths, discardUntracked, stageHunks, unstageHunks,
+  discardPaths, discardUntracked, discardAllUnstaged, stageHunks, unstageHunks,
 } from '../git/operations';
 import { requireCurrentRepo } from '../git/session';
 
@@ -47,6 +47,11 @@ export function registerWorkingTreeHandlers(): void {
     if (!parsed.success) throw badInput(parsed.error.message, 'Invalid discard request.');
     const r = requireCurrentRepo();
     return discardUntracked(r.workTreeRoot, parsed.data.paths);
+  });
+
+  ipcMain.handle(IPC.WORKING_TREE_DISCARD_ALL_UNSTAGED, async () => {
+    const r = requireCurrentRepo();
+    return discardAllUnstaged(r.workTreeRoot, r.gitDir);
   });
 
   ipcMain.handle(IPC.WORKING_TREE_STAGE_HUNKS, async (_e, raw) => {

@@ -11,6 +11,7 @@ import type { DiffView } from '../diff/DiffViewer';
 import { ConfirmDialog } from '../ConfirmDialog';
 import { useRepoStore } from '../../stores/repo';
 import { api } from '../../ipc/api';
+import { PaneErrorState } from '../ErrorBoundary';
 
 type ActionKind = 'cherry-pick' | 'revert' | 'merge' | 'rebase';
 
@@ -32,30 +33,38 @@ export function CommitDetails({ commit }: { commit: Commit }) {
 
   return (
     <div className="flex flex-col h-full min-h-0">
-      <div className="p-3 border-b border-border shrink-0">
-        <div className="text-sm font-semibold text-fg leading-snug">{commit.subject}</div>
-        {commit.body && (
-          <pre className="mt-2 text-xs text-fg-muted whitespace-pre-wrap font-sans">{commit.body}</pre>
-        )}
-        <div className="mt-2">
-          {gpgVerify.result ? (
-            <span className={`text-xxs px-1.5 py-0.5 rounded ${gpgVerify.result.verified ? 'bg-git-added/20 text-git-added' : 'bg-git-deleted/20 text-git-deleted'}`}>
-              <ShieldCheck className="w-3 h-3 inline mr-1" />
-              {gpgVerify.result.verified ? `Verified: ${gpgVerify.result.signer}` : 'Not verified'}
-            </span>
-          ) : (
-            <button className="btn !text-xxs !px-2 !py-0.5" onClick={handleGpgVerify} disabled={gpgVerify.loading}>
-              {gpgVerify.loading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Shield className="w-3 h-3" />}
-              {gpgVerify.loading ? 'Verifying...' : 'Verify signature'}
-            </button>
-          )}
+      <div className="px-3 py-2 border-b border-border shrink-0 bg-bg/10">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="text-sm font-semibold text-fg leading-snug truncate">{commit.subject}</div>
+            <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-fg-dim">
+              <span>{commit.author.name}</span>
+              <span>{new Date(commit.author.date).toLocaleString()}</span>
+              <span className="font-mono">{commit.sha.slice(0, 7)}</span>
+            </div>
+          </div>
+          <div className="shrink-0">
+            {gpgVerify.result ? (
+              <span className={`text-xxs px-1.5 py-0.5 rounded ${gpgVerify.result.verified ? 'bg-git-added/20 text-git-added' : 'bg-git-deleted/20 text-git-deleted'}`}>
+                <ShieldCheck className="w-3 h-3 inline mr-1" />
+                {gpgVerify.result.verified ? `Verified: ${gpgVerify.result.signer}` : 'Not verified'}
+              </span>
+            ) : (
+              <button className="btn !text-xxs !px-2 !py-0.5" onClick={handleGpgVerify} disabled={gpgVerify.loading}>
+                {gpgVerify.loading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Shield className="w-3 h-3" />}
+                {gpgVerify.loading ? 'Verifying...' : 'Verify'}
+              </button>
+            )}
+          </div>
         </div>
+        {commit.body && (
+          <pre className="mt-1.5 text-xs text-fg-muted whitespace-pre-wrap font-sans line-clamp-4">{commit.body}</pre>
+        )}
       </div>
 
-      <div className="p-3 border-b border-border shrink-0 space-y-1.5 text-xs">
+      <div className="px-3 py-2 border-b border-border shrink-0 space-y-1 text-xs">
         <Row icon={<Hash className="w-3.5 h-3.5" />} label="SHA" value={commit.sha} mono />
         <Row icon={<User className="w-3.5 h-3.5" />} label="Author" value={`${commit.author.name} <${commit.author.email}>`} />
-        <Row icon={<Clock className="w-3.5 h-3.5" />} label="Date" value={new Date(commit.author.date).toLocaleString()} />
         <div className="flex items-center gap-2">
           <FileText className="w-3.5 h-3.5 text-fg-muted shrink-0" />
           <span className="label w-16 shrink-0">Parents</span>
@@ -87,13 +96,13 @@ export function CommitDetails({ commit }: { commit: Commit }) {
       <CommitActions commit={commit} />
 
       {/* Files changed in this commit */}
-      <div className="border-b border-border shrink-0 max-h-48 overflow-y-auto">
+      <div className="border-b border-border shrink-0 max-h-40 overflow-y-auto">
         <div className="px-3 py-1.5 label flex items-center justify-between sticky top-0 bg-bg-panel z-10">
           <span>Files changed</span>
           {files.data && <span className="text-fg-dim">{files.data.length}</span>}
         </div>
         {files.isLoading && <div className="px-3 py-2 text-xs text-fg-muted">Loading…</div>}
-        {files.error && <div className="px-3 py-2 text-xs text-git-deleted">{(files.error as Error).message}</div>}
+        {files.error && <PaneErrorState title="Failed to load changed files" message={(files.error as Error).message} onRetry={() => void files.refetch()} />}
         {files.data?.length === 0 && <div className="px-3 py-2 text-xs text-fg-dim">No files.</div>}
         {files.data?.map((f) => (
           <FileRow
@@ -200,7 +209,7 @@ export function CommitFileDiff({ commit, file, view }: { commit: Commit; file: D
     return <div className="flex-1 flex items-center justify-center text-xs text-fg-muted">Loading file contents…</div>;
   }
   if (error) {
-    return <div className="flex-1 flex items-center justify-center text-xs text-git-deleted">{(error as Error).message}</div>;
+    return <PaneErrorState title="Failed to load commit diff" message={(error as Error).message} />;
   }
 
   const original = originalContent.data?.content ?? '';

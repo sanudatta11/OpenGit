@@ -34,8 +34,11 @@ export const useGraphFilterStore = create<GraphFilterStore>((set, get) => ({
 
 // Reset on repo close.
 import { useRepoStore } from './repo';
+let lastActiveRepoPath: string | null = null;
 useRepoStore.subscribe((state) => {
-  if (!state.activeRepo) {
+  const nextPath = state.activeRepo?.path ?? null;
+  if (lastActiveRepoPath !== nextPath) {
     useGraphFilterStore.getState().clearAll();
   }
+  lastActiveRepoPath = nextPath;
 });

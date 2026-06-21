@@ -98,6 +98,8 @@ const api = {
       ipcRenderer.invoke(IPC.REPO_SET_ACTIVE, path),
     list: (): Promise<RepoInfo[]> =>
       ipcRenderer.invoke(IPC.REPO_LIST),
+    trust: (path?: string): Promise<{ success: boolean }> =>
+      ipcRenderer.invoke(IPC.REPO_TRUST, path),
   },
 
   diff: {
@@ -126,6 +128,8 @@ const api = {
       ipcRenderer.invoke(IPC.WORKING_TREE_DISCARD, { paths }),
     discardUntracked: (paths: string[]): Promise<WriteResult> =>
       ipcRenderer.invoke('workingTree:discardUntracked', { paths }),
+    discardAllUnstaged: (): Promise<WriteResult> =>
+      ipcRenderer.invoke(IPC.WORKING_TREE_DISCARD_ALL_UNSTAGED),
     stageHunks: (path: string, patch: string): Promise<WriteResult> =>
       ipcRenderer.invoke(IPC.WORKING_TREE_STAGE_HUNKS, { path, patch }),
     unstageHunks: (path: string, patch: string): Promise<WriteResult> =>

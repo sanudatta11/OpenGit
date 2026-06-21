@@ -164,4 +164,134 @@
   .label {
     @apply text-fg-muted uppercase text-xxs tracking-wider font-semibold;
   }
+  .wk-section {
+    @apply overflow-hidden rounded-lg border bg-bg-panel/95;
+  }
+  .wk-section-header {
+    @apply px-2.5 py-1.5 flex items-center justify-between bg-bg/35 border-b border-border-subtle;
+  }
+  .wk-section-title {
+    @apply text-[10px] uppercase tracking-[0.14em] text-fg-muted font-semibold truncate;
+  }
+  .wk-count-badge {
+    @apply inline-flex min-w-4 justify-center rounded-full bg-bg-elevated border border-border px-1.5 py-0.5 text-[10px] text-fg-muted font-semibold;
+  }
+  .wk-file-row {
+    @apply w-full text-left px-2.5 py-2 flex items-center gap-2 border-b border-border-subtle/40 transition-colors;
+  }
+  .wk-file-row-selected {
+    background-color: rgb(var(--color-accent) / 0.12);
+  }
+  .wk-file-row-idle {
+    @apply hover:bg-bg-hover/70;
+  }
+  .wk-file-icon {
+    @apply inline-flex h-6 w-6 items-center justify-center rounded-md bg-bg/50 border border-border-subtle shrink-0;
+  }
+  .wk-file-action {
+    @apply icon-btn !w-7 !h-7 border;
+  }
+  .wk-file-action-stage {
+    @apply border-git-added/20 bg-git-added/10 text-git-added hover:bg-git-added/15;
+  }
+  .wk-file-action-unstage {
+    @apply border-git-modified/20 bg-git-modified/10 text-git-modified hover:bg-git-modified/15;
+  }
+  .wk-file-action-discard {
+    @apply border-git-deleted/20 bg-git-deleted/10 text-git-deleted hover:bg-git-deleted/15;
+  }
+  .wk-composer {
+    @apply border-t border-border bg-bg/35 px-3 py-2 shrink-0 flex flex-col;
+  }
+  .wk-composer-label {
+    @apply text-[11px] uppercase tracking-[0.18em] text-fg-dim font-semibold;
+  }
+  .wk-composer-input {
+    @apply input mt-1 w-full rounded-md border-border-subtle bg-bg/60 px-2.5 py-1.5 text-xs;
+  }
+  .wk-composer-textarea {
+    @apply input mt-1.5 w-full min-h-16 flex-1 resize-y rounded-md border-border-subtle bg-bg/60 px-2.5 py-1.5 text-xs;
+  }
+  .wk-composer-meta {
+    @apply mt-1.5 flex items-center justify-between gap-3 text-[11px];
+  }
+  .wk-composer-resizer {
+    @apply h-1.5 shrink-0 cursor-row-resize border-t border-border bg-bg/10 transition-colors hover:bg-accent/15;
+  }
+  .wk-options-toggle {
+    @apply flex items-center gap-1 text-xs text-fg-muted hover:text-fg py-1;
+  }
+  .wk-options-panel {
+    @apply mt-2 rounded-lg border border-border-subtle bg-bg/45 px-3 py-2 flex flex-col gap-1.5;
+  }
+  .commit-panel-header {
+    @apply h-12 shrink-0 px-3 border-b border-border bg-bg/35 flex items-center gap-2 outline-none;
+  }
+  .commit-panel-header:focus-visible {
+    @apply ring-2 ring-inset ring-accent;
+  }
+  .commit-discard-all {
+    @apply inline-flex w-8 h-8 items-center justify-center rounded-md border border-git-deleted/40 bg-git-deleted/10 text-git-deleted transition-colors hover:bg-git-deleted/20 disabled:opacity-35 disabled:cursor-not-allowed;
+  }
+  .commit-ai-button {
+    @apply inline-flex w-8 h-8 items-center justify-center rounded-md border border-accent/35 bg-accent/10 text-accent disabled:opacity-45 disabled:cursor-not-allowed;
+  }
+  .commit-branch-badge {
+    @apply max-w-32 truncate rounded px-1.5 py-0.5 font-mono text-[10px] font-semibold text-git-branch bg-git-branch/15 border border-git-branch/25;
+  }
+  .commit-view-toggle {
+    @apply inline-flex items-center gap-1 rounded px-2.5 py-1 text-[11px] text-fg-muted transition-colors hover:text-fg;
+  }
+  .commit-view-toggle-active {
+    @apply bg-accent/15 text-accent shadow-sm;
+  }
+  .commit-accordion {
+    @apply overflow-hidden rounded-md border border-border bg-bg-panel/80;
+  }
+  .commit-accordion-header {
+    @apply min-h-10 px-2.5 py-1.5 flex items-center justify-between gap-2 border-b border-border-subtle bg-bg/25;
+  }
+  .commit-file-list {
+    @apply overflow-hidden divide-y divide-border-subtle/40;
+  }
+  .commit-bulk-action {
+    @apply inline-flex items-center gap-1 rounded border px-2 py-1 text-[10px] font-semibold transition-colors disabled:opacity-50;
+  }
+  .commit-bulk-stage {
+    @apply border-git-added/45 text-git-added hover:bg-git-added/10;
+  }
+  .commit-bulk-unstage {
+    @apply border-git-modified/35 text-git-modified hover:bg-git-modified/10;
+  }
+  .wk-status-mark {
+    @apply inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded border bg-bg/45 px-1 font-mono text-[10px] font-bold;
+  }
+  .wk-file-actions {
+    @apply flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100;
+  }
+  .commit-composer-resizer {
+    @apply h-1.5 shrink-0 cursor-row-resize border-y border-border bg-bg/10 transition-colors hover:bg-accent/15;
+  }
+  .commit-composer {
+    @apply h-full overflow-y-auto border-t border-border bg-bg/40 px-3 py-3;
+  }
+  .commit-summary-input {
+    @apply input w-full !py-2 pr-10 text-sm bg-bg/65;
+  }
+  .commit-input-ai {
+    @apply absolute right-1.5 top-1.5 inline-flex h-6 w-6 items-center justify-center rounded text-accent disabled:opacity-40 disabled:cursor-not-allowed;
+  }
+  .commit-description-input {
+    @apply input mt-1.5 w-full min-h-20 resize-none !py-2 text-xs leading-5 bg-bg/65;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wk-file-row,
+  .wk-file-actions,
+  .commit-view-toggle,
+  .commit-discard-all,
+  .commit-bulk-action {
+    transition: none !important;
+  }
 }

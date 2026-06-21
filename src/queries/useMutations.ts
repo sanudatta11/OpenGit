@@ -77,6 +77,14 @@ export function useDiscard() {
   });
 }
 
+export function useDiscardAllUnstaged() {
+  const refresh = useRefreshOnSuccess();
+  return useMutation({
+    mutationFn: () => api.workingTree.discardAllUnstaged(),
+    onSuccess: (r) => refresh(r.requiresRefresh),
+  });
+}
+
 // ── Commit ──────────────────────────────────────────────────────────────────
 
 export function useCommit() {

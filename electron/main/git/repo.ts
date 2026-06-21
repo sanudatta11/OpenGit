@@ -474,7 +474,7 @@ export async function getFileContent(
   // Git object: use `git cat-file blob` or `git show ref:path`.
   const r = await gitRun({
     cwd: workTree,
-    args: ['show', `${opts.ref}:${opts.path}`],
+    args: ['show', opts.ref === 'INDEX' ? `:${opts.path}` : `${opts.ref}:${opts.path}`],
     channel: 'file:content',
     reject: false,
   });

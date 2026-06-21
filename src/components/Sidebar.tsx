@@ -90,16 +90,16 @@ function RepositoryOverview() {
   const dirtyCount = status.data?.entries?.length ?? 0;
 
   return (
-    <div className="p-3 border-b border-border bg-bg/25 space-y-2 select-none shrink-0 text-xs">
-      <div className="flex items-center gap-1.5">
-        <GitBranch className="w-3.5 h-3.5 text-git-branch shrink-0" />
-        <span className="font-semibold text-fg truncate" title={branchName}>{branchName}</span>
+    <div className="p-3 border-b border-border bg-bg/25 space-y-2 select-none shrink-0 text-xs min-w-0">
+      <div className="flex items-start gap-1.5 min-w-0">
+        <GitBranch className="w-3.5 h-3.5 text-git-branch shrink-0 mt-0.5" />
+        <span className="font-semibold text-fg min-w-0 break-words" title={branchName}>{branchName}</span>
       </div>
 
       {upstream && (
-        <div className="flex items-center gap-1.5 text-xs text-fg-muted">
-          <Cloud className="w-3 h-3 text-git-remote shrink-0" />
-          <span className="truncate" title={upstream}>upstream: {upstream}</span>
+        <div className="flex items-start gap-1.5 text-xs text-fg-muted min-w-0">
+          <Cloud className="w-3 h-3 text-git-remote shrink-0 mt-0.5" />
+          <span className="min-w-0 break-words" title={upstream}>upstream: {upstream}</span>
           {(ahead > 0 || behind > 0) && (
             <span className="flex items-center gap-0.5 ml-1 font-semibold shrink-0">
               {ahead > 0 && <span className="text-git-added">↑{ahead}</span>}
@@ -110,13 +110,13 @@ function RepositoryOverview() {
       )}
 
       {remoteUrl && (
-        <div className="flex items-center gap-1.5 text-xs text-fg-dim">
-          <Cloud className="w-3 h-3 text-fg-dim shrink-0" />
-          <span className="truncate" title={remoteUrl}>{remoteUrl}</span>
+        <div className="flex items-start gap-1.5 text-xs text-fg-dim min-w-0">
+          <Cloud className="w-3 h-3 text-fg-dim shrink-0 mt-0.5" />
+          <span className="min-w-0 break-all" title={remoteUrl}>{remoteUrl}</span>
         </div>
       )}
 
-      <div className="flex items-center gap-1.5 text-xs text-fg-muted">
+      <div className="flex items-center gap-1.5 text-xs text-fg-muted min-w-0">
         <CircleDot className={`w-3 h-3 shrink-0 ${dirtyCount > 0 ? 'text-git-modified' : 'text-git-added'}`} />
         <span>{dirtyCount === 0 ? 'Clean working tree' : `${dirtyCount} files changed`}</span>
       </div>
@@ -127,14 +127,14 @@ function RepositoryOverview() {
 function SidebarPanel({ tab }: { tab: SidebarTab }) {
   return (
     <div
-      className="flex-1 shrink-0 bg-bg-panel flex flex-col min-h-0"
+      className="flex-1 shrink-0 bg-bg-panel flex flex-col min-h-0 min-w-0"
       data-tab={tab}
     >
       <div className="h-9 px-3 flex items-center justify-between border-b border-border shrink-0">
         <span className="label">{labelFor(tab)}</span>
       </div>
       <RepositoryOverview />
-      <div className="flex-1 min-h-0 overflow-y-auto">
+      <div className="flex-1 min-h-0 overflow-y-auto min-w-0">
         {tab === 'branches' && <BranchesTab />}
         {tab === 'remotes' && <RemotesTab />}
         {tab === 'stash' && <StashTab />}

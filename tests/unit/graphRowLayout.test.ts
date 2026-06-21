@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   computeGraphLeadWidth,
   computeGraphVisibleWindow,
+  graphContentScrollTop,
   graphRefRailInset,
   graphRefRailWidth,
   graphRowHeight,
@@ -75,5 +76,11 @@ describe('graphRowTemplateColumns', () => {
       visibleCount: 73,
       offsetY: 836,
     });
+  });
+
+  it('subtracts the synthetic WIP row before virtualizing commit rows', () => {
+    expect(graphContentScrollTop(120, 38, 2, true)).toBe(44);
+    expect(graphContentScrollTop(120, 38, 2, false)).toBe(120);
+    expect(graphContentScrollTop(20, 38, 1, true)).toBe(0);
   });
 });

@@ -8,6 +8,7 @@ import type { InProgressState, StashEntry, OperationKind, Worktree } from '@shar
 import { parseInProgressState, withConflicts, parseStashList, STASH_LIST_FORMAT, parseWorktrees } from './parse';
 import { readFileSync, writeFileSync, rmSync, mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
+import { getStatus } from './repo';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Working tree
@@ -113,6 +114,48 @@ export async function discardUntracked(workTree: string, paths: readonly string[
     changedRefs: [],
     requiresRefresh: r.ok,
   };
+}
+
+export async function discardAllUnstaged(workTree: string, gitDir: string): Promise<WriteResult> {
+  const status = await getStatus(workTree, gitDir);
+  const tracked = status.entries
+    .filter((entry) => entry.unstaged && entry.kind !== 'untracked' && entry.kind !== 'unmerged')
+    .map((entry) => entry.path);
+  const untracked = status.entries
+    .filter((entry) => entry.kind === 'untracked')
+    .map((entry) => entry.path);
+
+  let stdout = '';
+  let stderr = '';
+  if (tracked.length > 0) {
+    const restored = await gitRun({
+      cwd: workTree,
+      args: ['restore', '--worktree', '--', ...tracked],
+      channel: 'workingTree:discard',
+      reject: false,
+    });
+    stdout += restored.stdout;
+    stderr += restored.stderr;
+    if (!restored.ok) {
+      return { success: false, stdout, stderr, changedRefs: [], requiresRefresh: false };
+    }
+  }
+
+  if (untracked.length > 0) {
+    const cleaned = await gitRun({
+      cwd: workTree,
+      args: ['clean', '-f', '--', ...untracked],
+      channel: 'workingTree:discard',
+      reject: false,
+    });
+    stdout += cleaned.stdout;
+    stderr += cleaned.stderr;
+    if (!cleaned.ok) {
+      return { success: false, stdout, stderr, changedRefs: [], requiresRefresh: true };
+    }
+  }
+
+  return { success: true, stdout, stderr, changedRefs: [], requiresRefresh: tracked.length + untracked.length > 0 };
 }
 
 export async function stageHunks(

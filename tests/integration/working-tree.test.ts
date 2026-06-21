@@ -20,7 +20,7 @@ function append(workTree: string, rel: string, content: string): void {
 
 import {
   stagePaths, stageAll, unstagePaths, unstageAll,
-  discardPaths, discardUntracked,
+  discardPaths, discardUntracked, discardAllUnstaged,
   stageHunks, unstageHunks,
 } from '../../electron/main/git/operations';
 import { getStatus } from '../../electron/main/git/repo';
@@ -153,6 +153,26 @@ describe('discard', () => {
       const r = await discardUntracked(workTree, ['temp.txt']);
       expect(r.success).toBe(true);
       expect(exists(workTree, 'temp.txt')).toBe(false);
+    } finally {
+      destroyQuickRepo(qr);
+    }
+  });
+
+  it('discards every unstaged change while preserving the staged snapshot', async () => {
+    const qr = createQuickRepo();
+    try {
+      const { workTree, gitDir } = qr;
+      write(workTree, 'base.txt', 'base\nstaged\n');
+      await stagePaths(workTree, ['base.txt']);
+      write(workTree, 'base.txt', 'base\nstaged\nunstaged\n');
+      write(workTree, 'untracked.txt', 'delete me\n');
+
+      const result = await discardAllUnstaged(workTree, gitDir);
+
+      expect(result.success).toBe(true);
+      expect(readFile(workTree, 'base.txt')).toBe('base\nstaged\n');
+      expect(exists(workTree, 'untracked.txt')).toBe(false);
+      expect(git(workTree, ['diff', '--cached', '--', 'base.txt'])).toContain('+staged');
     } finally {
       destroyQuickRepo(qr);
     }

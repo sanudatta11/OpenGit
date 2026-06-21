@@ -11,9 +11,10 @@ import {
   getRemotes,
   getState,
   searchRepository,
+  trustRepoPath,
 } from '../git/repo';
 import { createRepository, cloneRepository } from '../git/lifecycle';
-import { getCachedRefs, fetchRefs } from '../git/refsCache';
+import { getCachedRefs, fetchRefs, invalidateCache } from '../git/refsCache';
 import { setCurrentRepo, getCurrentRepo, requireCurrentRepo, switchActiveRepo, removeRepo as removeSessionRepo, getOpenRepoInfos } from '../git/session';
 import { addRecentRepo, removeRecentRepo, addOpenRepo, removeOpenRepo } from '../settings';
 import { startWatching, stopWatching } from '../watcher';
@@ -188,6 +189,13 @@ export function registerRepoHandlers(): void {
     if (!parsed.success) throw badInput(parsed.error.message, 'Invalid repository search request.');
     const r = requireCurrentRepo();
     return searchRepository(r.workTreeRoot, r.gitDir, parsed.data.query, parsed.data.limit);
+  });
+
+  ipcMain.handle(IPC.REPO_TRUST, async (_e, raw: unknown) => {
+    const path = typeof raw === 'string' ? raw : requireCurrentRepo().workTreeRoot;
+    await trustRepoPath(path);
+    invalidateCache();
+    return { success: true };
   });
 }
 

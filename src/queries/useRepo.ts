@@ -3,13 +3,20 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../ipc/api';
 import { qk } from './keys';
-import { useRepoStore } from '../stores/repo';
+import { clearAllCommitCachesExcept, clearRepoCommitCache, useRepoStore } from '../stores/repo';
 import { GitError } from '@shared/ipc';
 import type { DiffFileInput, CommitFilesInput, FileContentInput } from '@shared/ipc';
 import { useEffect } from 'react';
 
 function activePath(): string | null {
   return useRepoStore.getState().activeRepo?.path ?? null;
+}
+
+function clearRepoBoundQueries(qc: { removeQueries: ReturnType<typeof useQueryClient>['removeQueries'] }, repoPath: string | null): void {
+  if (!repoPath) return;
+  void qc.removeQueries({
+    predicate: (query) => Array.isArray(query.queryKey) && query.queryKey.includes(repoPath),
+  });
 }
 
 export function useOpenRepo() {
@@ -30,22 +37,41 @@ export function useOpenRepo() {
 
 export function useSwitchRepo() {
   const switchRepo = useRepoStore((s) => s.switchRepo);
+  const beginRepoSwitch = useRepoStore((s) => s.beginRepoSwitch);
+  const markRepoSwitchSettling = useRepoStore((s) => s.markRepoSwitchSettling);
+  const completeRepoSwitch = useRepoStore((s) => s.completeRepoSwitch);
+  const failRepoSwitch = useRepoStore((s) => s.failRepoSwitch);
+  const resetTransientViewState = useRepoStore((s) => s.resetTransientViewState);
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (path: string) => api.repo.setActive(path),
-    onMutate: () => {
-      useRepoStore.getState().setSwitchingRepo(true);
+    onMutate: async (path) => {
+      const currentPath = useRepoStore.getState().activeRepo?.path ?? null;
+      beginRepoSwitch(path);
+      await qc.cancelQueries();
+      resetTransientViewState();
+      clearRepoCommitCache(path);
+      clearRepoBoundQueries(qc, currentPath);
     },
-    onSuccess: (info) => {
+    onSuccess: async (info) => {
       if (!info) {
-        useRepoStore.getState().setSwitchingRepo(false);
+        failRepoSwitch();
         return;
       }
       switchRepo(info.path);
-      qc.removeQueries();
+      clearAllCommitCachesExcept(info.path);
+      markRepoSwitchSettling();
+      await Promise.allSettled([
+        qc.invalidateQueries({ queryKey: qk.status(info.path) }),
+        qc.invalidateQueries({ queryKey: qk.branches(info.path) }),
+        qc.invalidateQueries({ queryKey: qk.state(info.path) }),
+        qc.invalidateQueries({ queryKey: qk.remotes(info.path) }),
+        qc.invalidateQueries({ queryKey: qk.log(undefined, 0, 200, undefined, info.path) }),
+      ]);
+      completeRepoSwitch();
     },
     onError: () => {
-      useRepoStore.getState().setSwitchingRepo(false);
+      failRepoSwitch();
     },
   });
 }
@@ -61,7 +87,8 @@ export function useCloseRepo() {
     },
     onSuccess: (_data, path) => {
       closeRepo(path);
-      qc.removeQueries();
+      clearRepoCommitCache(path);
+      clearRepoBoundQueries(qc, path);
       // If another repo is now active, switch to it.
       const next = useRepoStore.getState().activeRepo;
       if (next) switchRepoMut.mutate(next.path);
@@ -99,20 +126,20 @@ export function useRehydrateRepos() {
 // Listen for repo open requests from CLI (second-instance -> main -> renderer).
 export function useIpcRepoListener() {
   const openRepoMut = useOpenRepo();
-  const switchRepo = useRepoStore((s) => s.switchRepo);
+  const switchRepoMut = useSwitchRepo();
 
   useEffect(() => {
     const unsub = api.onOpenRepo((path) => {
       // If repo is already open, just switch to it.
       const existing = useRepoStore.getState().repos.find((r) => r.path === path);
       if (existing) {
-        switchRepo(path);
+        switchRepoMut.mutate(path);
       } else {
         openRepoMut.mutate(path);
       }
     });
     return unsub;
-  }, []);
+  }, [openRepoMut, switchRepoMut]);
 }
 
 export function useStatus() {

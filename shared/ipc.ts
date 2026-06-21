@@ -23,10 +23,12 @@ export const IPC = {
   REPO_HEAD: 'repo:head',
   REPO_SET_ACTIVE: 'repo:setActive',
   REPO_LIST: 'repo:list',
+  REPO_TRUST: 'repo:trust',
 
   WORKING_TREE_STAGE: 'workingTree:stage',
   WORKING_TREE_UNSTAGE: 'workingTree:unstage',
   WORKING_TREE_DISCARD: 'workingTree:discard',
+  WORKING_TREE_DISCARD_ALL_UNSTAGED: 'workingTree:discardAllUnstaged',
   WORKING_TREE_STAGE_HUNKS: 'workingTree:stageHunks',
   WORKING_TREE_UNSTAGE_HUNKS: 'workingTree:unstageHunks',
 
@@ -320,7 +322,14 @@ export const SettingsSetInput = z.object({
   signingMode: z.enum(['none', 'gpg', 'ssh']).optional(),
   defaultExternalEditor: z.string().nullable().optional(),
   sidebarWidth: z.number().int().min(200).max(480).optional(),
-  inspectorWidth: z.number().int().min(280).max(600).optional(),
+  inspectorWidth: z.number().int().min(340).max(760).optional(),
+  inspectorTopHeight: z.number().int().min(180).max(900).optional(),
+  inspectorComposerHeight: z.number().int().min(140).max(560).optional(),
+  commitPanelView: z.enum(['path', 'tree']).optional(),
+  commitPanelSort: z.enum(['asc', 'desc']).optional(),
+  commitPanelUnstagedExpanded: z.boolean().optional(),
+  commitPanelStagedExpanded: z.boolean().optional(),
+  commitPanelComposerHeight: z.number().int().min(180).max(640).optional(),
   autoFetchInterval: z.number().int().nonnegative().max(3600).optional(),
   betaUpdates: z.boolean().optional(),
   graphZoom: z.number().min(0.5).max(2.0).optional(),
@@ -343,6 +352,13 @@ export interface SettingsData {
   defaultExternalEditor: string | null;
   sidebarWidth: number;
   inspectorWidth: number;
+  inspectorTopHeight: number;
+  inspectorComposerHeight: number;
+  commitPanelView: 'path' | 'tree';
+  commitPanelSort: 'asc' | 'desc';
+  commitPanelUnstagedExpanded: boolean;
+  commitPanelStagedExpanded: boolean;
+  commitPanelComposerHeight: number;
   autoFetchInterval: number;
   betaUpdates: boolean;
   graphZoom: number;
