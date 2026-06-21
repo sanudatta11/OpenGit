@@ -3,7 +3,7 @@
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { mkdtempSync, existsSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import {
   setupTestRepo, cleanupTestRepo, git,
@@ -139,6 +139,8 @@ describe('inferCloneRepoName', () => {
 describe('resolveCreateTarget', () => {
   it('A.1.10 joins path with repoName', () => {
     const r = resolveCreateTarget({ path: '/a/b', repoName: 'c', bare: false, defaultBranch: 'main', readme: false });
-    expect(r).toBe('/a/b/c');
+    // resolveCreateTarget uses resolve() + join(), so the expected value
+    // must also use resolve() to match across platforms (Windows adds drive letter).
+    expect(r).toBe(join(resolve('/a/b'), 'c'));
   });
 });

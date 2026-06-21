@@ -21,7 +21,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 git_init_with_identity() {
-  git init -q "$1"
+  git init -q -b main "$1"
   git -C "$1" config user.name  "Test User"
   git -C "$1" config user.email "test@opengit.dev"
   git -C "$1" config commit.gpgsign false
@@ -149,7 +149,7 @@ git worktree add --detach "$TEST_ROOT/wt-detached" v1.0.0
 
 # ── Remote setup (local bare repo as remote) ──
 REMOTE="$TEST_ROOT/remote.git"
-git init --bare -q "$REMOTE"
+git init --bare -q -b main "$REMOTE"
 git remote add origin "$REMOTE"
 git push -qu origin main
 git push -q origin feature/login feature/dashboard

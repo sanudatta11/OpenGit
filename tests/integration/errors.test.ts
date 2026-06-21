@@ -2,13 +2,21 @@
 // Uses lightweight inline repos.
 
 import { describe, it, expect } from 'vitest';
-import { execSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { discoverGitBin, getGitBin } from '../../electron/main/git/client';
 import { openRepo } from '../../electron/main/git/repo';
 import { mergeBranch, pushRemote, createBranch } from '../../electron/main/git/operations';
+
+const GIT_ENV = { ...process.env, GIT_PAGER: 'cat', LC_ALL: 'C', GIT_CONFIG_COUNT: '1', GIT_CONFIG_KEY_0: 'core.autocrlf', GIT_CONFIG_VALUE_0: 'false' } satisfies Record<string, string | undefined>;
+
+function git(cwd: string, args: string[]): string {
+  return execFileSync('git', args, {
+    cwd, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'], env: GIT_ENV,
+  });
+}
 
 describe('GitError codes', () => {
   it('B.1 GitNotFound — discoverGitBin with invalid path fails', async () => {
@@ -41,20 +49,23 @@ describe('GitError codes', () => {
   it('B.4 Conflicts — merge conflicting branches', async () => {
     const repoDir = mkdtempSync(join(tmpdir(), 'opengit-conf-err-'));
     try {
-      execSync('git init -q -b main', { cwd: repoDir });
-      execSync('git config user.email t@t.co', { cwd: repoDir });
-      execSync('git config user.name Test', { cwd: repoDir });
-      execSync('git config commit.gpgsign false', { cwd: repoDir });
+      git(repoDir, ['init', '-q', '-b', 'main']);
+      git(repoDir, ['config', 'user.email', 't@t.co']);
+      git(repoDir, ['config', 'user.name', 'Test']);
+      git(repoDir, ['config', 'commit.gpgsign', 'false']);
       writeFileSync(join(repoDir, 'base.txt'), 'base\n');
-      execSync('git add . && git commit -q -m base', { cwd: repoDir });
+      git(repoDir, ['add', '.']);
+      git(repoDir, ['commit', '-q', '-m', 'base']);
 
-      execSync('git checkout -q -b feature', { cwd: repoDir });
+      git(repoDir, ['checkout', '-q', '-b', 'feature']);
       writeFileSync(join(repoDir, 'base.txt'), 'feature\n');
-      execSync('git add . && git commit -q -m feature', { cwd: repoDir });
+      git(repoDir, ['add', '.']);
+      git(repoDir, ['commit', '-q', '-m', 'feature']);
 
-      execSync('git checkout -q main', { cwd: repoDir });
+      git(repoDir, ['checkout', '-q', 'main']);
       writeFileSync(join(repoDir, 'base.txt'), 'main\n');
-      execSync('git add . && git commit -q -m main', { cwd: repoDir });
+      git(repoDir, ['add', '.']);
+      git(repoDir, ['commit', '-q', '-m', 'main']);
 
       const r = await mergeBranch(repoDir, { ref: 'feature' });
       expect(r.success).toBe(false);
@@ -69,26 +80,29 @@ describe('GitError codes', () => {
     const bareDir = join(tmpdir(), 'opengit-bare-rej-' + Date.now());
     try {
       // Init both repos
-      execSync('git init -q --bare ' + bareDir, { cwd: tmpdir() });
-      execSync('git init -q -b main', { cwd: repoDir });
-      execSync('git config user.email t@t.co', { cwd: repoDir });
-      execSync('git config user.name Test', { cwd: repoDir });
-      execSync('git config commit.gpgsign false', { cwd: repoDir });
+      git(tmpdir(), ['init', '-q', '--bare', '-b', 'main', bareDir]);
+      git(repoDir, ['init', '-q', '-b', 'main']);
+      git(repoDir, ['config', 'user.email', 't@t.co']);
+      git(repoDir, ['config', 'user.name', 'Test']);
+      git(repoDir, ['config', 'commit.gpgsign', 'false']);
       writeFileSync(join(repoDir, 'f.txt'), 'f\n');
-      execSync('git add . && git commit -q -m first', { cwd: repoDir });
-      execSync('git remote add origin ' + bareDir, { cwd: repoDir });
-      execSync('git push -q -u origin main', { cwd: repoDir });
+      git(repoDir, ['add', '.']);
+      git(repoDir, ['commit', '-q', '-m', 'first']);
+      git(repoDir, ['remote', 'add', 'origin', bareDir]);
+      git(repoDir, ['push', '-q', '-u', 'origin', 'main']);
 
       // Clone to another dir and push a commit
       const cloneDir = join(tmpdir(), 'opengit-cl-rej-' + Date.now());
-      execSync('git clone -q ' + bareDir + ' ' + cloneDir, { cwd: tmpdir() });
+      git(tmpdir(), ['clone', '-q', '--branch', 'main', bareDir, cloneDir]);
       writeFileSync(join(cloneDir, 'g.txt'), 'g\n');
-      execSync('git add . && git commit -q -m other', { cwd: cloneDir });
-      execSync('git push -q origin main', { cwd: cloneDir });
+      git(cloneDir, ['add', '.']);
+      git(cloneDir, ['commit', '-q', '-m', 'other']);
+      git(cloneDir, ['push', '-q', 'origin', 'main']);
 
       // Now try to push from original repo (should be rejected)
       writeFileSync(join(repoDir, 'h.txt'), 'h\n');
-      execSync('git add . && git commit -q -m local', { cwd: repoDir });
+      git(repoDir, ['add', '.']);
+      git(repoDir, ['commit', '-q', '-m', 'local']);
 
       const r = await pushRemote(repoDir, 'origin', undefined, false, false);
       expect(r.success).toBe(false);
@@ -102,10 +116,10 @@ describe('GitError codes', () => {
   it('B.7 GitFailed — generic non-zero exit', async () => {
     const repoDir = mkdtempSync(join(tmpdir(), 'opengit-fail-'));
     try {
-      execSync('git init -q', { cwd: repoDir });
-      execSync('git config user.email t@t.co', { cwd: repoDir });
-      execSync('git config user.name Test', { cwd: repoDir });
-      execSync('git config commit.gpgsign false', { cwd: repoDir });
+      git(repoDir, ['init', '-q', '-b', 'main']);
+      git(repoDir, ['config', 'user.email', 't@t.co']);
+      git(repoDir, ['config', 'user.name', 'Test']);
+      git(repoDir, ['config', 'commit.gpgsign', 'false']);
 
       // Try to delete a nonexistent branch should fail
       const r = await createBranch(repoDir, '', 'HEAD', false);

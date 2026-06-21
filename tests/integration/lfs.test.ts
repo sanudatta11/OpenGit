@@ -2,6 +2,9 @@
 // Skips if git-lfs binary is not available.
 
 import { describe, it, expect } from 'vitest';
+import { execFileSync } from 'node:child_process';
+import { writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { listLFSTracked, lfsTrack } from '../../electron/main/git/operations';
 import { createQuickRepo, destroyQuickRepo, lfsAvailable } from './helpers';
 
@@ -14,10 +17,10 @@ describe('LFS', () => {
     try {
       const { workTree } = qr;
       // Simulate LFS tracking by writing .gitattributes directly
-      require('fs').writeFileSync(require('path').join(workTree, '.gitattributes'),
+      writeFileSync(join(workTree, '.gitattributes'),
         '*.png filter=lfs diff=lfs merge=lfs -text\n*.jpg filter=lfs diff=lfs merge=lfs -text\n');
-      require('child_process').execSync('git add .gitattributes', { cwd: workTree });
-      require('child_process').execSync('git commit -q -m "lfs attr"', { cwd: workTree });
+      execFileSync('git', ['add', '.gitattributes'], { cwd: workTree, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] });
+      execFileSync('git', ['commit', '-q', '-m', 'lfs attr'], { cwd: workTree, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] });
 
       const patterns = await listLFSTracked(workTree);
       expect(patterns.length).toBeGreaterThanOrEqual(2);

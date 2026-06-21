@@ -810,9 +810,12 @@ export async function applyRebaseInteractive(
   const todoContent = items.map((item) => `${item.action} ${item.sha}`).join('\n') + '\n';
   writeFileSync(todoPath, todoContent, 'utf8');
 
-  const bridgeScript = `#!/bin/sh\ncp "${todoPath}" "$1"\n`;
-  const bridgePath = join(tmpDir, 'opengit-sequence-editor.sh');
-  writeFileSync(bridgePath, bridgeScript, { mode: 0o755 });
+  // Git runs GIT_SEQUENCE_EDITOR via `sh -c "$editor $file"`.
+  // Use a command string (not a script file) so it works cross-platform:
+  // Git for Windows includes cp in its MSYS environment.
+  // Forward slashes are required because sh doesn't understand backslashes.
+  const todoPosix = todoPath.replace(/\\/g, '/');
+  const editorCommand = `cp "${todoPosix}"`;
 
   try {
     const r = await gitRun({
@@ -821,8 +824,8 @@ export async function applyRebaseInteractive(
       channel: 'branch:rebaseInteractive',
       reject: false,
       env: {
-        GIT_SEQUENCE_EDITOR: bridgePath,
-        GIT_EDITOR: bridgePath,
+        GIT_SEQUENCE_EDITOR: editorCommand,
+        GIT_EDITOR: editorCommand,
       },
     });
 

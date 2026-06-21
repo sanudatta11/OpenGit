@@ -1,7 +1,7 @@
 // tests/unit/parsers.test.ts — validate parsers against a real git fixture repo.
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { execSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -15,19 +15,19 @@ let repoDir: string;
 let gitDir: string;
 
 function git(args: string[], opts: { input?: string } = {}): string {
-  const r = execSync(`git ${args.map((a) => `'${a.replace(/'/g, "'\\''")}'`).join(' ')}`, {
+  const r = execFileSync('git', args, {
     cwd: repoDir,
     encoding: 'utf8',
     input: opts.input,
     stdio: ['pipe', 'pipe', 'pipe'],
-    env: { ...process.env, GIT_PAGER: 'cat', LC_ALL: 'C' },
+    env: { ...process.env, GIT_PAGER: 'cat', LC_ALL: 'C', GIT_CONFIG_COUNT: '1', GIT_CONFIG_KEY_0: 'core.autocrlf', GIT_CONFIG_VALUE_0: 'false' },
   });
   return r;
 }
 
 beforeAll(() => {
   repoDir = mkdtempSync(join(tmpdir(), 'opengit-test-'));
-  git(['init', '-q']);
+  git(['init', '-q', '-b', 'main']);
   git(['config', 'user.email', 't@t.co']);
   git(['config', 'user.name', 'Test']);
   git(['config', 'commit.gpgsign', 'false']);
@@ -190,9 +190,15 @@ describe('parseInProgressState', () => {
     writeFileSync(join(repoDir, 'a.txt'), 'main change\n');
     git(['commit', '-q', '-am', 'change on main']);
     try {
-      const mergeResult = execSync('git merge --no-ff feature 2>&1 || true', {
-        cwd: repoDir, encoding: 'utf8',
-      });
+      let mergeResult = '';
+      try {
+        execFileSync('git', ['merge', '--no-ff', 'feature'], {
+          cwd: repoDir, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'],
+        });
+      } catch (e: unknown) {
+        const err = e as { stdout?: Buffer; stderr?: Buffer };
+        mergeResult = [err.stdout?.toString() ?? '', err.stderr?.toString() ?? ''].join('\n');
+      }
       // expect conflict
       expect(mergeResult.toLowerCase()).toContain('conflict');
 
@@ -202,7 +208,7 @@ describe('parseInProgressState', () => {
       expect(merge!.canAbort).toBe(true);
       expect(merge!.canContinue).toBe(true);
     } finally {
-      execSync('git merge --abort', { cwd: repoDir, encoding: 'utf8' });
+      execFileSync('git', ['merge', '--abort'], { cwd: repoDir, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] });
     }
   });
 });

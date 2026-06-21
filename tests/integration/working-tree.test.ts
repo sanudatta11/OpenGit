@@ -2,15 +2,22 @@
 // Uses lightweight inline repos for controlled state + full fixture for status reads.
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { execSync } from 'node:child_process';
+import { writeFileSync, appendFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   createQuickRepo, destroyQuickRepo, git, readFile, exists, type QuickRepo,
 } from './helpers';
 
-function bash(workTree: string, cmd: string) {
-  execSync(cmd, { cwd: workTree, shell: true, stdio: 'pipe' });
+/** Write content to a file in the worktree (cross-platform, no shell needed). */
+function write(workTree: string, rel: string, content: string): void {
+  writeFileSync(join(workTree, rel), content);
 }
+
+/** Append content to a file in the worktree (cross-platform, no shell needed). */
+function append(workTree: string, rel: string, content: string): void {
+  appendFileSync(join(workTree, rel), content);
+}
+
 import {
   stagePaths, stageAll, unstagePaths, unstageAll,
   discardPaths, discardUntracked,
@@ -28,7 +35,7 @@ describe('stage / unstage', () => {
     try {
       const { workTree, gitDir } = qr;
       const filePath = 'base.txt';
-      bash(workTree, 'printf "base\nmodified\n" > base.txt');
+      write(workTree, 'base.txt', 'base\nmodified\n');
 
       const statusBefore = await getStatus(workTree, gitDir);
       expect(statusBefore.entries.some(e => e.path === filePath && !e.staged && e.unstaged)).toBe(true);
@@ -48,7 +55,7 @@ describe('stage / unstage', () => {
     const qr = createQuickRepo();
     try {
       const { workTree, gitDir } = qr;
-      bash(workTree, 'printf "base\nmodified\n" > base.txt');
+      write(workTree, 'base.txt', 'base\nmodified\n');
       await stagePaths(workTree, ['base.txt']);
       const r = await unstagePaths(workTree, ['base.txt']);
       expect(r.success).toBe(true);
@@ -82,10 +89,12 @@ describe('stageAll / unstageAll', () => {
     try {
       const { workTree, gitDir } = qr;
       // Create multiple modifications
-      bash(workTree, 'printf "a\n" > a.txt && printf "b\n" > b.txt');
+      write(workTree, 'a.txt', 'a\n');
+      write(workTree, 'b.txt', 'b\n');
       git(workTree, ['add', '.']);
       git(workTree, ['commit', '-q', '-m', 'add a and b']);
-      bash(workTree, 'printf "a2\n" >> a.txt && printf "b2\n" >> b.txt');
+      append(workTree, 'a.txt', 'a2\n');
+      append(workTree, 'b.txt', 'b2\n');
 
       const r = await stageAll(workTree);
       expect(r.success).toBe(true);
@@ -101,7 +110,7 @@ describe('stageAll / unstageAll', () => {
     const qr = createQuickRepo();
     try {
       const { workTree, gitDir } = qr;
-      bash(workTree, 'printf "a\n" > a.txt');
+      write(workTree, 'a.txt', 'a\n');
       await stagePaths(workTree, ['a.txt']);
 
       const r = await unstageAll(workTree);
@@ -124,7 +133,7 @@ describe('discard', () => {
     const qr = createQuickRepo();
     try {
       const { workTree } = qr;
-      bash(workTree, 'printf "modified content\n" > base.txt');
+      write(workTree, 'base.txt', 'modified content\n');
 
       const r = await discardPaths(workTree, ['base.txt']);
       expect(r.success).toBe(true);
@@ -138,7 +147,7 @@ describe('discard', () => {
     const qr = createQuickRepo();
     try {
       const { workTree } = qr;
-      bash(workTree, 'printf "temp\n" > temp.txt');
+      write(workTree, 'temp.txt', 'temp\n');
       expect(exists(workTree, 'temp.txt')).toBe(true);
 
       const r = await discardUntracked(workTree, ['temp.txt']);
@@ -160,12 +169,12 @@ describe('hunk staging', () => {
     try {
       const { workTree } = qr;
       // Create a file with multiple lines
-      bash(workTree, 'printf "line1\nline2\nline3\n" > multi.txt');
+      write(workTree, 'multi.txt', 'line1\nline2\nline3\n');
       await stagePaths(workTree, ['multi.txt']);
       git(workTree, ['commit', '-q', '-m', 'add multi.txt']);
 
       // Modify line2 only (the hunk we want to stage)
-      bash(workTree, 'printf "line1\nline2-modified\nline3\n" > multi.txt');
+      write(workTree, 'multi.txt', 'line1\nline2-modified\nline3\n');
 
       // Create a unified diff patch that only changes line2
       const patch = '@@ -1,3 +1,3 @@\n line1\n-line2\n+line2-modified\n line3\n';
@@ -181,10 +190,10 @@ describe('hunk staging', () => {
     const qr = createQuickRepo();
     try {
       const { workTree } = qr;
-      bash(workTree, 'printf "a\nb\nc\n" > multi.txt');
+      write(workTree, 'multi.txt', 'a\nb\nc\n');
       await stagePaths(workTree, ['multi.txt']);
       git(workTree, ['commit', '-q', '-m', 'add multi']);
-      bash(workTree, 'printf "a\nb-modified\nc\n" > multi.txt');
+      write(workTree, 'multi.txt', 'a\nb-modified\nc\n');
       await stagePaths(workTree, ['multi.txt']);
 
       // Patch describing the change from HEAD to staged (unstageHunks will reverse-apply)

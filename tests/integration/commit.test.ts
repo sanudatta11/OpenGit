@@ -2,14 +2,26 @@
 // Uses lightweight inline repos.
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { execSync } from 'node:child_process';
+import { writeFileSync, mkdirSync, chmodSync, existsSync, rmSync } from 'node:fs';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
 import {
   createQuickRepo, destroyQuickRepo, git,
 } from './helpers';
 import { createCommit, stagePaths } from '../../electron/main/git/operations';
 
-function bash(workTree: string, cmd: string) {
-  execSync(cmd, { cwd: workTree, shell: true, stdio: 'pipe' });
+/** Write content to a file in the worktree (cross-platform, no shell needed). */
+function write(workTree: string, rel: string, content: string): void {
+  writeFileSync(join(workTree, rel), content);
+}
+
+/** Install a pre-commit hook that exits non-zero (blocks commits). */
+function installFailingHook(workTree: string): void {
+  const hooksDir = join(workTree, '.git', 'hooks');
+  if (!existsSync(hooksDir)) mkdirSync(hooksDir, { recursive: true });
+  const hookPath = join(hooksDir, 'pre-commit');
+  writeFileSync(hookPath, '#!/bin/sh\nexit 1\n');
+  try { chmodSync(hookPath, 0o755); } catch { /* Windows: chmod is a no-op */ }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -24,7 +36,7 @@ describe('commit', () => {
 
   it('A.4.1 creates a basic commit', async () => {
     const { workTree } = qr;
-    bash(workTree, 'printf "content\n" > new.txt');
+    write(workTree, 'new.txt', 'content\n');
     await stagePaths(workTree, ['new.txt']);
 
     const r = await createCommit(workTree, { message: 'add new.txt' });
@@ -49,7 +61,7 @@ describe('commit', () => {
     const qr2 = createQuickRepo();
     try {
       const { workTree } = qr2;
-      bash(workTree, 'printf "signed\n" > signed.txt');
+      write(workTree, 'signed.txt', 'signed\n');
       await stagePaths(workTree, ['signed.txt']);
 
       const r = await createCommit(workTree, { message: 'signed commit', signoff: true });
@@ -66,7 +78,7 @@ describe('commit', () => {
     const qr2 = createQuickRepo();
     try {
       const { workTree } = qr2;
-      bash(workTree, 'printf "author\n" > author.txt');
+      write(workTree, 'author.txt', 'author\n');
       await stagePaths(workTree, ['author.txt']);
 
       const r = await createCommit(workTree, {
@@ -99,8 +111,8 @@ describe('commit hooks', () => {
     try {
       const { workTree } = qr;
       // Install a failing pre-commit hook
-      bash(workTree, 'mkdir -p .git/hooks && printf "#!/bin/sh\nexit 1\n" > .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit');
-      bash(workTree, 'printf "hook-blocked\n" > hook-test.txt');
+      installFailingHook(workTree);
+      write(workTree, 'hook-test.txt', 'hook-blocked\n');
       await stagePaths(workTree, ['hook-test.txt']);
 
       const r = await createCommit(workTree, { message: 'should fail' });
@@ -114,8 +126,8 @@ describe('commit hooks', () => {
     const qr = createQuickRepo();
     try {
       const { workTree } = qr;
-      bash(workTree, 'mkdir -p .git/hooks && printf "#!/bin/sh\nexit 1\n" > .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit');
-      bash(workTree, 'printf "hook-skipped\n" > hook-skip.txt');
+      installFailingHook(workTree);
+      write(workTree, 'hook-skip.txt', 'hook-skipped\n');
       await stagePaths(workTree, ['hook-skip.txt']);
 
       const r = await createCommit(workTree, { message: 'skipped hook', noVerify: true });

@@ -60,6 +60,23 @@ export async function openRepo(path: string): Promise<OpenedRepo> {
     gitDir = resolveGitDir(workTreeRoot);
   }
 
+  // Auto-trust repos with dubious ownership (e.g. created by another user or on
+  // a different mount). Git refuses to read these for security, but GUI clients
+  // like GitKraken handle this transparently — we do the same by adding a
+  // safe.directory exception before running any repo-touching git command.
+  const ownershipProbe = await gitRun({
+    cwd: workTreeRoot,
+    args: ['rev-parse', '--git-dir'],
+    channel: 'repo:open',
+    reject: false,
+  });
+  if (
+    ownershipProbe.exitCode !== 0 &&
+    ownershipProbe.stderr.toLowerCase().includes('dubious ownership')
+  ) {
+    await trustRepoPath(workTreeRoot);
+  }
+
   // Head + version.
   const version = await gitText({
     cwd: workTreeRoot,
@@ -274,6 +291,16 @@ export async function searchRepository(
   }
 
   return results;
+}
+
+/** Add a safe.directory exception for a repo path (fixes "dubious ownership"). */
+export async function trustRepoPath(workTree: string): Promise<void> {
+  await gitRun({
+    cwd: workTree,
+    args: ['config', '--global', '--add', 'safe.directory', workTree.replace(/\\/g, '/')],
+    channel: 'repo:trust',
+    reject: false,
+  });
 }
 
 export async function getState(workTree: string, gitDir: string): Promise<RepoStatus['states']> {

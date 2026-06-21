@@ -1,7 +1,7 @@
 // tests/integration/worktree.test.ts — worktree create/list/remove/prune integration.
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { execSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import { mkdtempSync, rmSync, writeFileSync, realpathSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -14,9 +14,9 @@ let repoDir: string;
 let wtDir: string;
 
 function git(args: string[]): string {
-  return execSync(`git ${args.map((a) => `'${a.replace(/'/g, "'\\''")}'`).join(' ')}`, {
+  return execFileSync('git', args, {
     cwd: repoDir, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'],
-    env: { ...process.env, GIT_PAGER: 'cat', LC_ALL: 'C' },
+    env: { ...process.env, GIT_PAGER: 'cat', LC_ALL: 'C', GIT_CONFIG_COUNT: '1', GIT_CONFIG_KEY_0: 'core.autocrlf', GIT_CONFIG_VALUE_0: 'false' },
   });
 }
 
@@ -182,7 +182,7 @@ describe('worktree', () => {
       const list = await listWorktrees(repoDir);
       expect(list.find((w) => w.path === rmbPath)).toBeUndefined();
 
-      const branches = execSync(`git branch --list '${branchName}'`, {
+      const branches = execFileSync('git', ['branch', '--list', branchName], {
         cwd: repoDir, encoding: 'utf8',
       }).trim();
       expect(branches).toBe('');

@@ -32,9 +32,11 @@ describe('submodules', () => {
   });
 
   it('A.11.3 deinitializes the submodule', async () => {
-    // First init, then deinit
+    // First init, then deinit.
+    // Use force=true because Windows may have read-only .git files
+    // in the submodule that prevent non-forced deinit.
     await initSubmodules(repo.main, false);
-    const r = await deinitSubmodule(repo.main, 'libs/submodule-lib', false);
+    const r = await deinitSubmodule(repo.main, 'libs/submodule-lib', true);
     expect(r.success).toBe(true);
   });
 

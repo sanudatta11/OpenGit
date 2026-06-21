@@ -1,11 +1,11 @@
 // tests/integration/helpers.ts — shared test helpers for Layer A integration tests.
 // Each test file gets its own temp repo; helpers are parameterized by workTree path.
 
-import { execFileSync, execSync, type ExecSyncOptions } from 'node:child_process';
+import { execFileSync, type ExecFileSyncOptions } from 'node:child_process';
 import { existsSync, rmSync, writeFileSync, readFileSync } from 'node:fs';
 import { mkdtempSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { tmpdir } from 'node:os';
+import { tmpdir, platform } from 'node:os';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TestRepo — paths returned by setupTestRepo()
@@ -34,6 +34,50 @@ export interface SetupTestRepoOptions {
 }
 
 /**
+ * Locate bash on the current platform.
+ * On Unix-like systems, bash is typically at /usr/bin/env or in PATH.
+ * On Windows, Git for Windows ships bash.exe in <git-root>/bin/ and <git-root>/usr/bin/.
+ */
+function findBash(): string {
+  if (platform() !== 'win32') return 'bash';
+  // Git for Windows installs bash.exe relative to the git executable.
+  // git --exec-path returns e.g. C:/Program Files/Git/mingw64/libexec/git-core
+  // The git root is 3 levels up: C:/Program Files/Git
+  try {
+    const gitExecPath = execFileSync('git', ['--exec-path'], { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] }).trim();
+    // Walk up until we find a directory containing bin/bash.exe or usr/bin/bash.exe
+    let dir = gitExecPath;
+    for (let i = 0; i < 6; i++) {
+      dir = resolve(dir, '..');
+      const candidates = [
+        resolve(dir, 'bin', 'bash.exe'),
+        resolve(dir, 'usr', 'bin', 'bash.exe'),
+        resolve(dir, 'bash.exe'),
+      ];
+      for (const c of candidates) {
+        if (existsSync(c)) return c;
+      }
+      if (dir === resolve(dir, '..')) break; // reached filesystem root
+    }
+  } catch {
+    // fall through
+  }
+  return 'bash';
+}
+
+/**
+ * Convert a Windows path to a format that Git Bash can understand.
+ * Git Bash accepts Windows paths with forward slashes (e.g. J:/OpenGit/tests/).
+ * On non-Windows platforms the path is returned unchanged.
+ */
+function toBashPath(p: string): string {
+  if (platform() !== 'win32') return p;
+  // Simply replace backslashes with forward slashes — Git Bash handles
+  // C:/Users/... style paths natively without needing MSYS mount mappings.
+  return p.replace(/\\/g, '/');
+}
+
+/**
  * Create a fully-featured test repository by running setup-test-repo.sh.
  * Calls `resolve(__dirname, 'setup-test-repo.sh')` to find the script.
  * Returns paths to main repo, remote, submodule, and worktrees.
@@ -45,7 +89,10 @@ export async function setupTestRepo(opts?: SetupTestRepoOptions): Promise<TestRe
   const args: string[] = [root];
   if (opts?.large) args.push(`--large=${opts.large}`);
   if (opts?.lfs === false) args.push('--no-lfs');
-  execFileSync('/usr/bin/env', ['bash', script, ...args], {
+  const bash = findBash();
+  // Git Bash on Windows strips backslashes from paths passed as arguments.
+  // Convert all paths to Unix-style forward-slash paths.
+  execFileSync(bash, [toBashPath(script), toBashPath(root), ...args.slice(1).map(a => toBashPath(a))], {
     stdio: 'pipe',
     encoding: 'utf8',
     env: { ...process.env, OPENGIT_TEST_ROOT: root },
@@ -81,32 +128,31 @@ const GIT_ENV = {
   GIT_PAGER: 'cat',
   LC_ALL: 'C',
   GIT_TERMINAL_PROMPT: '0',
+  // Prevent CRLF line-ending conversion on Windows so test assertions
+  // that compare file content match regardless of platform.
+  GIT_CONFIG_COUNT: '2',
+  GIT_CONFIG_KEY_0: 'core.autocrlf',
+  GIT_CONFIG_VALUE_0: 'false',
+  GIT_CONFIG_KEY_1: 'protocol.file.allow',
+  GIT_CONFIG_VALUE_1: 'always',
 } satisfies Record<string, string | undefined>;
 
-const gitExecOpts = (cwd: string): ExecSyncOptions => ({
+const gitExecOpts = (cwd: string): ExecFileSyncOptions => ({
   cwd,
   encoding: 'utf8' as const,
   stdio: ['pipe', 'pipe', 'pipe'] as const,
   env: GIT_ENV,
 });
 
-function escapeArg(a: string): string {
-  return `'${a.replace(/'/g, "'\\''")}'`;
-}
-
-function gitCommand(args: string[]): string {
-  return `git ${args.map(escapeArg).join(' ')}`;
-}
-
-/** Run a git command, throw on non-zero. Returns stdout trimmed. */
+/** Run a git command, throw on non-zero. Returns stdout. */
 export function git(workTree: string, args: string[]): string {
-  return execSync(gitCommand(args), gitExecOpts(workTree)).toString();
+  return execFileSync('git', args, gitExecOpts(workTree)).toString();
 }
 
 /** Run a git command, capture outcome without throwing. */
 export function gitOk(workTree: string, args: string[]): { ok: boolean; stdout: string; stderr: string } {
   try {
-    const stdout = execSync(gitCommand(args), gitExecOpts(workTree)).toString();
+    const stdout = execFileSync('git', args, gitExecOpts(workTree)).toString();
     return { ok: true, stdout, stderr: '' };
   } catch (e: unknown) {
     const err = e as { stdout?: Buffer; stderr?: Buffer };
@@ -181,7 +227,7 @@ export function conflictFiles(workTree: string): string[] {
 
 export function lfsAvailable(): boolean {
   try {
-    execSync('git lfs version', { stdio: 'pipe', encoding: 'utf8' });
+    execFileSync('git', ['lfs', 'version'], { stdio: ['pipe', 'pipe', 'pipe'], encoding: 'utf8' });
     return true;
   } catch {
     return false;
@@ -190,10 +236,11 @@ export function lfsAvailable(): boolean {
 
 export function gpgAvailable(): boolean {
   try {
-    execSync('gpg --version', { stdio: 'pipe', encoding: 'utf8' });
+    execFileSync('gpg', ['--version'], { stdio: ['pipe', 'pipe', 'pipe'], encoding: 'utf8' });
     // Also check there's a key for test@opengit.dev
-    const keys = execSync('gpg --batch --list-keys test@opengit.dev 2>/dev/null', {
-      stdio: 'pipe', encoding: 'utf8',
+    const keys = execFileSync('gpg', ['--batch', '--list-keys', 'test@opengit.dev'], {
+      stdio: ['pipe', 'pipe', 'pipe'],
+      encoding: 'utf8',
     });
     return keys.includes('test@opengit.dev');
   } catch {

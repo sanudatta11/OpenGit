@@ -139,9 +139,11 @@ export async function gitRun(opts: GitRunOptions): Promise<GitRunResult> {
         GIT_EDITOR: 'true', // never wait for editor input
         LC_ALL: 'C', // stable parser output
         GIT_OPTIONAL_LOCKS: '0', // don't block concurrent git processes
-        GIT_CONFIG_COUNT: '1',
+        GIT_CONFIG_COUNT: '2',
         GIT_CONFIG_KEY_0: 'protocol.file.allow',
         GIT_CONFIG_VALUE_0: 'always',
+        GIT_CONFIG_KEY_1: 'core.autocrlf',
+        GIT_CONFIG_VALUE_1: 'false',
         ...opts.env, // caller env overrides win — used for GIT_SEQUENCE_EDITOR etc.
       },
       encoding: 'utf8',
@@ -232,6 +234,9 @@ function classifyFailure(stderr: string, _exitCode: number): GitErrorCode {
   if (s.includes('not a git repository') || s.includes('does not have a commit checked out')) {
     return 'NotARepo';
   }
+  if (s.includes('dubious ownership') || s.includes('detected dubious ownership')) {
+    return 'NotARepo';
+  }
   if (s.includes('conflict') || s.includes('merge conflict') || s.includes('could not apply')) {
     return 'Conflicts';
   }
@@ -248,6 +253,9 @@ function classifyFailure(stderr: string, _exitCode: number): GitErrorCode {
 function friendlyFor(code: GitErrorCode, stderr: string): string {
   switch (code) {
     case 'NotARepo':
+      if (stderr.toLowerCase().includes('dubious ownership')) {
+        return 'This repository is owned by another user. Git refused to read it for security. Add a safe.directory exception in Settings, or run: git config --global --add safe.directory <path>';
+      }
       return 'This path is not inside a Git repository.';
     case 'Conflicts':
       return 'Git stopped because of conflicts. Resolve them, then continue the operation.';

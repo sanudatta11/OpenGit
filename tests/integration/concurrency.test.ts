@@ -2,22 +2,31 @@
 // Uses lightweight inline repos.
 
 import { describe, it, expect } from 'vitest';
-import { execSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { createBranch } from '../../electron/main/git/operations';
 
+const GIT_ENV = { ...process.env, GIT_PAGER: 'cat', LC_ALL: 'C', GIT_CONFIG_COUNT: '1', GIT_CONFIG_KEY_0: 'core.autocrlf', GIT_CONFIG_VALUE_0: 'false' } satisfies Record<string, string | undefined>;
+
+function git(cwd: string, args: string[]): string {
+  return execFileSync('git', args, {
+    cwd, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'], env: GIT_ENV,
+  });
+}
+
 describe('concurrency', () => {
   it('C.4 concurrent writes to different refs', async () => {
     const repoDir = mkdtempSync(join(tmpdir(), 'opengit-cc-'));
     try {
-      execSync('git init -q -b main', { cwd: repoDir });
-      execSync('git config user.email t@t.co', { cwd: repoDir });
-      execSync('git config user.name Test', { cwd: repoDir });
-      execSync('git config commit.gpgsign false', { cwd: repoDir });
+      git(repoDir, ['init', '-q', '-b', 'main']);
+      git(repoDir, ['config', 'user.email', 't@t.co']);
+      git(repoDir, ['config', 'user.name', 'Test']);
+      git(repoDir, ['config', 'commit.gpgsign', 'false']);
       writeFileSync(join(repoDir, 'base.txt'), 'base\n');
-      execSync('git add . && git commit -q -m base', { cwd: repoDir });
+      git(repoDir, ['add', '.']);
+      git(repoDir, ['commit', '-q', '-m', 'base']);
 
       const [r1, r2] = await Promise.all([
         createBranch(repoDir, 'branch-a', 'HEAD', false),
@@ -26,7 +35,7 @@ describe('concurrency', () => {
       expect(r1.success).toBe(true);
       expect(r2.success).toBe(true);
 
-      const branches = execSync('git branch', { cwd: repoDir, encoding: 'utf8' });
+      const branches = git(repoDir, ['branch']);
       expect(branches).toContain('branch-a');
       expect(branches).toContain('branch-b');
     } finally {

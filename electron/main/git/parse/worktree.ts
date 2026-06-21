@@ -1,5 +1,6 @@
 // electron/main/git/parse/worktree.ts — parse `git worktree list --porcelain`.
 
+import { resolve } from 'node:path';
 import type { Worktree } from '@shared/git';
 
 /**
@@ -52,6 +53,11 @@ export function parseWorktrees(raw: string): Worktree[] {
     }
 
     if (!path) continue;
+
+    // Normalize path separators so comparisons work cross-platform.
+    // Git reports paths with forward slashes even on Windows; resolve()
+    // converts to the platform-native separator.
+    path = resolve(path);
 
     worktrees.push({
       path,

@@ -1,7 +1,7 @@
 // tests/integration/advanced.test.ts — stash, merge, rebase, cherry-pick, in-progress ops.
 
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
-import { execSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync, existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -16,9 +16,9 @@ import { parseInProgressState } from '../../electron/main/git/parse/state';
 let repoDir: string;
 
 function git(args: string[]): string {
-  return execSync(`git ${args.map((a) => `'${a.replace(/'/g, "'\\''")}'`).join(' ')}`, {
+  return execFileSync('git', args, {
     cwd: repoDir, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'],
-    env: { ...process.env, GIT_PAGER: 'cat', LC_ALL: 'C' },
+    env: { ...process.env, GIT_PAGER: 'cat', LC_ALL: 'C', GIT_CONFIG_COUNT: '1', GIT_CONFIG_KEY_0: 'core.autocrlf', GIT_CONFIG_VALUE_0: 'false' },
   });
 }
 

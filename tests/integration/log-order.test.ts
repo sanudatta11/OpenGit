@@ -2,15 +2,15 @@ import { describe, expect, it } from 'vitest';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { execSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import { getLog } from '../../electron/main/git/repo';
 
 function git(cwd: string, args: string[], env: Record<string, string> = {}): string {
-  return execSync(`git ${args.map((arg) => `'${arg.replace(/'/g, "'\\''")}'`).join(' ')}`, {
+  return execFileSync('git', args, {
     cwd,
     encoding: 'utf8',
     stdio: ['pipe', 'pipe', 'pipe'],
-    env: { ...process.env, GIT_PAGER: 'cat', LC_ALL: 'C', ...env },
+    env: { ...process.env, GIT_PAGER: 'cat', LC_ALL: 'C', GIT_CONFIG_COUNT: '1', GIT_CONFIG_KEY_0: 'core.autocrlf', GIT_CONFIG_VALUE_0: 'false', ...env },
   });
 }
 

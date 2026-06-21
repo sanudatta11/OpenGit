@@ -3,7 +3,7 @@
 // operation functions directly (which is what the IPC handlers call).
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { execSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import { mkdtempSync, rmSync, writeFileSync, existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -16,15 +16,15 @@ import { getStatus } from '../../electron/main/git/repo';
 let repoDir: string;
 
 function git(args: string[]): string {
-  return execSync(`git ${args.map((a) => `'${a.replace(/'/g, "'\\''")}'`).join(' ')}`, {
+  return execFileSync('git', args, {
     cwd: repoDir, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'],
-    env: { ...process.env, GIT_PAGER: 'cat', LC_ALL: 'C' },
+    env: { ...process.env, GIT_PAGER: 'cat', LC_ALL: 'C', GIT_CONFIG_COUNT: '1', GIT_CONFIG_KEY_0: 'core.autocrlf', GIT_CONFIG_VALUE_0: 'false' },
   });
 }
 
 beforeAll(() => {
   repoDir = mkdtempSync(join(tmpdir(), 'opengit-write-'));
-  git(['init', '-q']);
+  git(['init', '-q', '-b', 'main']);
   git(['config', 'user.email', 't@t.co']);
   git(['config', 'user.name', 'Test']);
   git(['config', 'commit.gpgsign', 'false']);

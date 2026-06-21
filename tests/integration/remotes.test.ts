@@ -2,14 +2,16 @@
 // Uses the full fixture repo for the remote + lightweight inline repos for local ops.
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { execSync } from 'node:child_process';
+import { writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import {
   setupTestRepo, cleanupTestRepo, git, createQuickRepo, destroyQuickRepo,
   type TestRepo,
 } from './helpers';
 
-function bash(workTree: string, cmd: string) {
-  execSync(cmd, { cwd: workTree, shell: true, stdio: 'pipe' });
+/** Write content to a file in the worktree (cross-platform, no shell needed). */
+function write(workTree: string, rel: string, content: string): void {
+  writeFileSync(join(workTree, rel), content);
 }
 import {
   fetchRemote, fetchAllRemotes, pullRemote, pushRemote,
@@ -92,7 +94,7 @@ describe('pullRemote', () => {
       await fetchRemote(workTree, 'origin', true);
 
       // Make a local commit that diverges
-      bash(workTree, 'printf "diverged\n" > div.txt');
+      write(workTree, 'div.txt', 'diverged\n');
       git(workTree, ['add', '.']);
       git(workTree, ['commit', '-q', '-m', 'local diverged']);
 
@@ -112,7 +114,7 @@ describe('pushRemote', () => {
       git(workTree, ['remote', 'add', 'origin', repo.remote]);
       // Create a temp bare remote for push testing
       const bare = require('node:path').join(require('node:os').tmpdir(), 'opengit-push-' + Date.now());
-      git(workTree, ['init', '--bare', bare]);
+      git(workTree, ['init', '--bare', '-b', 'main', bare]);
       git(workTree, ['remote', 'remove', 'origin']);
       git(workTree, ['remote', 'add', 'origin', bare]);
 
@@ -128,7 +130,7 @@ describe('pushRemote', () => {
     try {
       const { workTree } = qr;
       const bare = require('node:path').join(require('node:os').tmpdir(), 'opengit-up-' + Date.now());
-      git(workTree, ['init', '--bare', bare]);
+      git(workTree, ['init', '--bare', '-b', 'main', bare]);
       git(workTree, ['remote', 'add', 'origin', bare]);
 
       const r = await pushRemote(workTree, 'origin', 'main', false, true);
@@ -145,20 +147,20 @@ describe('pushRemote', () => {
     try {
       const { workTree } = qr;
       const bare = require('node:path').join(require('node:os').tmpdir(), 'opengit-rej-' + Date.now());
-      git(workTree, ['init', '--bare', bare]);
+      git(workTree, ['init', '--bare', '-b', 'main', bare]);
       git(workTree, ['remote', 'add', 'origin', bare]);
       git(workTree, ['push', '-q', '-u', 'origin', 'main']);
 
       // Clone to a second worktree, make a commit there, push
       const cloneDir = require('node:path').join(require('node:os').tmpdir(), 'opengit-cl2-' + Date.now());
       git(workTree, ['clone', '-q', bare, cloneDir]);
-      bash(cloneDir, 'printf "other\n" > other.txt');
+      write(cloneDir, 'other.txt', 'other\n');
       git(cloneDir, ['add', '.']);
       git(cloneDir, ['commit', '-q', '-m', 'other commit']);
       git(cloneDir, ['push', '-q', 'origin', 'main']);
 
       // Now try to push from original (should be rejected)
-      bash(workTree, 'printf "rejected\n" > rej.txt');
+      write(workTree, 'rej.txt', 'rejected\n');
       git(workTree, ['add', '.']);
       git(workTree, ['commit', '-q', '-m', 'local commit']);
 
@@ -175,18 +177,18 @@ describe('pushRemote', () => {
     try {
       const { workTree } = qr;
       const bare = require('node:path').join(require('node:os').tmpdir(), 'opengit-fl-' + Date.now());
-      git(workTree, ['init', '--bare', bare]);
+      git(workTree, ['init', '--bare', '-b', 'main', bare]);
       git(workTree, ['remote', 'add', 'origin', bare]);
       git(workTree, ['push', '-q', '-u', 'origin', 'main']);
 
       const cloneDir = require('node:path').join(require('node:os').tmpdir(), 'opengit-cl3-' + Date.now());
       git(workTree, ['clone', '-q', bare, cloneDir]);
-      bash(cloneDir, 'printf "other\n" > other.txt');
+      write(cloneDir, 'other.txt', 'other\n');
       git(cloneDir, ['add', '.']);
       git(cloneDir, ['commit', '-q', '-m', 'other']);
       git(cloneDir, ['push', '-q', 'origin', 'main']);
 
-      bash(workTree, 'printf "local\n" > local.txt');
+      write(workTree, 'local.txt', 'local\n');
       git(workTree, ['add', '.']);
       git(workTree, ['commit', '-q', '-m', 'local']);
 
