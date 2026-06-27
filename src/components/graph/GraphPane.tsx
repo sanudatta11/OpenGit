@@ -439,7 +439,7 @@ export function GraphPane() {
 
       <div
         ref={containerRef}
-        className="flex-1 min-w-0 min-h-0 overflow-auto relative"
+        className="flex-1 min-w-0 min-h-0 overflow-y-auto overflow-x-hidden relative"
         onScroll={handleScroll}
         onWheel={handleWheel}
       >
@@ -799,6 +799,8 @@ function WipGraphRow({
 
       {!isDetailed && <div />}
 
+      {!isDetailed && <div />}
+
       {!isDetailed && !isCompact && <div />}
 
       {!isDetailed && !isCompact && <div />}
@@ -1088,6 +1090,8 @@ function GraphRow({ row, graphWidth, selected, onClick, density, rowHeight, onRe
       {!isDetailed && !isCompact && (
         <div className="min-w-0 px-2 text-xs text-fg-dim font-mono text-right">{shortSha}</div>
       )}
+
+      {!isDetailed && <div />}
     </div>
   );
 }

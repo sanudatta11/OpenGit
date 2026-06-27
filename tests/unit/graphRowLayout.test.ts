@@ -13,11 +13,11 @@ import {
 
 describe('graphRowTemplateColumns', () => {
   it('keeps the graph column isolated from commit metadata in comfortable density', () => {
-    expect(graphRowTemplateColumns(96, 'comfortable')).toBe('240px 96px minmax(100px,1fr) 112px 80px 64px');
+    expect(graphRowTemplateColumns(96, 'comfortable')).toBe('240px 96px minmax(100px,500px) 112px 80px 64px 1fr');
   });
 
   it('keeps a dedicated graph column in compact density', () => {
-    expect(graphRowTemplateColumns(96, 'compact')).toBe('200px 96px minmax(100px,1fr) 80px');
+    expect(graphRowTemplateColumns(96, 'compact')).toBe('200px 96px minmax(100px,360px) 80px 1fr');
   });
 
   it('uses a two-column layout in detailed density so message metadata stays stacked', () => {
