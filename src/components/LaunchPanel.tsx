@@ -7,6 +7,7 @@ import { api } from '../ipc/api';
 import { useRepoStore } from '../stores/repo';
 import { GitError } from '@shared/ipc';
 import { rankKnownRepos, type KnownRepoEntry } from './dashboard/search';
+import { useSwitchRepo } from '../queries/useRepo';
 
 type Mode = 'open' | 'clone' | 'create';
 
@@ -15,6 +16,7 @@ export function LaunchPanel({ onOpenSettings }: { onOpenSettings: () => void }) 
   const addRepo = useRepoStore((s) => s.addRepo);
   const focusRepoTab = useRepoStore((s) => s.focusRepoTab);
   const tabs = useRepoStore((s) => s.tabs);
+  const switchRepo = useSwitchRepo();
   const [mode, setMode] = useState<Mode>('open');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
@@ -37,7 +39,10 @@ export function LaunchPanel({ onOpenSettings }: { onOpenSettings: () => void }) 
   };
 
   const openPath = async (path: string) => {
-    if (focusRepoTab(path)) return;
+    if (focusRepoTab(path)) {
+      switchRepo.mutate(path);
+      return;
+    }
     setBusy(true);
     setError(null);
     try {

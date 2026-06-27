@@ -211,4 +211,21 @@ describe('repo store', () => {
 
     expect(useGraphFilterStore.getState().soloedRefs).toEqual([]);
   });
+
+  it('reorders tabs successfully', () => {
+    const store = useRepoStore.getState();
+    const firstId = store.openDashboardTab();
+    const secondId = store.openDashboardTab();
+    const thirdId = store.openDashboardTab();
+
+    expect(useRepoStore.getState().tabs.map(t => t.id)).toEqual([firstId, secondId, thirdId]);
+
+    // Move first tab to the end (index 0 to index 2)
+    useRepoStore.getState().reorderTabs(0, 2);
+    expect(useRepoStore.getState().tabs.map(t => t.id)).toEqual([secondId, thirdId, firstId]);
+
+    // Move last tab to the middle (index 2 to index 1)
+    useRepoStore.getState().reorderTabs(2, 1);
+    expect(useRepoStore.getState().tabs.map(t => t.id)).toEqual([secondId, firstId, thirdId]);
+  });
 });

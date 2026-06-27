@@ -63,6 +63,7 @@ interface RepoStore {
   focusRepoTab: (repoPath: string) => string | null;
   closeTab: (tabId: string) => AppTab | null;
   rehydrateSession: (session: { tabs: AppTab[]; activeTabId: string | null; nextTabSequence?: number }) => void;
+  reorderTabs: (startIndex: number, endIndex: number) => void;
   serializeSession: () => PersistedTabSession;
 
   addRepo: (info: RepoInfo) => void;
@@ -289,6 +290,16 @@ export const useRepoStore = create<RepoStore>((set, get) => ({
       nextTabSequence: state.nextTabSequence,
     };
   },
+
+  reorderTabs: (startIndex, endIndex) =>
+    set((state) => {
+      const nextTabs = [...state.tabs];
+      const [moved] = nextTabs.splice(startIndex, 1);
+      if (moved) {
+        nextTabs.splice(endIndex, 0, moved);
+      }
+      return { tabs: nextTabs };
+    }),
 
   addRepo: (info) => {
     const state = get();
