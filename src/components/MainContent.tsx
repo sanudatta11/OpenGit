@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ArrowLeft, GitCompare, ListTree } from 'lucide-react';
+import { ArrowLeft, GitCompare, ListTree, X } from 'lucide-react';
 import { GraphPane } from './graph/GraphPane';
 import { BranchCompare } from './compare/BranchCompare';
 import { CommitDetails } from './inspector/CommitDetails';
@@ -77,6 +77,7 @@ export function MainContent({ onOpenSettings }: { onOpenSettings: () => void }) 
 
 function WorkingTreeDiffContent({ path, source }: { path: string; source: 'staged' | 'unstaged' }) {
   const [diffView, setDiffView] = useState<DiffView>('side-by-side');
+  const showGraph = useRepoStore((state) => state.showGraph);
   const original = useFileContent({ path, ref: source === 'staged' ? 'HEAD' : 'INDEX' });
   const modified = useFileContent(source === 'staged' ? { path, ref: 'INDEX' } : { path });
   const error = original.error || modified.error;
@@ -88,6 +89,14 @@ function WorkingTreeDiffContent({ path, source }: { path: string; source: 'stage
         <span className="text-[10px] uppercase tracking-wider text-fg-dim">{source}</span>
         <button className={`text-xs px-2 py-1 rounded ${diffView === 'side-by-side' ? 'bg-accent/15 text-accent' : 'text-fg-muted hover:bg-bg-hover'}`} onClick={() => setDiffView('side-by-side')}>Split</button>
         <button className={`text-xs px-2 py-1 rounded ${diffView === 'unified' ? 'bg-accent/15 text-accent' : 'text-fg-muted hover:bg-bg-hover'}`} onClick={() => setDiffView('unified')}>Unified</button>
+        <div className="h-4 w-px bg-border mx-0.5" />
+        <button
+          className="icon-btn hover:text-fg"
+          onClick={showGraph}
+          title="Close diff"
+        >
+          <X className="w-4 h-4" />
+        </button>
       </div>
       <div className="flex-1 min-h-0">
         {original.isLoading || modified.isLoading ? (

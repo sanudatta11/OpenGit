@@ -27,18 +27,32 @@ export function Toolbar({ onOpenSettings }: { onOpenSettings: () => void }) {
   const hasRemote = (remotes.data?.length ?? 0) > 0;
   const defaultRemote = useMemo(() => remotes.data?.[0]?.name ?? 'origin', [remotes.data]);
   const currentBranch = branches.data?.find((b) => b.isHead);
-  const upstreamRemote = useMemo(() => {
+
+  const normalizedUpstream = useMemo(() => {
     if (!currentBranch?.upstream) return null;
-    const parts = currentBranch.upstream.split('/');
+    if (currentBranch.upstream.startsWith('refs/remotes/')) {
+      return currentBranch.upstream.slice('refs/remotes/'.length);
+    }
+    if (currentBranch.upstream.startsWith('refs/heads/')) {
+      return currentBranch.upstream.slice('refs/heads/'.length);
+    }
+    return currentBranch.upstream;
+  }, [currentBranch]);
+
+  const upstreamRemote = useMemo(() => {
+    if (!normalizedUpstream) return null;
+    const parts = normalizedUpstream.split('/');
     if (parts.length >= 2) return parts[0];
     return null;
-  }, [currentBranch]);
+  }, [normalizedUpstream]);
+
   const upstreamBranch = useMemo(() => {
-    if (!currentBranch?.upstream) return null;
-    const parts = currentBranch.upstream.split('/');
+    if (!normalizedUpstream) return null;
+    const parts = normalizedUpstream.split('/');
     if (parts.length >= 2) return parts.slice(1).join('/');
     return null;
-  }, [currentBranch]);
+  }, [normalizedUpstream]);
+
   const remoteForOps = upstreamRemote || defaultRemote;
   const branchForPush = upstreamBranch || (currentBranch?.shortName ?? '');
 

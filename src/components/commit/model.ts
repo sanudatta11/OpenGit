@@ -118,7 +118,15 @@ export function resolvePushTarget(branch: { shortName: string; upstream: string 
   branch: string;
   setUpstream: boolean;
 } {
-  const parts = branch.upstream?.split('/') ?? [];
+  let upstream = branch.upstream;
+  if (upstream) {
+    if (upstream.startsWith('refs/remotes/')) {
+      upstream = upstream.slice('refs/remotes/'.length);
+    } else if (upstream.startsWith('refs/heads/')) {
+      upstream = upstream.slice('refs/heads/'.length);
+    }
+  }
+  const parts = upstream?.split('/') ?? [];
   return {
     remote: parts[0] || 'origin',
     branch: parts.length > 1 ? parts.slice(1).join('/') : branch.shortName,

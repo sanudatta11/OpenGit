@@ -524,7 +524,10 @@ export async function pushRemote(
     reject: false,
   });
 
-  const rejected = !r.ok && /! \[rejected\]|non-fast-forward/i.test(r.stderr);
+  const rejected = !r.ok && (
+    /! \[rejected\]|non-fast-forward|fetch first|updates were rejected/i.test(r.stderr) ||
+    /! \[rejected\]|non-fast-forward|fetch first|updates were rejected/i.test(r.stdout)
+  );
   let remoteHead: string | null = null;
   if (r.ok && branch) {
     try {
