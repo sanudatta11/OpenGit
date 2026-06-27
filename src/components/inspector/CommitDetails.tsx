@@ -167,9 +167,9 @@ function FileRow({ file, selected, onClick }: { file: DiffFile; selected: boolea
   const setFileHistory = useRepoStore((s) => s.setFileHistory);
 
   return (
-    <button
+    <div
       onClick={onClick}
-      className={`w-full text-left px-3 py-1 flex items-center gap-2 border-b border-border-subtle/30 ${selected ? 'bg-accent/10' : 'row-hover'}`}
+      className={`w-full text-left px-3 py-1 flex items-center gap-2 border-b border-border-subtle/30 cursor-pointer ${selected ? 'bg-accent/10' : 'row-hover'}`}
       title={file.path}
     >
       <Icon className={`w-3.5 h-3.5 shrink-0 ${color}`} />
@@ -186,7 +186,7 @@ function FileRow({ file, selected, onClick }: { file: DiffFile; selected: boolea
         {file.deletions > 0 && <span className="text-git-deleted">-{file.deletions}</span>}
         {file.isBinary && <span className="text-fg-dim">binary</span>}
       </span>
-    </button>
+    </div>
   );
 }
 

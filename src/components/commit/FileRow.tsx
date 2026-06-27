@@ -46,11 +46,13 @@ export function FileRow({
   context,
   depth = 0,
   onDiscard,
+  onContextMenu,
 }: {
   entry: StatusEntry;
   context: FileListContext;
   depth?: number;
   onDiscard: (entry: StatusEntry) => void;
+  onContextMenu: (e: React.MouseEvent, entry: StatusEntry) => void;
 }) {
   const stage = useStage();
   const unstage = useUnstage();
@@ -75,6 +77,7 @@ export function FileRow({
       tabIndex={0}
       title={entry.path}
       onClick={() => openDiff(entry.path, context)}
+      onContextMenu={(e) => onContextMenu(e, entry)}
       onKeyDown={(event) => {
         if (event.key === 'Enter' || event.key === ' ') {
           event.preventDefault();

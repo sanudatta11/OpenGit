@@ -1,6 +1,6 @@
 // src/components/diff/DiffViewer.tsx — Monaco DiffEditor wrapper for git diffs.
 
-import { useMemo } from 'react';
+import { useMemo, useRef, useEffect } from 'react';
 import { DiffEditor } from '@monaco-editor/react';
 import type { editor } from 'monaco-editor';
 import { useThemeStore } from '../../stores/theme';
@@ -26,6 +26,17 @@ export function DiffViewer({
 }: DiffViewerProps) {
   const theme = useThemeStore((s) => s.resolved);
   const THEME = theme === 'light' ? 'opengit-light' : 'opengit-dark';
+
+  const editorRef = useRef<editor.IStandaloneDiffEditor | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (editorRef.current) {
+        editorRef.current.setModel(null);
+      }
+    };
+  }, []);
+
   const options = useMemo<editor.IDiffEditorConstructionOptions>(
     () => ({
       readOnly: true,
@@ -60,6 +71,9 @@ export function DiffViewer({
     <div className={`relative h-full w-full ${className ?? ''}`}>
       <DiffEditor
         key={view}
+        onMount={(editor) => {
+          editorRef.current = editor;
+        }}
         theme={THEME}
         original={original}
         modified={modified}
