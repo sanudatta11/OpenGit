@@ -197,7 +197,8 @@ export async function gitRun(opts: GitRunOptions): Promise<GitRunResult> {
   const stdout = typeof result.stdout === 'string' ? result.stdout : '';
   const stderr = typeof result.stderr === 'string' ? result.stderr : '';
   const exitCode = result.exitCode;
-  const ok = exitCode === 0;
+  const isCancelled = !!result.signal;
+  const ok = exitCode === 0 && !isCancelled;
 
   logStore.push({
     id: callId,
@@ -213,10 +214,12 @@ export async function gitRun(opts: GitRunOptions): Promise<GitRunResult> {
 
   if (!ok && opts.reject !== false) {
     // Caller asked to throw on failure (default). Map common failures to codes.
-    const code = classifyFailure(stderr, exitCode ?? 1);
+    const code = isCancelled ? 'Cancelled' : classifyFailure(stderr, exitCode ?? 1);
     const shape: GitErrorShape = {
       code,
-      message: `git ${opts.args[0] ?? ''} exited ${exitCode}`,
+      message: isCancelled
+        ? `git ${opts.args[0] ?? ''} was cancelled`
+        : `git ${opts.args[0] ?? ''} exited ${exitCode}`,
       stdout,
       stderr,
       friendly: friendlyFor(code, stderr),
@@ -226,7 +229,7 @@ export async function gitRun(opts: GitRunOptions): Promise<GitRunResult> {
     throw new GitError(shape);
   }
 
-  return { stdout, stderr, exitCode: exitCode ?? 1, ok };
+  return { stdout, stderr, exitCode: exitCode ?? (isCancelled ? 1 : 0), ok };
 }
 
 function classifyFailure(stderr: string, _exitCode: number): GitErrorCode {
