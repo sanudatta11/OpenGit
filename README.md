@@ -31,7 +31,7 @@ A lightweight desktop Git client for local repository workflows, built with Elec
 </p>
 
 <p align="center">
-  <img width="800" alt="OpenGit Intro" src="https://github.com/user-attachments/assets/e2333f7f-f40f-44cb-a97c-63fcd49c66df" />
+  <img width="800" alt="OpenGit Intro" src="https://github.com/user-attachments/assets/5f3dd4ed-ad36-4c94-9567-8f40048eeed1" />
 </p>
 
 
