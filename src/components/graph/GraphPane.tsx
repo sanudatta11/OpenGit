@@ -768,10 +768,10 @@ function WipGraphRow({
         <line x1={x} x2={x} y1={rowHeight / 2} y2={rowHeight} stroke={color} strokeWidth="2" opacity="0.8" />
         <circle cx={x} cy={rowHeight / 2} r="8" fill="rgb(var(--color-bg-panel))" stroke={color} strokeWidth="2" strokeDasharray="2 2" />
       </svg>
-      <div className="min-w-0 flex items-center gap-3 px-2 h-full flex-1" onClick={(e) => e.stopPropagation()}>
+      <div className="min-w-0 flex items-center gap-3 px-2 h-full" onClick={(e) => e.stopPropagation()}>
         <input
           type="text"
-          className="flex-1 bg-bg-panel/80 hover:bg-bg-panel border border-border focus:border-accent text-fg text-xs rounded px-2.5 py-1 outline-none transition-colors"
+          className="flex-1 min-w-0 bg-bg-panel/80 hover:bg-bg-panel border border-border focus:border-accent text-fg text-xs rounded px-2.5 py-1 outline-none transition-colors"
           placeholder="Commit message (Summary)..."
           value={commitSummary}
           onChange={(e) => setCommitSummary(e.target.value)}
