@@ -35,6 +35,28 @@ export function WorkingTree() {
   const composerHeightRef = useRef(composerHeight);
   composerHeightRef.current = composerHeight;
 
+  const [stagedHeight, setStagedHeight] = useState(180);
+
+  const handleSplitterDragStart = (e: React.MouseEvent) => {
+    e.preventDefault();
+    const startY = e.clientY;
+    const startHeight = stagedHeight;
+
+    const handleMouseMove = (ev: MouseEvent) => {
+      const deltaY = ev.clientY - startY;
+      const nextHeight = Math.max(60, startHeight + deltaY);
+      setStagedHeight(nextHeight);
+    };
+
+    const handleMouseUp = () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  };
+
   useEffect(() => {
     if (settings?.inspectorComposerHeight != null) {
       setComposerHeight(Math.max(settings.inspectorComposerHeight, 140));
@@ -123,7 +145,7 @@ export function WorkingTree() {
           </div>
         </div>
       </div>
-      <div className="flex-1 min-h-0 flex flex-col gap-1.5 px-2 py-1.5 overflow-hidden">
+      <div className="flex-1 min-h-0 flex flex-col px-2 py-1.5 overflow-hidden">
         {conflicts.length > 0 && (
           <Section
             title="Conflicts"
@@ -135,38 +157,47 @@ export function WorkingTree() {
             listClassName="max-h-32"
           />
         )}
-        <Section
-          title="Staged Files" count={staged.length} tone="staged"
-          entries={staged}
-          selectedPath={selectedFile?.path ?? null}
-          actions={staged.length > 0 ? <UnstageAllButton prominent /> : undefined}
-          onDiscard={setConfirmEntry}
-          emptyMessage="No staged files"
-          emptyHint="Stage files from the sections below to prepare your next commit."
-          listClassName="max-h-32"
+        <div style={{ height: stagedHeight }} className="shrink-0 flex flex-col min-h-[60px]">
+          <Section
+            title="Staged Files" count={staged.length} tone="staged"
+            entries={staged}
+            selectedPath={selectedFile?.path ?? null}
+            actions={staged.length > 0 ? <UnstageAllButton prominent /> : undefined}
+            onDiscard={setConfirmEntry}
+            emptyMessage="No staged files"
+            emptyHint="Stage files from the sections below to prepare your next commit."
+            fill
+          />
+        </div>
+        <div
+          className="h-1 hover:h-1.5 bg-border/40 hover:bg-accent/40 cursor-row-resize transition-all shrink-0 rounded-sm my-0.5"
+          onMouseDown={handleSplitterDragStart}
+          title="Drag to resize Staged / Unstaged split"
         />
-        <Section
-          title="Unstaged Files" count={unstaged.length} tone="unstaged"
-          entries={unstaged}
-          selectedPath={selectedFile?.path ?? null}
-          actions={unstaged.length > 0 ? <StageAllButton prominent /> : undefined}
-          onDiscard={setConfirmEntry}
-          emptyMessage={status.data.isClean ? 'Working tree clean' : 'No unstaged tracked files'}
-          emptyHint={status.data.isClean ? 'Open, edit, or create files in this repository and they will appear here.' : 'Tracked changes will appear here until you stage them.'}
-          fill
-        />
-        <Section
-          title="Untracked Files"
-          count={untracked.length}
-          tone="untracked"
-          entries={untracked}
-          selectedPath={selectedFile?.path ?? null}
-          onDiscard={setConfirmEntry}
-          emptyMessage="No untracked files"
-          emptyHint="New files will appear here before they are staged."
-          collapsibleWhenEmpty
-          listClassName="max-h-48"
-        />
+        <div className="flex-1 min-h-0 flex flex-col gap-1.5 px-0 py-0">
+          <Section
+            title="Unstaged Files" count={unstaged.length} tone="unstaged"
+            entries={unstaged}
+            selectedPath={selectedFile?.path ?? null}
+            actions={unstaged.length > 0 ? <StageAllButton prominent /> : undefined}
+            onDiscard={setConfirmEntry}
+            emptyMessage={status.data.isClean ? 'Working tree clean' : 'No unstaged tracked files'}
+            emptyHint={status.data.isClean ? 'Open, edit, or create files in this repository and they will appear here.' : 'Tracked changes will appear here until you stage them.'}
+            fill
+          />
+          <Section
+            title="Untracked Files"
+            count={untracked.length}
+            tone="untracked"
+            entries={untracked}
+            selectedPath={selectedFile?.path ?? null}
+            onDiscard={setConfirmEntry}
+            emptyMessage="No untracked files"
+            emptyHint="New files will appear here before they are staged."
+            collapsibleWhenEmpty
+            listClassName="max-h-48"
+          />
+        </div>
       </div>
       <div
         className="wk-composer-resizer"
@@ -536,8 +567,10 @@ export function WorkingTreeDiff({ entry, view }: { entry: StatusEntry; view: Dif
 }
 
 function CommitForm() {
-  const [summary, setSummary] = useState('');
-  const [description, setDescription] = useState('');
+  const summary = useRepoStore((s) => s.commitSummary);
+  const setSummary = useRepoStore((s) => s.setCommitSummary);
+  const description = useRepoStore((s) => s.commitDescription);
+  const setDescription = useRepoStore((s) => s.setCommitDescription);
   const [amend, setAmend] = useState(false);
   const [signCommit, setSignCommit] = useState(false);
   const [noVerify, setNoVerify] = useState(false);

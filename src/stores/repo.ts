@@ -102,6 +102,10 @@ interface RepoStore {
   completeRepoSwitch: () => void;
   failRepoSwitch: () => void;
   resetTransientViewState: () => void;
+  commitSummary: string;
+  commitDescription: string;
+  setCommitSummary: (val: string) => void;
+  setCommitDescription: (val: string) => void;
 }
 
 function makeDashboardTabId(sequence: number): string {
@@ -383,6 +387,8 @@ export const useRepoStore = create<RepoStore>((set, get) => ({
     fileHistoryPath: null,
     logDrawerOpen: false,
     mainView: { kind: 'graph' },
+    commitSummary: '',
+    commitDescription: '',
   }),
   markRepoSwitchSettling: () => set((s) => (
     s.isSwitchingRepo
@@ -405,7 +411,13 @@ export const useRepoStore = create<RepoStore>((set, get) => ({
     fileHistoryPath: null,
     logDrawerOpen: false,
     mainView: { kind: 'graph' },
+    commitSummary: '',
+    commitDescription: '',
   }),
+  commitSummary: '',
+  commitDescription: '',
+  setCommitSummary: (val) => set({ commitSummary: val }),
+  setCommitDescription: (val) => set({ commitDescription: val }),
 }));
 
 const commitCache = new Map<string, Commit>();

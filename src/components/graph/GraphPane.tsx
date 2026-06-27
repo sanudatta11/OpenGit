@@ -4,8 +4,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../ipc/api';
 import type { SettingsData } from '@shared/ipc';
 import type { GraphRow as GraphLayoutRow } from '../../graph/layout';
-import { useLog } from '../../queries/useRepo';
+import { useLog, useStatus } from '../../queries/useRepo';
 import { useRepoStore, cacheCommits } from '../../stores/repo';
+import { useToastStore } from '../../stores/toast';
 import { useGraphFilterStore } from '../../stores/graphFilter';
 import { compileGraphLayout } from '../../graph/layout';
 import { colorWithAlpha, graphColorByKey, laneColorByIndex } from '../../graph/colors';
@@ -28,7 +29,7 @@ import {
 } from '../../graph/rowLayout';
 import { GitCommit, Search, X, EyeOff, Eye, Clock, ShieldAlert, GitCompare, ListTree } from 'lucide-react';
 import { GitError } from '@shared/ipc';
-import { useCheckout, useCreateBranch, useCherryPick, useRevert, useReset, useRebase, useMerge } from '../../queries/useMutations';
+import { useCommit, useCheckout, useCreateBranch, useCherryPick, useRevert, useReset, useRebase, useMerge } from '../../queries/useMutations';
 import { ConfirmDialog } from '../ConfirmDialog';
 import { BranchBadge } from './decorations/BranchBadge';
 import { TagBadge } from './decorations/TagBadge';
@@ -728,9 +729,33 @@ function WipGraphRow({
 }) {
   const x = laneX(lane);
   const color = graphColorByKey(colorKey);
+
+  const commitSummary = useRepoStore((s) => s.commitSummary);
+  const setCommitSummary = useRepoStore((s) => s.setCommitSummary);
+  const commit = useCommit();
+  const status = useStatus();
+  const hasStaged = (status.data?.entries ?? []).some((e) => e.staged);
+
+  const handleGraphCommit = () => {
+    const message = commitSummary.trim();
+    if (!message || !hasStaged) return;
+    commit.mutate(
+      { message, amend: false, signoff: false, noVerify: false },
+      {
+        onSuccess: () => {
+          setCommitSummary('');
+          useToastStore.getState().addToast('Commit created successfully', 'success');
+        },
+        onError: (err) => {
+          useToastStore.getState().addToast(`Commit failed: ${(err as Error).message}`, 'error');
+        }
+      }
+    );
+  };
+
   return (
-    <button
-      className="w-full text-left border-b border-border bg-gradient-to-r from-git-modified/10 via-accent/5 to-transparent hover:bg-bg-hover/60 transition-colors"
+    <div
+      className="w-full text-left border-b border-border bg-gradient-to-r from-git-modified/10 via-accent/5 to-transparent hover:bg-bg-hover/60 transition-colors cursor-pointer"
       style={{ height: rowHeight, display: 'grid', gridTemplateColumns: graphRowTemplateColumns(graphWidth, density) }}
       onClick={onClick}
       title="Working tree changes — open commit panel"
@@ -740,14 +765,40 @@ function WipGraphRow({
         <line x1={x} x2={x} y1={rowHeight / 2} y2={rowHeight} stroke={color} strokeWidth="2" opacity="0.8" />
         <circle cx={x} cy={rowHeight / 2} r="8" fill="rgb(var(--color-bg-panel))" stroke={color} strokeWidth="2" strokeDasharray="2 2" />
       </svg>
-      <span className="min-w-0 flex items-center gap-3 px-2">
-        <span className="font-mono text-sm italic text-fg-muted truncate">// WIP</span>
-        <span className="inline-flex items-center gap-2 text-xs font-semibold">
-          {modifications > 0 && <span className="text-git-modified">✎ {modifications}</span>}
-          {additions > 0 && <span className="text-git-added">+ {additions}</span>}
-        </span>
-      </span>
-    </button>
+      <div className="min-w-0 flex items-center justify-between gap-3 px-2">
+        <div className="flex items-center gap-3 flex-1 min-w-0">
+          <span className="font-mono text-sm italic text-fg-muted truncate shrink-0">// WIP</span>
+          <span className="inline-flex items-center gap-2 text-xs font-semibold shrink-0">
+            {modifications > 0 && <span className="text-git-modified">✎ {modifications}</span>}
+            {additions > 0 && <span className="text-git-added">+ {additions}</span>}
+          </span>
+          <div className="flex-1 max-w-md flex items-center gap-1.5 ml-2" onClick={(e) => e.stopPropagation()}>
+            <input
+              type="text"
+              className="flex-1 bg-bg-panel/80 hover:bg-bg-panel border border-border focus:border-accent text-fg text-xs rounded px-2 py-1 outline-none transition-colors"
+              placeholder="Commit message (Summary)..."
+              value={commitSummary}
+              onChange={(e) => setCommitSummary(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  handleGraphCommit();
+                }
+              }}
+              disabled={commit.isPending}
+            />
+            <button
+              className="btn btn-primary !px-2.5 !py-1 !text-xxs font-bold shrink-0 uppercase tracking-wider disabled:opacity-40 disabled:cursor-not-allowed"
+              disabled={commit.isPending || !commitSummary.trim() || !hasStaged}
+              onClick={handleGraphCommit}
+              title={!hasStaged ? "Stage changes first to commit" : "Commit staged changes (Enter)"}
+            >
+              Commit
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 
