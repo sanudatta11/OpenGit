@@ -783,53 +783,25 @@ function WipGraphRow({
           }}
           disabled={commit.isPending}
         />
-        <span className="inline-flex items-center gap-2 text-xs font-semibold shrink-0 select-none mr-2">
+        <span className="inline-flex items-center gap-2 text-xs font-semibold shrink-0 select-none">
           {modifications > 0 && <span className="text-git-modified">✎ {modifications}</span>}
           {additions > 0 && <span className="text-git-added">+ {additions}</span>}
         </span>
-        {isDetailed && (
-          <button
-            className="btn btn-primary !px-2.5 !py-1 !text-xxs font-bold shrink-0 uppercase tracking-wider disabled:opacity-40"
-            disabled={commit.isPending || !commitSummary.trim() || !hasStaged}
-            onClick={handleGraphCommit}
-            title={!hasStaged ? "Stage changes first to commit" : "Commit staged changes (Enter)"}
-          >
-            Commit
-          </button>
-        )}
+        <button
+          className="btn btn-primary !px-2.5 !py-1 !text-xxs font-bold shrink-0 uppercase tracking-wider disabled:opacity-40"
+          disabled={commit.isPending || !commitSummary.trim() || !hasStaged}
+          onClick={handleGraphCommit}
+          title={!hasStaged ? "Stage changes first to commit" : "Commit staged changes (Enter)"}
+        >
+          Commit
+        </button>
       </div>
 
-      {!isDetailed && (
-        isCompact ? (
-          <div className="flex items-center justify-end px-2" onClick={(e) => e.stopPropagation()}>
-            <button
-              className="btn btn-primary !px-2.5 !py-1 !text-xxs font-bold shrink-0 uppercase tracking-wider disabled:opacity-40"
-              disabled={commit.isPending || !commitSummary.trim() || !hasStaged}
-              onClick={handleGraphCommit}
-              title={!hasStaged ? "Stage changes first to commit" : "Commit staged changes (Enter)"}
-            >
-              Commit
-            </button>
-          </div>
-        ) : (
-          <div />
-        )
-      )}
+      {!isDetailed && <div />}
 
       {!isDetailed && !isCompact && <div />}
 
-      {!isDetailed && !isCompact && (
-        <div className="flex items-center justify-end px-2" onClick={(e) => e.stopPropagation()}>
-          <button
-            className="btn btn-primary !px-2.5 !py-1 !text-xxs font-bold shrink-0 uppercase tracking-wider disabled:opacity-40"
-            disabled={commit.isPending || !commitSummary.trim() || !hasStaged}
-            onClick={handleGraphCommit}
-            title={!hasStaged ? "Stage changes first to commit" : "Commit staged changes (Enter)"}
-          >
-            Commit
-          </button>
-        </div>
-      )}
+      {!isDetailed && !isCompact && <div />}
     </div>
   );
 }
