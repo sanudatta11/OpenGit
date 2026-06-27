@@ -54,6 +54,17 @@ export function compileGraphLayout(commits: Commit[]): GraphLayoutResult {
     if (localBranch) branchBySha.set(commit.sha, localBranch.shortName);
   }
 
+  // Propagate branch name backwards along the first-parent line to keep branch lines in uniform colors
+  for (const commit of commits) {
+    const currentBranchName = branchBySha.get(commit.sha);
+    if (currentBranchName && commit.parents.length > 0) {
+      const firstParentSha = commit.parents[0]!;
+      if (!branchBySha.has(firstParentSha)) {
+        branchBySha.set(firstParentSha, currentBranchName);
+      }
+    }
+  }
+
   for (let rowIndex = 0; rowIndex < commits.length; rowIndex++) {
     const commit = commits[rowIndex]!;
     const localBranch = branchBySha.get(commit.sha);

@@ -47,13 +47,15 @@ function startRepoWatcher(gitDir: string, workTreeRoot: string, win: BrowserWind
     watcher: chokidar.watch(paths, {
       ignoreInitial: true,
       awaitWriteFinish: { stabilityThreshold: 50, pollInterval: 20 },
-    }),
+      dot: true,
+    } as any),
     workWatcher: chokidar.watch('.', {
       cwd: workTreeRoot,
       ignoreInitial: true,
       ignored: /(\.git\/|node_modules|\.next)/,
       depth: 0,
-    }),
+      dot: true,
+    } as any),
     debounceTimer: null,
     pendingKinds: new Set(),
   };
