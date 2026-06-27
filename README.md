@@ -6,8 +6,32 @@
 
 A lightweight desktop Git client for local repository workflows, built with Electron, React, Vite, and TypeScript.
 
-![Dark graph-first workspace](https://img.shields.io/badge/status-alpha-orange)
-![Tests](https://img.shields.io/badge/tests-53%20passing-brightgreen)
+![Status Badge](https://img.shields.io/badge/status-alpha-orange)
+![Tests Badge](https://img.shields.io/badge/tests-131%20passing-brightgreen)
+
+---
+
+## Screenshots
+
+### 1. Workspace & Commit Graph
+Interactive branch visualization with clean coloring lanes, commit overview, and tabbed workspace management.
+<p align="center">
+  <img width="800" alt="OpenGit Workspace Graph" src="https://github.com/user-attachments/assets/84618bc9-385b-4177-906f-8a0032154f0d" />
+</p>
+
+### 2. Side-by-Side Diff Viewer
+Robust Monaco-powered comparison engine showing file diffs, additions, deletions, and stage toggle options.
+<p align="center">
+  <img width="800" alt="OpenGit Diff Viewer" src="https://github.com/user-attachments/assets/5f3dd4ed-ad36-4c94-9567-8f40048eeed1" />
+</p>
+
+### 3. Sidebar Actions & Stashing
+A clean staging environment, interactive file context menus, stash management, and status indicator marks.
+<p align="center">
+  <img width="800" alt="OpenGit Sidebar Details" src="https://github.com/user-attachments/assets/e4cf9813-c3bb-4378-b52e-41286ecb35f7" />
+</p>
+
+---
 
 ## Features
 
@@ -24,20 +48,7 @@ A lightweight desktop Git client for local repository workflows, built with Elec
 - **Settings** — configure git binary path, diff view, context lines, recent repositories
 - **Keyboard shortcuts** — Ctrl+Enter to commit, Ctrl+L for log, Ctrl+, for settings
 
-## Screenshot
-
-<p align="center">
-  <img width="800" alt="OpenGit Intro" src="https://github.com/user-attachments/assets/84618bc9-385b-4177-906f-8a0032154f0d" />
-</p>
-
-<p align="center">
-  <img width="800" alt="OpenGit Intro" src="https://github.com/user-attachments/assets/5f3dd4ed-ad36-4c94-9567-8f40048eeed1" />
-</p>
-
-<p align="center">
-  <img width="800" alt="OpenGit Intro" src="https://github.com/user-attachments/assets/e4cf9813-c3bb-4378-b52e-41286ecb35f7" />
-</p>
-
+---
 
 ## Quick Start
 
@@ -56,10 +67,12 @@ npm run dev
 | `npm run dev` | Start in development mode with HMR |
 | `npm run build` | Build for production |
 | `npm start` | Preview production build |
-| `npm test` | Run 53 unit + integration tests |
+| `npm test` | Run 131 unit + integration tests |
 | `npm run typecheck` | TypeScript type-check |
 | `npm run lint` | ESLint |
 | `npm run package` | Build distributables (dmg/nsis/AppImage) |
+
+---
 
 ## Architecture
 
@@ -92,7 +105,9 @@ opengit/
 | Diff viewer | Monaco Editor 0.55 + @monaco-editor/react 4.7 |
 | IPC validation | Zod 3 |
 | Icons | Lucide React |
-| Tests | Vitest 2 (53 tests against temp git repos) |
+| Tests | Vitest 2 (131 tests against temp git repos) |
+
+---
 
 ## Safety Model
 
@@ -101,6 +116,8 @@ opengit/
 - Detects in-progress git states (merge, rebase, cherry-pick, revert, bisect) with recovery buttons
 - All git errors surfaced with raw command output + friendly explanation
 - Operation log records every git command for audit
+
+---
 
 ## License
 
