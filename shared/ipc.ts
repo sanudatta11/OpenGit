@@ -31,6 +31,12 @@ export const IPC = {
   WORKING_TREE_DISCARD_ALL_UNSTAGED: 'workingTree:discardAllUnstaged',
   WORKING_TREE_STAGE_HUNKS: 'workingTree:stageHunks',
   WORKING_TREE_UNSTAGE_HUNKS: 'workingTree:unstageHunks',
+  WORKING_TREE_IGNORE: 'workingTree:ignore',
+  WORKING_TREE_STASH_FILE: 'workingTree:stashFile',
+  WORKING_TREE_CREATE_PATCH: 'workingTree:createPatch',
+  WORKING_TREE_DELETE_FILE: 'workingTree:deleteFile',
+  WORKING_TREE_OPEN_IN_EDITOR: 'workingTree:openInEditor',
+  SHELL_SHOW_ITEM_IN_FOLDER: 'shell:showItemInFolder',
 
   COMMIT_CREATE: 'commit:create',
   COMMIT_AMEND: 'commit:amend',

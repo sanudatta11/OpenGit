@@ -1,6 +1,6 @@
 // electron/main/ipc/repo.ts — repo read handlers. Phase 1 scope.
 
-import { ipcMain, dialog } from 'electron';
+import { ipcMain, dialog, shell } from 'electron';
 import { IPC, RepoOpenInput, RepoCloseInput, RepoLogInput, RepoCreateInput, RepoCloneInput, RepoSearchInput } from '@shared/ipc';
 import { GitError } from '@shared/ipc';
 import {
@@ -19,6 +19,11 @@ import { setCurrentRepo, getCurrentRepo, requireCurrentRepo, switchActiveRepo, r
 import { addRecentRepo, removeRecentRepo, addOpenRepo, removeOpenRepo } from '../settings';
 import { startWatching, stopWatching } from '../watcher';
 import { BrowserWindow } from 'electron';
+import { gitRun, gitText } from '../git/client';
+import { z } from 'zod';
+import { appendFileSync, writeFileSync, existsSync, rmSync } from 'node:fs';
+import { join, relative, basename } from 'node:path';
+import { exec } from 'node:child_process';
 
 export function registerRepoHandlers(): void {
   ipcMain.handle('dialog:pickRepo', async () => {
@@ -196,6 +201,88 @@ export function registerRepoHandlers(): void {
     const path = typeof raw === 'string' ? raw : requireCurrentRepo().workTreeRoot;
     await trustRepoPath(path);
     invalidateCache();
+    return { success: true };
+  });
+
+  ipcMain.handle(IPC.WORKING_TREE_IGNORE, async (_e, raw) => {
+    const { repoPath, pattern } = z.object({ repoPath: z.string(), pattern: z.string() }).parse(raw);
+    const gitignorePath = join(repoPath, '.gitignore');
+    appendFileSync(gitignorePath, `\n${pattern}\n`, 'utf8');
+    return { success: true };
+  });
+
+  ipcMain.handle(IPC.WORKING_TREE_STASH_FILE, async (_e, raw) => {
+    const { repoPath, filePath } = z.object({ repoPath: z.string(), filePath: z.string() }).parse(raw);
+    const relativePath = relative(repoPath, filePath).replace(/\\/g, '/');
+    const result = await gitRun({
+      cwd: repoPath,
+      args: ['stash', 'push', '-m', `Stashed file: ${relativePath}`, '--', relativePath],
+      channel: 'workingTree:stashFile',
+    });
+    if (result.exitCode !== 0) {
+      throw new Error(result.stderr || 'Failed to stash file');
+    }
+    return { success: true };
+  });
+
+  ipcMain.handle(IPC.WORKING_TREE_CREATE_PATCH, async (_e, raw) => {
+    const { repoPath, filePath } = z.object({ repoPath: z.string(), filePath: z.string() }).parse(raw);
+    const relativePath = relative(repoPath, filePath).replace(/\\/g, '/');
+    const diffText = await gitText({
+      cwd: repoPath,
+      args: ['diff', '--', relativePath],
+      channel: 'workingTree:createPatch',
+    });
+
+    const win = BrowserWindow.getFocusedWindow();
+    if (!win) throw new Error('No active window');
+
+    const defaultName = `${basename(filePath)}.patch`;
+    const { filePath: savePath } = await dialog.showSaveDialog(win, {
+      title: 'Save Patch File',
+      defaultPath: join(repoPath, defaultName),
+      filters: [{ name: 'Patch Files', extensions: ['patch'] }],
+    });
+
+    if (!savePath) return { success: false, cancelled: true };
+
+    writeFileSync(savePath, diffText, 'utf8');
+    return { success: true };
+  });
+
+  ipcMain.handle(IPC.WORKING_TREE_DELETE_FILE, async (_e, raw) => {
+    const { repoPath, filePath, staged } = z.object({ repoPath: z.string(), filePath: z.string(), staged: z.boolean() }).parse(raw);
+    const relativePath = relative(repoPath, filePath).replace(/\\/g, '/');
+
+    if (existsSync(filePath)) {
+      rmSync(filePath, { force: true });
+    }
+
+    if (staged) {
+      await gitRun({
+        cwd: repoPath,
+        args: ['rm', '--cached', '-f', '--', relativePath],
+        channel: 'workingTree:deleteFile',
+      });
+    } else {
+      await gitRun({
+        cwd: repoPath,
+        args: ['add', '-A', '--', relativePath],
+        channel: 'workingTree:deleteFile',
+      });
+    }
+    return { success: true };
+  });
+
+  ipcMain.handle(IPC.WORKING_TREE_OPEN_IN_EDITOR, async (_e, raw) => {
+    const { filePath, editor } = z.object({ filePath: z.string(), editor: z.string().nullable() }).parse(raw);
+    let editorCommand = editor || 'code';
+    const cmd = `"${editorCommand}" "${filePath}"`;
+    exec(cmd, (err) => {
+      if (err) {
+        void shell.openPath(filePath);
+      }
+    });
     return { success: true };
   });
 }

@@ -135,6 +135,16 @@ const api = {
       ipcRenderer.invoke(IPC.WORKING_TREE_STAGE_HUNKS, { path, patch }),
     unstageHunks: (path: string, patch: string): Promise<WriteResult> =>
       ipcRenderer.invoke(IPC.WORKING_TREE_UNSTAGE_HUNKS, { path, patch }),
+    ignore: (repoPath: string, pattern: string): Promise<WriteResult> =>
+      ipcRenderer.invoke(IPC.WORKING_TREE_IGNORE, { repoPath, pattern }),
+    stashFile: (repoPath: string, filePath: string): Promise<WriteResult> =>
+      ipcRenderer.invoke(IPC.WORKING_TREE_STASH_FILE, { repoPath, filePath }),
+    createPatch: (repoPath: string, filePath: string): Promise<{ success: boolean; cancelled?: boolean }> =>
+      ipcRenderer.invoke(IPC.WORKING_TREE_CREATE_PATCH, { repoPath, filePath }),
+    deleteFile: (repoPath: string, filePath: string, staged: boolean): Promise<WriteResult> =>
+      ipcRenderer.invoke(IPC.WORKING_TREE_DELETE_FILE, { repoPath, filePath, staged }),
+    openInEditor: (filePath: string, editor: string | null): Promise<WriteResult> =>
+      ipcRenderer.invoke(IPC.WORKING_TREE_OPEN_IN_EDITOR, { filePath, editor }),
   },
 
   commit: {
@@ -321,6 +331,8 @@ const api = {
   shell: {
     openPath: (path: string): Promise<{ success: boolean }> =>
       ipcRenderer.invoke(IPC.SHELL_OPEN_PATH, { path }),
+    showItemInFolder: (filePath: string): Promise<{ success: boolean }> =>
+      ipcRenderer.invoke(IPC.SHELL_SHOW_ITEM_IN_FOLDER, { filePath }),
   },
 
   submodule: {

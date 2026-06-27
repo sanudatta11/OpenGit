@@ -27,4 +27,10 @@ export function registerShellHandlers(): void {
     }
     return { success: true };
   });
+
+  ipcMain.handle(IPC.SHELL_SHOW_ITEM_IN_FOLDER, async (_e, raw) => {
+    const { filePath } = require('zod').z.object({ filePath: require('zod').z.string() }).parse(raw);
+    shell.showItemInFolder(filePath);
+    return { success: true };
+  });
 }

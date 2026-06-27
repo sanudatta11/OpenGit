@@ -24,7 +24,8 @@ export function Inspector() {
   const selectCommit = useRepoStore((s) => s.selectCommit);
   const [contextTab, setContextTab] = useState<ContextTab>('details');
   const [diffView, setDiffView] = useState<'side-by-side' | 'unified'>('side-by-side');
-  const [blameActive, setBlameActive] = useState(false);
+  const blameActive = useRepoStore((s) => s.blameActive);
+  const setBlameActive = useRepoStore((s) => s.setBlameActive);
   const containerRef = useRef<HTMLDivElement>(null);
   const [containerHeight, setContainerHeight] = useState(0);
   const { data: settings } = useQuery({

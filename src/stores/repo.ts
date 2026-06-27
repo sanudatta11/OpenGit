@@ -85,6 +85,9 @@ interface RepoStore {
   fileHistoryPath: string | null;
   setFileHistory: (path: string | null) => void;
 
+  blameActive: boolean;
+  setBlameActive: (val: boolean) => void;
+
   logDrawerOpen: boolean;
   toggleLogDrawer: (open?: boolean) => void;
 
@@ -366,6 +369,9 @@ export const useRepoStore = create<RepoStore>((set, get) => ({
   fileHistoryPath: null,
   setFileHistory: (path) => set({ fileHistoryPath: path }),
 
+  blameActive: false,
+  setBlameActive: (val) => set({ blameActive: val }),
+
   logDrawerOpen: false,
   toggleLogDrawer: (open) => set((s) => ({ logDrawerOpen: open ?? !s.logDrawerOpen })),
 
@@ -409,6 +415,7 @@ export const useRepoStore = create<RepoStore>((set, get) => ({
     selectedCommitSha: null,
     selectedFile: null,
     fileHistoryPath: null,
+    blameActive: false,
     logDrawerOpen: false,
     mainView: { kind: 'graph' },
     commitSummary: '',
