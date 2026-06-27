@@ -7,23 +7,30 @@ import type { RepoInfo } from '@shared/git';
 const repos = new Map<string, OpenedRepo>();
 let activePath: string | null = null;
 
+function normalizePath(p: string): string {
+  return p.replace(/\\/g, '/').toLowerCase();
+}
+
 // ── New multi-repo API ──────────────────────────────────────────────────────
 
 export function addRepo(opened: OpenedRepo): void {
-  repos.set(opened.info.path, opened);
-  activePath = opened.info.path;
+  const normPath = normalizePath(opened.info.path);
+  repos.set(normPath, opened);
+  activePath = normPath;
 }
 
 export function switchActiveRepo(path: string): void {
-  if (!repos.has(path)) throw new Error(`Repository not open: ${path}`);
+  const normPath = normalizePath(path);
+  if (!repos.has(normPath)) throw new Error(`Repository not open: ${path}`);
   cancelAll();
-  activePath = path;
+  activePath = normPath;
 }
 
 export function removeRepo(path: string): OpenedRepo | undefined {
-  const removed = repos.get(path);
-  repos.delete(path);
-  if (activePath === path) {
+  const normPath = normalizePath(path);
+  const removed = repos.get(normPath);
+  repos.delete(normPath);
+  if (activePath === normPath) {
     activePath = repos.keys().next().value ?? null;
     if (activePath) cancelAll();
   }
@@ -35,7 +42,7 @@ export function getOpenRepoInfos(): RepoInfo[] {
 }
 
 export function getRepo(path: string): OpenedRepo | undefined {
-  return repos.get(path);
+  return repos.get(normalizePath(path));
 }
 
 // ── Backward-compatible single-repo API ─────────────────────────────────────

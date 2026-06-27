@@ -367,7 +367,7 @@ export function GraphPane() {
         <div className="flex-1 max-w-md relative flex items-center">
           <input
             className="input w-full pl-7 pr-7"
-            placeholder="Search commits (e.g. author:sanu file:package.json)..."
+            placeholder="Search commits (e.g. author:username file:package.json)..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
