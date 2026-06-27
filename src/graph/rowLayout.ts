@@ -138,12 +138,12 @@ export function graphRowTemplateColumns(graphWidth: number, density: GraphDensit
   const refRailWidth = graphRefRailWidth(density);
   switch (density) {
     case 'compact':
-      return `${refRailWidth}px ${graphWidth}px minmax(280px,1fr) 80px`;
+      return `${refRailWidth}px ${graphWidth}px minmax(100px,1fr) 80px`;
     case 'detailed':
-      return `${refRailWidth}px ${graphWidth}px minmax(420px,1fr)`;
+      return `${refRailWidth}px ${graphWidth}px minmax(100px,1fr)`;
     case 'comfortable':
     default:
-      return `${refRailWidth}px ${graphWidth}px minmax(420px,1fr) 112px 80px 64px`;
+      return `${refRailWidth}px ${graphWidth}px minmax(100px,1fr) 112px 80px 64px`;
   }
 }
 
