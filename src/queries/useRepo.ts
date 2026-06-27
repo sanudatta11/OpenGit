@@ -75,8 +75,31 @@ export function useSwitchRepo() {
       ]);
       completeRepoSwitch();
     },
-    onError: () => {
+    onError: (_err, path) => {
       failRepoSwitch();
+      const state = useRepoStore.getState();
+      const tab = state.tabs.find((entry) => entry.kind === 'repo' && entry.repoPath === path);
+      if (tab) {
+        state.closeTab(tab.id);
+        clearRepoCommitCache(path);
+        clearRepoBoundQueries(qc, path);
+        void api.repo.close(path).catch(() => {});
+        
+        const nextActivePath = useRepoStore.getState().activeRepo?.path ?? null;
+        if (nextActivePath) {
+          void api.repo.setActive(nextActivePath)
+            .then(() => {
+              void Promise.allSettled([
+                qc.invalidateQueries({ queryKey: qk.status(nextActivePath) }),
+                qc.invalidateQueries({ queryKey: qk.branches(nextActivePath) }),
+                qc.invalidateQueries({ queryKey: qk.state(nextActivePath) }),
+                qc.invalidateQueries({ queryKey: qk.remotes(nextActivePath) }),
+                qc.invalidateQueries({ queryKey: qk.log(undefined, 0, 200, undefined, nextActivePath) }),
+              ]);
+            })
+            .catch(() => {});
+        }
+      }
     },
   });
 }
