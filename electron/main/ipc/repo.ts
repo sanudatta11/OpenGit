@@ -1,7 +1,7 @@
 // electron/main/ipc/repo.ts — repo read handlers. Phase 1 scope.
 
 import { ipcMain, dialog } from 'electron';
-import { IPC, RepoOpenInput, RepoLogInput, RepoCreateInput, RepoCloneInput, RepoSearchInput } from '@shared/ipc';
+import { IPC, RepoOpenInput, RepoCloseInput, RepoLogInput, RepoCreateInput, RepoCloneInput, RepoSearchInput } from '@shared/ipc';
 import { GitError } from '@shared/ipc';
 import {
   openRepo,
@@ -102,12 +102,13 @@ export function registerRepoHandlers(): void {
     }
   });
 
-  ipcMain.handle(IPC.REPO_CLOSE, async () => {
-    const r = getCurrentRepo();
-    if (r) {
-      removeSessionRepo(r.info.path);
-      removeOpenRepo(r.info.path);
-      void stopWatching(r.info.path);
+  ipcMain.handle(IPC.REPO_CLOSE, async (_e, raw) => {
+    const parsed = RepoCloseInput.safeParse(raw);
+    if (!parsed.success) throw badInput(parsed.error.message, 'Invalid request to close a repo.');
+    const removed = removeSessionRepo(parsed.data.path);
+    if (removed) {
+      removeOpenRepo(removed.info.path);
+      void stopWatching(removed.info.path);
     }
     return { success: true };
   });

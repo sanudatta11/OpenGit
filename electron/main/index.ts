@@ -129,14 +129,19 @@ app.whenReady().then(async () => {
   // 2. Register IPC handlers.
   registerAllHandlers();
 
-  // 3. Reopen persisted repos from previous session.
+  // 3. Reopen only the last active repo from the persisted tab session.
   const settings = loadSettings();
-  for (const path of settings.openRepos) {
+  const activeTab = settings.tabSession?.tabs.find((tab) => tab.id === settings.tabSession?.activeTabId);
+  const activeRepoPath = activeTab?.kind === 'repo'
+    ? activeTab.repoPath
+    : settings.openRepos[settings.openRepos.length - 1] ?? null;
+
+  if (activeRepoPath) {
     try {
-      const opened = await openRepo(path);
+      const opened = await openRepo(activeRepoPath);
       addRepo(opened);
     } catch (err) {
-      console.warn('[opengit] failed to reopen repo:', path, (err as Error).message);
+      console.warn('[opengit] failed to reopen repo:', activeRepoPath, (err as Error).message);
     }
   }
 
@@ -158,10 +163,10 @@ app.whenReady().then(async () => {
     }
   }
 
-  // 6. Start watchers for auto-reopened repos.
-  for (const repoPath of settings.openRepos) {
-    const r = getRepo(repoPath);
-    if (r) startWatching(r.gitDir, r.workTreeRoot, win, repoPath);
+  // 6. Start watcher for the eager auto-reopened repo only.
+  if (activeRepoPath) {
+    const r = getRepo(activeRepoPath);
+    if (r) startWatching(r.gitDir, r.workTreeRoot, win, activeRepoPath);
   }
 
   // 7. Start auto-updater (only in packaged builds; dev has no app-update.yml).

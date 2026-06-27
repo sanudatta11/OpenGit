@@ -1,21 +1,24 @@
-// src/components/LaunchPanel.tsx — repository entry and lifecycle panel.
+// src/components/LaunchPanel.tsx — dashboard / repository entry panel.
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertTriangle, Download, FolderOpen, FolderPlus, Loader2, Settings, Trash2 } from 'lucide-react';
+import { AlertTriangle, Download, FolderOpen, FolderPlus, Loader2, Search, Settings, Trash2 } from 'lucide-react';
 import { api } from '../ipc/api';
 import { useRepoStore } from '../stores/repo';
 import { GitError } from '@shared/ipc';
-import { TitleBar } from './header/TitleBar';
+import { rankKnownRepos, type KnownRepoEntry } from './dashboard/search';
 
 type Mode = 'open' | 'clone' | 'create';
 
 export function LaunchPanel({ onOpenSettings }: { onOpenSettings: () => void }) {
   const qc = useQueryClient();
   const addRepo = useRepoStore((s) => s.addRepo);
+  const focusRepoTab = useRepoStore((s) => s.focusRepoTab);
+  const tabs = useRepoStore((s) => s.tabs);
   const [mode, setMode] = useState<Mode>('open');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const recent = useQuery({
     queryKey: ['recentRepos'],
@@ -34,6 +37,7 @@ export function LaunchPanel({ onOpenSettings }: { onOpenSettings: () => void }) 
   };
 
   const openPath = async (path: string) => {
+    if (focusRepoTab(path)) return;
     setBusy(true);
     setError(null);
     try {
@@ -52,18 +56,52 @@ export function LaunchPanel({ onOpenSettings }: { onOpenSettings: () => void }) 
     if (path) await openPath(path);
   };
 
+  const knownRepos = useMemo<KnownRepoEntry[]>(() => {
+    const openRepoEntries = tabs
+      .filter((tab) => tab.kind === 'repo')
+      .map((tab) => ({
+        path: tab.repoPath,
+        name: tab.repoPath.split('/').pop() ?? tab.repoPath,
+        isOpen: true,
+        recencyRank: 0,
+      }));
+
+    const recencyLookup = new Map<string, number>();
+    for (const [index, path] of (recent.data ?? []).entries()) {
+      recencyLookup.set(path, Math.max((recent.data?.length ?? 0) - index, 1));
+    }
+
+    const merged = new Map<string, KnownRepoEntry>();
+    for (const entry of openRepoEntries) {
+      merged.set(entry.path, {
+        ...entry,
+        recencyRank: recencyLookup.get(entry.path) ?? 0,
+      });
+    }
+
+    for (const path of recent.data ?? []) {
+      merged.set(path, {
+        path,
+        name: path.split('/').pop() ?? path,
+        isOpen: merged.get(path)?.isOpen ?? false,
+        recencyRank: recencyLookup.get(path) ?? 0,
+      });
+    }
+
+    return rankKnownRepos([...merged.values()], searchQuery);
+  }, [recent.data, searchQuery, tabs]);
+
   const gitError = GitError.is(error) ? GitError.fromSerialized(error) : null;
 
   return (
     <div className="h-full flex flex-col bg-bg select-none">
-      <TitleBar />
       <div className="flex-1 flex items-center justify-center p-6">
         <div className="w-full max-w-5xl grid grid-cols-[minmax(0,1.1fr)_minmax(280px,0.9fr)] gap-6 max-lg:grid-cols-1">
         <section className="min-w-0">
           <div className="mb-5">
-            <div className="text-xxs uppercase tracking-wider text-accent font-semibold">OpenGit</div>
-            <h1 className="mt-1 text-2xl font-semibold text-fg">Local Git workspace</h1>
-            <p className="mt-1 text-sm text-fg-muted">Open, clone, or create a repository without an account.</p>
+            <div className="text-xxs uppercase tracking-wider text-accent font-semibold">OpenGit Dashboard</div>
+            <h1 className="mt-1 text-2xl font-semibold text-fg">Open or create a repository</h1>
+            <p className="mt-1 text-sm text-fg-muted">Fast launcher for recent and open repositories, with local clone/create workflows.</p>
           </div>
 
           <div className="flex items-center gap-1 mb-3">
@@ -102,28 +140,42 @@ export function LaunchPanel({ onOpenSettings }: { onOpenSettings: () => void }) 
 
         <aside className="border border-border bg-bg-panel rounded-lg min-w-0">
           <div className="h-10 px-3 flex items-center justify-between border-b border-border">
-            <span className="label">Recent Repositories</span>
+            <span className="label">Recent And Open Repositories</span>
             <button className="icon-btn !w-7 !h-7" onClick={onOpenSettings} title="Settings">
               <Settings className="w-4 h-4" />
             </button>
           </div>
+          <div className="px-3 py-2 border-b border-border">
+            <label className="flex items-center gap-2 rounded-md border border-border bg-bg-elevated px-2 py-2">
+              <Search className="w-4 h-4 text-fg-muted shrink-0" />
+              <input
+                className="flex-1 bg-transparent outline-none text-sm text-fg"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search known repositories"
+              />
+            </label>
+          </div>
           <div className="p-2 max-h-[420px] overflow-y-auto">
-            {recent.data && recent.data.length > 0 ? recent.data.map((path) => (
-              <div key={path} className="group flex items-center gap-2 rounded px-2 py-2 hover:bg-bg-hover">
-                <button className="flex-1 min-w-0 text-left" onClick={() => openPath(path)} disabled={busy}>
-                  <div className="text-sm text-fg truncate">{path.split('/').pop() ?? path}</div>
-                  <div className="text-xs text-fg-dim truncate">{path}</div>
+            {knownRepos.length > 0 ? knownRepos.map((entry) => (
+              <div key={entry.path} className="group flex items-center gap-2 rounded px-2 py-2 hover:bg-bg-hover">
+                <button className="flex-1 min-w-0 text-left" onClick={() => openPath(entry.path)} disabled={busy}>
+                  <div className="flex items-center gap-2">
+                    <div className="text-sm text-fg truncate">{entry.name}</div>
+                    {entry.isOpen && <span className="rounded bg-accent/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-accent">Open</span>}
+                  </div>
+                  <div className="text-xs text-fg-dim truncate">{entry.path}</div>
                 </button>
                 <button
                   className="icon-btn !w-7 !h-7 opacity-60 group-hover:opacity-100 hover:text-git-deleted"
-                  onClick={() => removeRecent.mutate(path)}
+                  onClick={() => removeRecent.mutate(entry.path)}
                   title="Remove from app"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                 </button>
               </div>
             )) : (
-              <div className="px-2 py-8 text-center text-xs text-fg-muted">No recent repositories.</div>
+              <div className="px-2 py-8 text-center text-xs text-fg-muted">No known repositories match your search.</div>
             )}
           </div>
         </aside>

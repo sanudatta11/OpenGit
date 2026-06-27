@@ -1,29 +1,36 @@
-// src/components/TabBar.tsx — multi-repo tab bar with '+' to open new repos.
+// src/components/TabBar.tsx — session tab bar with repo and dashboard tabs.
 
 import { useRepoStore, repoName } from '../stores/repo';
-import { useSwitchRepo, useCloseRepo, useOpenRepo } from '../queries/useRepo';
+import { useCloseRepo } from '../queries/useRepo';
 import { Plus, X } from 'lucide-react';
 
 export function TabBar() {
-  const repos = useRepoStore((s) => s.repos);
-  const activePath = useRepoStore((s) => s.activeRepo?.path ?? null);
-  const switchRepo = useSwitchRepo();
+  const tabs = useRepoStore((s) => s.tabs);
+  const activeTabId = useRepoStore((s) => s.activeTabId);
+  const activateTab = useRepoStore((s) => s.activateTab);
+  const openDashboardTab = useRepoStore((s) => s.openDashboardTab);
   const closeRepo = useCloseRepo();
-  const openRepo = useOpenRepo();
-
-  const handleOpen = async () => {
-    const path = await window.api.dialog.pickRepo();
-    if (path) await openRepo.mutateAsync(path);
-  };
 
   return (
     <div className="flex items-center gap-0.5 shrink-0">
-      {repos.map((r) => {
-        const name = repoName(r);
-        const isActive = r.path === activePath;
+      {tabs.map((tab) => {
+        const isActive = tab.id === activeTabId;
+        const isRepoTab = tab.kind === 'repo';
+        const name = isRepoTab
+          ? repoName(tab.repoInfo ?? {
+            path: tab.repoPath,
+            gitDir: '',
+            isBare: false,
+            isShallow: false,
+            isDetached: false,
+            headSha: null,
+            currentBranch: null,
+            gitVersion: '',
+          })
+          : 'Dashboard';
         return (
           <button
-            key={r.path}
+            key={tab.id}
             className={`group flex items-center gap-1 px-2.5 py-1 text-xs rounded-t-md border-b-2 transition-colors max-w-[180px] ${
               isActive
                 ? 'bg-bg border-b-accent text-fg font-medium'
@@ -31,17 +38,22 @@ export function TabBar() {
             }`}
             onClick={() => {
               if (!isActive) {
-                switchRepo.mutate(r.path);
+                activateTab(tab.id);
               }
             }}
-            title={r.path}
+            title={isRepoTab ? tab.repoPath : 'Dashboard'}
           >
             <span className="truncate">{name}</span>
+            {!isRepoTab && <span className="text-[10px] uppercase tracking-wider text-fg-dim">Home</span>}
             <X
               className="w-3 h-3 shrink-0 opacity-0 group-hover:opacity-60 hover:!opacity-100 hover:text-git-deleted rounded-sm"
               onClick={(e) => {
                 e.stopPropagation();
-                closeRepo.mutate(r.path);
+                if (isRepoTab) {
+                  closeRepo.mutate(tab.repoPath);
+                } else {
+                  useRepoStore.getState().closeTab(tab.id);
+                }
               }}
             />
           </button>
@@ -49,8 +61,8 @@ export function TabBar() {
       })}
       <button
         className="flex items-center justify-center w-7 h-7 rounded-md text-fg-muted hover:bg-bg-hover hover:text-fg transition-colors shrink-0"
-        onClick={handleOpen}
-        title="Open another repository"
+        onClick={() => openDashboardTab()}
+        title="New dashboard tab"
       >
         <Plus className="w-4 h-4" />
       </button>

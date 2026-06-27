@@ -1,5 +1,3 @@
-// src/stores/repo.ts — open repos (multi-repo with tabs) + UI state.
-
 import { create } from 'zustand';
 import type { RepoInfo, Commit } from '@shared/git';
 
@@ -11,14 +9,61 @@ export type MainView =
   | { kind: 'compare' }
   | { kind: 'operation-actions' };
 
+export type SidebarTab = 'branches' | 'remotes' | 'stash' | 'worktrees' | 'submodules' | 'lfs' | 'actions';
+
+export interface DashboardTab {
+  id: string;
+  kind: 'dashboard';
+}
+
+export interface RepoTab {
+  id: string;
+  kind: 'repo';
+  repoPath: string;
+  loaded: boolean;
+  repoInfo?: RepoInfo;
+}
+
+export type AppTab = DashboardTab | RepoTab;
+
+export interface PersistedRepoTab {
+  id: string;
+  kind: 'repo';
+  repoPath: string;
+  loaded?: boolean;
+}
+
+export interface PersistedDashboardTab {
+  id: string;
+  kind: 'dashboard';
+}
+
+export type PersistedAppTab = PersistedDashboardTab | PersistedRepoTab;
+
+export interface PersistedTabSession {
+  tabs: PersistedAppTab[];
+  activeTabId: string | null;
+  nextTabSequence?: number;
+}
+
 export function repoName(info: RepoInfo): string {
   return info.path.split('/').pop() ?? info.path;
 }
 
 interface RepoStore {
-  repos: RepoInfo[];
-  activeIndex: number;
+  tabs: AppTab[];
+  activeTabId: string | null;
+  nextTabSequence: number;
   activeRepo: RepoInfo | null;
+
+  openDashboardTab: () => string;
+  activateTab: (tabId: string) => void;
+  hydrateRepoTab: (tabId: string, info: RepoInfo) => void;
+  createPlaceholderRepoTab: (repoPath: string) => string;
+  focusRepoTab: (repoPath: string) => string | null;
+  closeTab: (tabId: string) => AppTab | null;
+  rehydrateSession: (session: { tabs: AppTab[]; activeTabId: string | null; nextTabSequence?: number }) => void;
+  serializeSession: () => PersistedTabSession;
 
   addRepo: (info: RepoInfo) => void;
   switchRepo: (path: string) => void;
@@ -58,74 +103,227 @@ interface RepoStore {
   resetTransientViewState: () => void;
 }
 
-export type SidebarTab = 'branches' | 'remotes' | 'stash' | 'worktrees' | 'submodules' | 'lfs' | 'actions';
+function makeDashboardTabId(sequence: number): string {
+  return `dashboard-${sequence}`;
+}
 
-export const useRepoStore = create<RepoStore>((set) => ({
-  repos: [],
-  activeIndex: -1,
+function findActiveRepo(tabs: AppTab[], activeTabId: string | null): RepoInfo | null {
+  if (!activeTabId) return null;
+  const activeTab = tabs.find((tab) => tab.id === activeTabId);
+  return activeTab?.kind === 'repo' && activeTab.loaded ? activeTab.repoInfo ?? null : null;
+}
+
+function sanitizeSessionTabs(tabs: AppTab[]): AppTab[] {
+  const seenRepoPaths = new Set<string>();
+  const out: AppTab[] = [];
+
+  for (const tab of tabs) {
+    if (tab.kind === 'dashboard') {
+      out.push(tab);
+      continue;
+    }
+    if (seenRepoPaths.has(tab.repoPath)) continue;
+    seenRepoPaths.add(tab.repoPath);
+    out.push(tab);
+  }
+
+  return out;
+}
+
+export const useRepoStore = create<RepoStore>((set, get) => ({
+  tabs: [],
+  activeTabId: null,
+  nextTabSequence: 1,
   activeRepo: null,
 
-  addRepo: (info) =>
-    set((s) => {
-      const existing = s.repos.findIndex((r) => r.path === info.path);
-      if (existing !== -1) {
-        // Already open → just switch to it.
-        const updated = [
-          ...s.repos.slice(0, existing),
-          info,
-          ...s.repos.slice(existing + 1),
-        ];
-        return {
-          repos: updated,
-          activeIndex: existing,
-          activeRepo: info,
-          mainView: { kind: 'graph' },
-          selectedCommitSha: null,
-          selectedFile: null,
-        };
-      }
+  openDashboardTab: () => {
+    const tabId = makeDashboardTabId(get().nextTabSequence);
+    set((state) => ({
+      tabs: [...state.tabs, { id: tabId, kind: 'dashboard' }],
+      activeTabId: tabId,
+      nextTabSequence: state.nextTabSequence + 1,
+      activeRepo: null,
+      mainView: { kind: 'graph' },
+      selectedCommitSha: null,
+      selectedFile: null,
+      fileHistoryPath: null,
+    }));
+    return tabId;
+  },
+
+  activateTab: (tabId) =>
+    set((state) => {
+      if (!state.tabs.some((tab) => tab.id === tabId)) return state;
+      const activeRepo = findActiveRepo(state.tabs, tabId);
       return {
-        repos: [...s.repos, info],
-        activeIndex: s.repos.length,
+        activeTabId: tabId,
+        activeRepo,
+        mainView: { kind: 'graph' },
+        selectedCommitSha: null,
+        selectedFile: null,
+        fileHistoryPath: null,
+      };
+    }),
+
+  hydrateRepoTab: (tabId, info) =>
+    set((state) => {
+      const existingRepoTab = state.tabs.find((tab) => tab.kind === 'repo' && tab.repoPath === info.path);
+      const tabs = state.tabs.map((tab) => {
+        if (tab.id === tabId) {
+          return {
+            id: tabId,
+            kind: 'repo',
+            repoPath: info.path,
+            loaded: true,
+            repoInfo: info,
+          } satisfies RepoTab;
+        }
+        if (tab.kind === 'repo' && tab.repoPath === info.path) {
+          return {
+            ...tab,
+            loaded: true,
+            repoInfo: info,
+          };
+        }
+        return tab;
+      });
+
+      const dedupedTabs = sanitizeSessionTabs(tabs);
+      const nextActiveTabId = existingRepoTab && existingRepoTab.id !== tabId ? existingRepoTab.id : tabId;
+
+      return {
+        tabs: dedupedTabs,
+        activeTabId: nextActiveTabId,
         activeRepo: info,
         mainView: { kind: 'graph' },
         selectedCommitSha: null,
         selectedFile: null,
-      };
-    }),
-
-  switchRepo: (path) =>
-    set((s) => {
-      const idx = s.repos.findIndex((r) => r.path === path);
-      if (idx === -1) return s;
-      return {
-        activeIndex: idx,
-        activeRepo: s.repos[idx]!,
-        mainView: { kind: 'graph' },
-        selectedCommitSha: null,
-        selectedFile: null,
         fileHistoryPath: null,
       };
     }),
 
-  closeRepo: (path) =>
-    set((s) => {
-      const idx = s.repos.findIndex((r) => r.path === path);
-      if (idx === -1) return s;
-      const next = [...s.repos.slice(0, idx), ...s.repos.slice(idx + 1)];
-      let newIdx = s.activeIndex;
-      if (idx < newIdx || (idx === newIdx && next.length > 0)) newIdx = Math.min(idx, next.length - 1);
-      else if (next.length === 0) newIdx = -1;
-      return {
-        repos: next,
-        activeIndex: newIdx,
-        activeRepo: next[newIdx] ?? null,
-        selectedCommitSha: null,
-        selectedFile: null,
-        fileHistoryPath: null,
-        mainView: { kind: 'graph' },
-      };
-    }),
+  createPlaceholderRepoTab: (repoPath) => {
+    const existing = get().focusRepoTab(repoPath);
+    if (existing) return existing;
+
+    const tabId = `repo-${repoPath}`;
+    set((state) => ({
+      tabs: [...state.tabs, { id: tabId, kind: 'repo', repoPath, loaded: false }],
+      activeTabId: state.activeTabId ?? tabId,
+      activeRepo: findActiveRepo([...state.tabs, { id: tabId, kind: 'repo', repoPath, loaded: false }], state.activeTabId ?? tabId),
+    }));
+    return tabId;
+  },
+
+  focusRepoTab: (repoPath) => {
+    const tab = get().tabs.find((entry) => entry.kind === 'repo' && entry.repoPath === repoPath);
+    if (!tab) return null;
+    get().activateTab(tab.id);
+    return tab.id;
+  },
+
+  closeTab: (tabId) => {
+    const state = get();
+    const closing = state.tabs.find((tab) => tab.id === tabId) ?? null;
+    if (!closing) return null;
+
+    let nextTabs = state.tabs.filter((tab) => tab.id !== tabId);
+    let nextActiveTabId = state.activeTabId;
+    if (state.activeTabId === tabId) {
+      const closingIndex = state.tabs.findIndex((tab) => tab.id === tabId);
+      nextActiveTabId = nextTabs[Math.min(closingIndex, nextTabs.length - 1)]?.id ?? null;
+    }
+
+    let nextTabSequence = state.nextTabSequence;
+    if (nextTabs.length === 0) {
+      const fallbackId = makeDashboardTabId(state.nextTabSequence);
+      nextTabs = [{ id: fallbackId, kind: 'dashboard' }];
+      nextActiveTabId = fallbackId;
+      nextTabSequence = state.nextTabSequence + 1;
+    }
+
+    set({
+      tabs: nextTabs,
+      activeTabId: nextActiveTabId,
+      nextTabSequence,
+      activeRepo: findActiveRepo(nextTabs, nextActiveTabId),
+      mainView: { kind: 'graph' },
+      selectedCommitSha: null,
+      selectedFile: null,
+      fileHistoryPath: null,
+    });
+
+    return closing;
+  },
+
+  rehydrateSession: (session) => {
+    const tabs = sanitizeSessionTabs(session.tabs);
+    const activeTabId = session.activeTabId && tabs.some((tab) => tab.id === session.activeTabId)
+      ? session.activeTabId
+      : tabs[0]?.id ?? null;
+    set({
+      tabs,
+      activeTabId,
+      nextTabSequence: session.nextTabSequence ?? (tabs.length + 1),
+      activeRepo: findActiveRepo(tabs, activeTabId),
+      selectedCommitSha: null,
+      selectedFile: null,
+      mainView: { kind: 'graph' },
+      fileHistoryPath: null,
+      logDrawerOpen: false,
+      isSwitchingRepo: false,
+      repoSwitchTargetPath: null,
+      repoSwitchPhase: 'idle',
+    });
+  },
+
+  serializeSession: () => {
+    const state = get();
+    return {
+      tabs: state.tabs.map((tab) => (
+        tab.kind === 'dashboard'
+          ? { id: tab.id, kind: 'dashboard' }
+          : { id: tab.id, kind: 'repo', repoPath: tab.repoPath, loaded: tab.loaded }
+      )),
+      activeTabId: state.activeTabId,
+      nextTabSequence: state.nextTabSequence,
+    };
+  },
+
+  addRepo: (info) => {
+    const state = get();
+    const activeTab = state.tabs.find((tab) => tab.id === state.activeTabId);
+    if (activeTab?.kind === 'dashboard') {
+      state.hydrateRepoTab(activeTab.id, info);
+      return;
+    }
+
+    const existing = state.tabs.find((tab) => tab.kind === 'repo' && tab.repoPath === info.path);
+    if (existing) {
+      state.hydrateRepoTab(existing.id, info);
+      return;
+    }
+
+    const tabId = `repo-${info.path}`;
+    set((current) => ({
+      tabs: [...current.tabs, { id: tabId, kind: 'repo', repoPath: info.path, loaded: true, repoInfo: info }],
+      activeTabId: tabId,
+      activeRepo: info,
+      mainView: { kind: 'graph' },
+      selectedCommitSha: null,
+      selectedFile: null,
+      fileHistoryPath: null,
+    }));
+  },
+
+  switchRepo: (path) => {
+    get().focusRepoTab(path);
+  },
+
+  closeRepo: (path) => {
+    const tab = get().tabs.find((entry) => entry.kind === 'repo' && entry.repoPath === path);
+    if (tab) get().closeTab(tab.id);
+  },
 
   selectedCommitSha: null,
   selectCommit: (sha) => set({
@@ -199,7 +397,6 @@ export const useRepoStore = create<RepoStore>((set) => ({
   }),
 }));
 
-// Commit cache: repoPath:sha -> Commit.
 const commitCache = new Map<string, Commit>();
 
 function commitCacheKey(repoPath: string, sha: string): string {

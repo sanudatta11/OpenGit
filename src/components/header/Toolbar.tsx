@@ -13,7 +13,7 @@ import { api } from '../../ipc/api';
 import { BranchSelector } from './BranchSelector';
 
 export function Toolbar({ onOpenSettings }: { onOpenSettings: () => void }) {
-  const repo = useRepoStore((s) => s.activeRepo)!;
+  const repo = useRepoStore((s) => s.activeRepo);
   const toggleLogDrawer = useRepoStore((s) => s.toggleLogDrawer);
   const logDrawerOpen = useRepoStore((s) => s.logDrawerOpen);
   const branches = useBranches();
@@ -51,7 +51,7 @@ export function Toolbar({ onOpenSettings }: { onOpenSettings: () => void }) {
     }
   };
 
-  const shortName = repoName(repo);
+  const shortName = repo ? repoName(repo) : 'Dashboard';
   const busy = fetch_.isPending || pull.isPending || push.isPending || fetchAll.isPending;
 
   const undoStore = useUndoStore();
@@ -79,6 +79,18 @@ export function Toolbar({ onOpenSettings }: { onOpenSettings: () => void }) {
       undo.mutate();
     }
   };
+
+  if (!repo) {
+    return (
+      <div className="h-8 flex items-center px-3 gap-3 border-b border-border bg-bg-panel shrink-0">
+        <span className="text-xs text-fg-muted">Dashboard</span>
+        <div className="flex-1" />
+        <button className="icon-btn" onClick={onOpenSettings} title="Settings (Ctrl/Cmd+,)">
+          <Settings className="w-4 h-4" />
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="h-8 flex items-center px-3 gap-3 border-b border-border bg-bg-panel shrink-0">

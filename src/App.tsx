@@ -2,18 +2,18 @@
 
 import { useEffect, useState } from 'react';
 import { useRepoStore } from './stores/repo';
-import { useRehydrateRepos, useIpcRepoListener } from './queries/useRepo';
+import { useRehydrateRepos, useIpcRepoListener, usePersistTabSession } from './queries/useRepo';
 import { useUpdaterEvents } from './queries/useUpdater';
 import { Workspace } from './components/Workspace';
-import { LaunchPanel } from './components/LaunchPanel';
 import { SettingsPanel } from './components/SettingsPanel';
 
 export default function App() {
-  const repos = useRepoStore((s) => s.repos);
+  const tabs = useRepoStore((s) => s.tabs);
   const [settingsOpen, setSettingsOpen] = useState(false);
 
   // Rehydrate open repos from main process on mount.
   useRehydrateRepos();
+  usePersistTabSession();
 
   // Listen for repo open requests from CLI (second-instance).
   useIpcRepoListener();
@@ -35,9 +35,7 @@ export default function App() {
 
   return (
     <>
-      {repos.length === 0 ? (
-        <LaunchPanel onOpenSettings={() => setSettingsOpen(true)} />
-      ) : (
+      {tabs.length > 0 && (
         <Workspace onOpenSettings={() => setSettingsOpen(true)} />
       )}
       <SettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} />

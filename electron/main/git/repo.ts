@@ -48,16 +48,10 @@ export async function openRepo(path: string): Promise<OpenedRepo> {
     throw new GitNotFoundLike(`Not a directory: ${resolved}`);
   }
 
-  // Find the worktree root by walking up until .git appears.
   let workTreeRoot = resolved;
   let gitDir = resolveGitDir(workTreeRoot);
-  while (!gitDir) {
-    const parent = join(workTreeRoot, '..');
-    if (parent === workTreeRoot) {
-      throw new GitNotFoundLike(`Not a git repository: ${resolved}`);
-    }
-    workTreeRoot = parent;
-    gitDir = resolveGitDir(workTreeRoot);
+  if (!gitDir) {
+    throw new GitNotFoundLike(`Not a git repository: ${resolved}`);
   }
 
   // Auto-trust repos with dubious ownership (e.g. created by another user or on

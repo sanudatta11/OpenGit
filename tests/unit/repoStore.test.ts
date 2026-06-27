@@ -5,6 +5,7 @@ import {
   clearRepoCommitCache,
   getCachedCommit,
   useRepoStore,
+  type RepoTab,
 } from '../../src/stores/repo';
 import { useGraphFilterStore } from '../../src/stores/graphFilter';
 
@@ -30,32 +31,119 @@ const repoB: RepoInfo = {
   gitVersion: '2.43.0',
 };
 
+function resetStore() {
+  useRepoStore.setState({
+    tabs: [],
+    activeTabId: null,
+    nextTabSequence: 1,
+    selectedCommitSha: null,
+    selectedFile: null,
+    mainView: { kind: 'graph' },
+    fileHistoryPath: null,
+    logDrawerOpen: false,
+    sidebarTab: 'branches',
+    sidebarCollapsed: false,
+    isSwitchingRepo: false,
+    repoSwitchTargetPath: null,
+    repoSwitchPhase: 'idle',
+  });
+}
+
+function getRepoTab(path: string): RepoTab | undefined {
+  return useRepoStore.getState().tabs.find((tab) => tab.kind === 'repo' && tab.repoPath === path) as RepoTab | undefined;
+}
+
 describe('repo store', () => {
   beforeEach(() => {
-    useRepoStore.setState({
-      repos: [],
-      activeIndex: -1,
-      activeRepo: null,
-      selectedCommitSha: null,
-      selectedFile: null,
-      mainView: { kind: 'graph' },
-      fileHistoryPath: null,
-      logDrawerOpen: false,
-      sidebarTab: 'branches',
-      sidebarCollapsed: false,
-      isSwitchingRepo: false,
-      repoSwitchTargetPath: null,
-      repoSwitchPhase: 'idle',
-    });
+    resetStore();
     useGraphFilterStore.getState().clearAll();
     clearRepoCommitCache(repoA.path);
     clearRepoCommitCache(repoB.path);
   });
 
-  it('clears transient selections during repo switch while preserving open repos', () => {
+  it('opens dashboard tabs and activates the newest one', () => {
     const store = useRepoStore.getState();
-    store.addRepo(repoA);
-    store.addRepo(repoB);
+
+    const firstId = store.openDashboardTab();
+    const secondId = store.openDashboardTab();
+
+    expect(useRepoStore.getState().tabs.map((tab) => tab.kind)).toEqual(['dashboard', 'dashboard']);
+    expect(firstId).not.toBe(secondId);
+    expect(useRepoStore.getState().activeTabId).toBe(secondId);
+  });
+
+  it('hydrates a dashboard tab into a repo tab and tracks the active repo', () => {
+    const store = useRepoStore.getState();
+    const dashboardId = store.openDashboardTab();
+
+    store.hydrateRepoTab(dashboardId, repoA);
+
+    const next = useRepoStore.getState();
+    expect(next.activeRepo?.path).toBe(repoA.path);
+    expect(next.tabs[0]).toMatchObject({
+      id: dashboardId,
+      kind: 'repo',
+      repoPath: repoA.path,
+      loaded: true,
+    });
+  });
+
+  it('focuses an existing repo tab instead of creating a duplicate', () => {
+    const store = useRepoStore.getState();
+    const firstDashboard = store.openDashboardTab();
+    store.hydrateRepoTab(firstDashboard, repoA);
+    const secondDashboard = store.openDashboardTab();
+
+    const focused = store.focusRepoTab(repoA.path);
+
+    const next = useRepoStore.getState();
+    expect(focused).toBe(firstDashboard);
+    expect(next.activeTabId).toBe(firstDashboard);
+    expect(next.tabs.filter((tab) => tab.kind === 'repo' && tab.repoPath === repoA.path)).toHaveLength(1);
+    expect(next.tabs.find((tab) => tab.id === secondDashboard)?.kind).toBe('dashboard');
+  });
+
+  it('closes a non-active repo tab without changing the active repo payload', () => {
+    const store = useRepoStore.getState();
+    const firstDashboard = store.openDashboardTab();
+    store.hydrateRepoTab(firstDashboard, repoA);
+    const secondDashboard = store.openDashboardTab();
+    store.hydrateRepoTab(secondDashboard, repoB);
+
+    store.closeTab(firstDashboard);
+
+    const next = useRepoStore.getState();
+    expect(next.activeRepo?.path).toBe(repoB.path);
+    expect(next.activeTabId).toBe(secondDashboard);
+    expect(getRepoTab(repoA.path)).toBeUndefined();
+    expect(getRepoTab(repoB.path)?.repoInfo?.currentBranch).toBe('develop');
+  });
+
+  it('preserves placeholder repo tabs during session rehydration', () => {
+    const store = useRepoStore.getState();
+
+    store.rehydrateSession({
+      tabs: [
+        { id: 'dashboard-1', kind: 'dashboard' },
+        { id: 'repo-1', kind: 'repo', repoPath: repoA.path, loaded: true, repoInfo: repoA },
+        { id: 'repo-2', kind: 'repo', repoPath: repoB.path, loaded: false },
+      ],
+      activeTabId: 'repo-1',
+      nextTabSequence: 4,
+    });
+
+    const next = useRepoStore.getState();
+    expect(next.activeRepo?.path).toBe(repoA.path);
+    expect(getRepoTab(repoB.path)?.loaded).toBe(false);
+    expect(getRepoTab(repoB.path)?.repoInfo).toBeUndefined();
+  });
+
+  it('clears transient selections during repo switch while preserving open tabs', () => {
+    const store = useRepoStore.getState();
+    const firstDashboard = store.openDashboardTab();
+    store.hydrateRepoTab(firstDashboard, repoA);
+    const secondDashboard = store.openDashboardTab();
+    store.hydrateRepoTab(secondDashboard, repoB);
     store.selectCommit('deadbeef');
     store.selectFile({ path: 'file.ts', staged: false, isCommit: false });
     store.setFileHistory('file.ts');
@@ -65,7 +153,7 @@ describe('repo store', () => {
     store.beginRepoSwitch(repoA.path);
 
     const next = useRepoStore.getState();
-    expect(next.repos).toHaveLength(2);
+    expect(next.tabs).toHaveLength(2);
     expect(next.selectedCommitSha).toBeNull();
     expect(next.selectedFile).toBeNull();
     expect(next.fileHistoryPath).toBeNull();
@@ -115,10 +203,11 @@ describe('repo store', () => {
 
   it('resets graph filters when the active repo path changes', () => {
     const store = useRepoStore.getState();
-    store.addRepo(repoA);
+    const firstDashboard = store.openDashboardTab();
+    store.hydrateRepoTab(firstDashboard, repoA);
     useGraphFilterStore.getState().solo('main');
-
-    store.addRepo(repoB);
+    const secondDashboard = store.openDashboardTab();
+    store.hydrateRepoTab(secondDashboard, repoB);
 
     expect(useGraphFilterStore.getState().soloedRefs).toEqual([]);
   });

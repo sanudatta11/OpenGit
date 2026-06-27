@@ -32,6 +32,14 @@ export interface Settings {
   betaUpdates: boolean;
   openRepos: string[];
   graphZoom: number;
+  tabSession?: {
+    tabs: Array<
+      | { id: string; kind: 'dashboard' }
+      | { id: string; kind: 'repo'; repoPath: string; loaded?: boolean }
+    >;
+    activeTabId: string | null;
+    nextTabSequence?: number;
+  };
 }
 
 const DEFAULTS: Settings = {
@@ -61,6 +69,11 @@ const DEFAULTS: Settings = {
   betaUpdates: false,
   openRepos: [],
   graphZoom: 1.0,
+  tabSession: {
+    tabs: [{ id: 'dashboard-1', kind: 'dashboard' }],
+    activeTabId: 'dashboard-1',
+    nextTabSequence: 2,
+  },
 };
 
 const MAX_RECENT = 10;

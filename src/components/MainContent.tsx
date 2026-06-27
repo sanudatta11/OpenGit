@@ -10,10 +10,12 @@ import { PaneErrorState } from './ErrorBoundary';
 import { useFileContent, useStatus } from '../queries/useRepo';
 import { getCachedCommit, useRepoStore } from '../stores/repo';
 import { languageForFile } from '../monaco/language';
+import { LaunchPanel } from './LaunchPanel';
 
-export function MainContent() {
+export function MainContent({ onOpenSettings }: { onOpenSettings: () => void }) {
   const view = useRepoStore((state) => state.mainView);
   const activePath = useRepoStore((state) => state.activeRepo?.path ?? null);
+  const activeTab = useRepoStore((state) => state.tabs.find((tab) => tab.id === state.activeTabId) ?? null);
   const showGraph = useRepoStore((state) => state.showGraph);
   const setMainView = useRepoStore((state) => state.setMainView);
   const status = useStatus();
@@ -21,6 +23,10 @@ export function MainContent() {
   const commit = activePath && (view.kind === 'commit-details' || view.kind === 'commit-file-diff')
     ? getCachedCommit(activePath, view.sha)
     : undefined;
+
+  if (activeTab?.kind === 'dashboard' || !activePath) {
+    return <LaunchPanel onOpenSettings={onOpenSettings} />;
+  }
 
   return (
     <div className="relative flex-1 min-h-0 min-w-0 bg-bg">

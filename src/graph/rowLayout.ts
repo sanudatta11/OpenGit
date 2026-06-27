@@ -179,15 +179,12 @@ export function computeGraphVisibleWindow(
   scrollTop: number,
   viewportHeight: number,
   rowHeight: number,
-  zoom: number,
+  _zoom: number,
   rowCount: number,
   bufferRows: number = GRAPH_BUFFER_ROWS,
 ): GraphVisibleWindow {
-  const effectiveZoom = zoom > 0 ? zoom : 1;
-  const effectiveScrollTop = scrollTop / effectiveZoom;
-  const effectiveViewportHeight = viewportHeight / effectiveZoom;
-  const firstRow = Math.max(0, Math.floor(effectiveScrollTop / rowHeight) - bufferRows);
-  const visibleCount = Math.ceil(effectiveViewportHeight / rowHeight) + bufferRows * 2;
+  const firstRow = Math.max(0, Math.floor(scrollTop / rowHeight) - bufferRows);
+  const visibleCount = Math.ceil(viewportHeight / rowHeight) + bufferRows * 2;
   const lastRow = Math.min(rowCount, firstRow + visibleCount);
   return {
     firstRow,

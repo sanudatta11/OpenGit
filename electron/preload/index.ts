@@ -19,6 +19,7 @@ import type {
 } from '@shared/git';
 import type {
   RepoOpenInput,
+  RepoCloseInput,
   RepoCreateInput,
   RepoCloneInput,
   RepoSearchInput,
@@ -76,8 +77,8 @@ const api = {
       ipcRenderer.invoke(IPC.REPO_CLONE, input),
     open: (path: string): Promise<RepoInfo> =>
       ipcRenderer.invoke(IPC.REPO_OPEN, { path } satisfies RepoOpenInput),
-    close: (): Promise<{ success: boolean }> =>
-      ipcRenderer.invoke(IPC.REPO_CLOSE),
+    close: (path: string): Promise<{ success: boolean }> =>
+      ipcRenderer.invoke(IPC.REPO_CLOSE, { path } satisfies RepoCloseInput),
     removeFromApp: (path: string): Promise<{ success: boolean }> =>
       ipcRenderer.invoke(IPC.REPO_REMOVE_FROM_APP, path),
     search: (input: RepoSearchInput): Promise<RepoSearchResult[]> =>

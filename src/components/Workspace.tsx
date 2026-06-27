@@ -19,6 +19,7 @@ export function Workspace({ onOpenSettings }: { onOpenSettings: () => void }) {
   const logDrawerOpen = useRepoStore((s) => s.logDrawerOpen);
   const sidebarCollapsed = useRepoStore((s) => s.sidebarCollapsed);
   const activePath = useRepoStore((s) => s.activeRepo?.path ?? 'none');
+  const activeTab = useRepoStore((s) => s.tabs.find((tab) => tab.id === s.activeTabId) ?? null);
   const status = useStatus();
   const openRepo = useOpenRepo();
 
@@ -80,6 +81,12 @@ export function Workspace({ onOpenSettings }: { onOpenSettings: () => void }) {
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [repoSearchOpen, setRepoSearchOpen] = useState(false);
 
+  useEffect(() => {
+    if (activeTab?.kind === 'repo' && !activeTab.loaded && !openRepo.isPending) {
+      void openRepo.mutateAsync(activeTab.repoPath);
+    }
+  }, [activeTab, openRepo]);
+
   // Keyboard shortcut listeners
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -119,35 +126,45 @@ export function Workspace({ onOpenSettings }: { onOpenSettings: () => void }) {
   return (
     <div className="h-full flex flex-col bg-bg">
       <TopBar onOpenSettings={onOpenSettings} />
-      <PushRejectionBanner />
-      {status.data && status.data.states.length > 0 && (
+      {activeTab?.kind === 'repo' && <PushRejectionBanner />}
+      {activeTab?.kind === 'repo' && status.data && status.data.states.length > 0 && (
         <InProgressBanner states={status.data.states} />
       )}
       <div className="flex-1 flex min-h-0 min-w-0">
-        <Sidebar sidebarWidth={sidebarWidth} />
-        {!sidebarCollapsed && (
-          <div
-            className="w-1 shrink-0 cursor-col-resize hover:bg-accent/30 transition-colors bg-transparent"
-            onMouseDown={handleSidebarDragStart}
-          />
-        )}
-        <div className="flex-1 flex min-h-0 min-w-0">
-          <ErrorBoundary key={`main:${activePath}`} title="Repository view crashed">
-            <MainContent />
-          </ErrorBoundary>
-          <div
-            className="w-1 shrink-0 cursor-col-resize hover:bg-accent/30 transition-colors bg-transparent"
-            onMouseDown={handleInspectorDragStart}
-          />
-          <div style={{ width: inspectorWidth }} className="shrink-0 h-full min-w-0">
-            <ErrorBoundary
-              key={`commit:${activePath}`}
-              title="Commit panel crashed"
-            >
-              <CommitSidebar />
+        {activeTab?.kind === 'repo' && activeTab.loaded ? (
+          <>
+            <Sidebar sidebarWidth={sidebarWidth} />
+            {!sidebarCollapsed && (
+              <div
+                className="w-1 shrink-0 cursor-col-resize hover:bg-accent/30 transition-colors bg-transparent"
+                onMouseDown={handleSidebarDragStart}
+              />
+            )}
+            <div className="flex-1 flex min-h-0 min-w-0">
+              <ErrorBoundary key={`main:${activePath}`} title="Repository view crashed">
+                <MainContent onOpenSettings={onOpenSettings} />
+              </ErrorBoundary>
+              <div
+                className="w-1 shrink-0 cursor-col-resize hover:bg-accent/30 transition-colors bg-transparent"
+                onMouseDown={handleInspectorDragStart}
+              />
+              <div style={{ width: inspectorWidth }} className="shrink-0 h-full min-w-0">
+                <ErrorBoundary
+                  key={`commit:${activePath}`}
+                  title="Commit panel crashed"
+                >
+                  <CommitSidebar />
+                </ErrorBoundary>
+              </div>
+            </div>
+          </>
+        ) : (
+          <div className="flex-1 min-h-0 min-w-0">
+            <ErrorBoundary key={`main:${activePath}`} title="Repository view crashed">
+              <MainContent onOpenSettings={onOpenSettings} />
             </ErrorBoundary>
           </div>
-        </div>
+        )}
       </div>
       {logDrawerOpen && <LogDrawer />}
 

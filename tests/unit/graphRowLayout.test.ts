@@ -63,18 +63,18 @@ describe('graphRowTemplateColumns', () => {
   it('computes virtual rows using zoom-adjusted scroll metrics', () => {
     expect(computeGraphVisibleWindow(760, 380, 38, 1.9, 500)).toEqual({
       firstRow: 0,
-      lastRow: 66,
-      visibleCount: 66,
+      lastRow: 70,
+      visibleCount: 70,
       offsetY: 0,
     });
   });
 
   it('advances the virtual window after enough zoom-adjusted scroll', () => {
     expect(computeGraphVisibleWindow(3200, 760, 38, 1.6, 500)).toEqual({
-      firstRow: 22,
-      lastRow: 95,
-      visibleCount: 73,
-      offsetY: 836,
+      firstRow: 54,
+      lastRow: 134,
+      visibleCount: 80,
+      offsetY: 2052,
     });
   });
 

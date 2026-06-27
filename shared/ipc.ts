@@ -138,6 +138,11 @@ export const RepoOpenInput = z.object({
 });
 export type RepoOpenInput = z.infer<typeof RepoOpenInput>;
 
+export const RepoCloseInput = z.object({
+  path: z.string().min(1),
+});
+export type RepoCloseInput = z.infer<typeof RepoCloseInput>;
+
 export const RepoCreateInput = z.object({
   path: z.string().min(1),
   repoName: z.string().min(1).optional(),
@@ -333,8 +338,41 @@ export const SettingsSetInput = z.object({
   autoFetchInterval: z.number().int().nonnegative().max(3600).optional(),
   betaUpdates: z.boolean().optional(),
   graphZoom: z.number().min(0.5).max(2.0).optional(),
+  tabSession: z.object({
+    tabs: z.array(z.discriminatedUnion('kind', [
+      z.object({
+        id: z.string().min(1),
+        kind: z.literal('dashboard'),
+      }),
+      z.object({
+        id: z.string().min(1),
+        kind: z.literal('repo'),
+        repoPath: z.string().min(1),
+        loaded: z.boolean().optional(),
+      }),
+    ])),
+    activeTabId: z.string().nullable(),
+    nextTabSequence: z.number().int().positive().optional(),
+  }).optional(),
 });
 export type SettingsSetInput = z.infer<typeof SettingsSetInput>;
+
+export interface TabSessionData {
+  tabs: Array<
+    | {
+      id: string;
+      kind: 'dashboard';
+    }
+    | {
+      id: string;
+      kind: 'repo';
+      repoPath: string;
+      loaded?: boolean;
+    }
+  >;
+  activeTabId: string | null;
+  nextTabSequence?: number;
+}
 
 export interface SettingsData {
   gitBinPath: string | null;
@@ -362,6 +400,7 @@ export interface SettingsData {
   autoFetchInterval: number;
   betaUpdates: boolean;
   graphZoom: number;
+  tabSession?: TabSessionData;
 }
 
 export const DiffFileInput = z.object({

@@ -3,7 +3,12 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../ipc/api';
 import { qk } from './keys';
-import { clearAllCommitCachesExcept, clearRepoCommitCache, useRepoStore } from '../stores/repo';
+import {
+  clearAllCommitCachesExcept,
+  clearRepoCommitCache,
+  useRepoStore,
+  type AppTab,
+} from '../stores/repo';
 import { GitError } from '@shared/ipc';
 import type { DiffFileInput, CommitFilesInput, FileContentInput } from '@shared/ipc';
 import { useEffect } from 'react';
@@ -77,21 +82,24 @@ export function useSwitchRepo() {
 }
 
 export function useCloseRepo() {
-  const closeRepo = useRepoStore((s) => s.closeRepo);
+  const closeTab = useRepoStore((s) => s.closeTab);
   const switchRepoMut = useSwitchRepo();
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (path: string) => {
-      await api.repo.close();
+      await api.repo.close(path);
       return path;
     },
     onSuccess: (_data, path) => {
-      closeRepo(path);
+      const previousActivePath = useRepoStore.getState().activeRepo?.path ?? null;
+      const tab = useRepoStore.getState().tabs.find((entry) => entry.kind === 'repo' && entry.repoPath === path);
+      if (tab) closeTab(tab.id);
       clearRepoCommitCache(path);
       clearRepoBoundQueries(qc, path);
-      // If another repo is now active, switch to it.
-      const next = useRepoStore.getState().activeRepo;
-      if (next) switchRepoMut.mutate(next.path);
+      const nextActivePath = useRepoStore.getState().activeRepo?.path ?? null;
+      if (previousActivePath === path && nextActivePath && nextActivePath !== path) {
+        switchRepoMut.mutate(nextActivePath);
+      }
     },
   });
 }
@@ -110,17 +118,60 @@ export function useRepoList() {
 
 // Rehydrate open repos on app start.
 export function useRehydrateRepos() {
-  const addRepo = useRepoStore((s) => s.addRepo);
-  const repos = useRepoStore((s) => s.repos);
+  const rehydrateSession = useRepoStore((s) => s.rehydrateSession);
+  const tabs = useRepoStore((s) => s.tabs);
   const list = useRepoList();
+  const settings = useQuery({
+    queryKey: ['settings'],
+    queryFn: () => api.settings.get(),
+    refetchOnWindowFocus: false,
+    staleTime: Infinity,
+  });
 
   useEffect(() => {
-    if (list.data && repos.length === 0) {
-      for (const info of list.data) {
-        addRepo(info);
-      }
+    if (tabs.length > 0 || !list.data || !settings.data) return;
+    const loadedByPath = new Map(list.data.map((info) => [info.path, info]));
+    const session = settings.data.tabSession;
+    if (session?.tabs?.length) {
+      const hydratedTabs: AppTab[] = session.tabs.map((tab): AppTab => {
+        if (tab.kind === 'dashboard') return { id: tab.id, kind: 'dashboard' };
+        const loaded = loadedByPath.get(tab.repoPath);
+        return loaded
+          ? { id: tab.id, kind: 'repo', repoPath: tab.repoPath, loaded: true, repoInfo: loaded }
+          : { id: tab.id, kind: 'repo', repoPath: tab.repoPath, loaded: false };
+      });
+      rehydrateSession({
+        tabs: hydratedTabs,
+        activeTabId: session.activeTabId,
+        nextTabSequence: session.nextTabSequence,
+      });
+      return;
     }
-  }, [list.data]);
+
+    if (list.data.length > 0) {
+      rehydrateSession({
+        tabs: list.data.map((info) => ({ id: `repo-${info.path}`, kind: 'repo', repoPath: info.path, loaded: true, repoInfo: info })),
+        activeTabId: `repo-${list.data[list.data.length - 1]!.path}`,
+      });
+      return;
+    }
+
+    rehydrateSession({
+      tabs: [{ id: 'dashboard-1', kind: 'dashboard' }],
+      activeTabId: 'dashboard-1',
+      nextTabSequence: 2,
+    });
+  }, [list.data, rehydrateSession, settings.data, tabs.length]);
+}
+
+export function usePersistTabSession() {
+  useEffect(() => {
+    const unsubscribe = useRepoStore.subscribe((state) => {
+      const serialized = state.serializeSession();
+      void api.settings.set({ tabSession: serialized });
+    });
+    return unsubscribe;
+  }, []);
 }
 
 // Listen for repo open requests from CLI (second-instance -> main -> renderer).
@@ -131,7 +182,7 @@ export function useIpcRepoListener() {
   useEffect(() => {
     const unsub = api.onOpenRepo((path) => {
       // If repo is already open, just switch to it.
-      const existing = useRepoStore.getState().repos.find((r) => r.path === path);
+      const existing = useRepoStore.getState().tabs.find((tab) => tab.kind === 'repo' && tab.repoPath === path);
       if (existing) {
         switchRepoMut.mutate(path);
       } else {
