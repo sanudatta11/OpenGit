@@ -771,7 +771,7 @@ function WipGraphRow({
       <div className="min-w-0 flex items-center gap-3 px-2 h-full" onClick={(e) => e.stopPropagation()}>
         <input
           type="text"
-          className="flex-1 min-w-0 bg-bg-panel/80 hover:bg-bg-panel border border-border focus:border-accent text-fg text-xs rounded px-2.5 py-1 outline-none transition-colors"
+          className="w-72 min-w-0 bg-bg-panel/80 hover:bg-bg-panel border border-border focus:border-accent text-fg text-xs rounded px-2.5 py-1 outline-none transition-colors"
           placeholder="Commit message (Summary)..."
           value={commitSummary}
           onChange={(e) => setCommitSummary(e.target.value)}
