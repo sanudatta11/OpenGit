@@ -14,19 +14,16 @@ A lightweight desktop Git client for local repository workflows, built with Elec
 ## Screenshots
 
 ### 1. Workspace & Commit Graph
-Interactive branch visualization with clean coloring lanes, commit overview, and tabbed workspace management.
 <p align="center">
   <img width="800" alt="OpenGit Workspace Graph" src="https://github.com/user-attachments/assets/84618bc9-385b-4177-906f-8a0032154f0d" />
 </p>
 
-### 2. Side-by-Side Diff Viewer
-Robust Monaco-powered comparison engine showing file diffs, additions, deletions, and stage toggle options.
+### 2. Repo Commit Graph Viewer
 <p align="center">
   <img width="800" alt="OpenGit Diff Viewer" src="https://github.com/user-attachments/assets/5f3dd4ed-ad36-4c94-9567-8f40048eeed1" />
 </p>
 
-### 3. Sidebar Actions & Stashing
-A clean staging environment, interactive file context menus, stash management, and status indicator marks.
+### 3. Single Commit Details
 <p align="center">
   <img width="800" alt="OpenGit Sidebar Details" src="https://github.com/user-attachments/assets/e4cf9813-c3bb-4378-b52e-41286ecb35f7" />
 </p>
