@@ -753,6 +753,9 @@ function WipGraphRow({
     );
   };
 
+  const isDetailed = density === 'detailed';
+  const isCompact = density === 'compact';
+
   return (
     <div
       className="w-full text-left border-b border-border bg-gradient-to-r from-git-modified/10 via-accent/5 to-transparent hover:bg-bg-hover/60 transition-colors cursor-pointer"
@@ -765,30 +768,42 @@ function WipGraphRow({
         <line x1={x} x2={x} y1={rowHeight / 2} y2={rowHeight} stroke={color} strokeWidth="2" opacity="0.8" />
         <circle cx={x} cy={rowHeight / 2} r="8" fill="rgb(var(--color-bg-panel))" stroke={color} strokeWidth="2" strokeDasharray="2 2" />
       </svg>
-      <div className="min-w-0 flex items-center justify-between gap-3 px-2">
-        <div className="flex items-center gap-3 flex-1 min-w-0">
-          <span className="font-mono text-sm italic text-fg-muted truncate shrink-0">// WIP</span>
-          <span className="inline-flex items-center gap-2 text-xs font-semibold shrink-0">
-            {modifications > 0 && <span className="text-git-modified">✎ {modifications}</span>}
-            {additions > 0 && <span className="text-git-added">+ {additions}</span>}
-          </span>
-          <div className="flex-1 max-w-md flex items-center gap-1.5 ml-2" onClick={(e) => e.stopPropagation()}>
-            <input
-              type="text"
-              className="flex-1 bg-bg-panel/80 hover:bg-bg-panel border border-border focus:border-accent text-fg text-xs rounded px-2 py-1 outline-none transition-colors"
-              placeholder="Commit message (Summary)..."
-              value={commitSummary}
-              onChange={(e) => setCommitSummary(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  handleGraphCommit();
-                }
-              }}
-              disabled={commit.isPending}
-            />
+      <div className="min-w-0 flex items-center gap-3 px-2 h-full flex-1" onClick={(e) => e.stopPropagation()}>
+        <input
+          type="text"
+          className="flex-1 bg-bg-panel/80 hover:bg-bg-panel border border-border focus:border-accent text-fg text-xs rounded px-2.5 py-1 outline-none transition-colors"
+          placeholder="Commit message (Summary)..."
+          value={commitSummary}
+          onChange={(e) => setCommitSummary(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              handleGraphCommit();
+            }
+          }}
+          disabled={commit.isPending}
+        />
+        <span className="inline-flex items-center gap-2 text-xs font-semibold shrink-0 select-none mr-2">
+          {modifications > 0 && <span className="text-git-modified">✎ {modifications}</span>}
+          {additions > 0 && <span className="text-git-added">+ {additions}</span>}
+        </span>
+        {isDetailed && (
+          <button
+            className="btn btn-primary !px-2.5 !py-1 !text-xxs font-bold shrink-0 uppercase tracking-wider disabled:opacity-40"
+            disabled={commit.isPending || !commitSummary.trim() || !hasStaged}
+            onClick={handleGraphCommit}
+            title={!hasStaged ? "Stage changes first to commit" : "Commit staged changes (Enter)"}
+          >
+            Commit
+          </button>
+        )}
+      </div>
+
+      {!isDetailed && (
+        isCompact ? (
+          <div className="flex items-center justify-end px-2" onClick={(e) => e.stopPropagation()}>
             <button
-              className="btn btn-primary !px-2.5 !py-1 !text-xxs font-bold shrink-0 uppercase tracking-wider disabled:opacity-40 disabled:cursor-not-allowed"
+              className="btn btn-primary !px-2.5 !py-1 !text-xxs font-bold shrink-0 uppercase tracking-wider disabled:opacity-40"
               disabled={commit.isPending || !commitSummary.trim() || !hasStaged}
               onClick={handleGraphCommit}
               title={!hasStaged ? "Stage changes first to commit" : "Commit staged changes (Enter)"}
@@ -796,8 +811,25 @@ function WipGraphRow({
               Commit
             </button>
           </div>
+        ) : (
+          <div />
+        )
+      )}
+
+      {!isDetailed && !isCompact && <div />}
+
+      {!isDetailed && !isCompact && (
+        <div className="flex items-center justify-end px-2" onClick={(e) => e.stopPropagation()}>
+          <button
+            className="btn btn-primary !px-2.5 !py-1 !text-xxs font-bold shrink-0 uppercase tracking-wider disabled:opacity-40"
+            disabled={commit.isPending || !commitSummary.trim() || !hasStaged}
+            onClick={handleGraphCommit}
+            title={!hasStaged ? "Stage changes first to commit" : "Commit staged changes (Enter)"}
+          >
+            Commit
+          </button>
         </div>
-      </div>
+      )}
     </div>
   );
 }
