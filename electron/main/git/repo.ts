@@ -17,7 +17,7 @@ import {
   isBinaryContent,
 } from './parse';
 import type { RepoInfo, RepoStatus, Commit, Branch, RemoteInfo, RefLabel, DiffFile, DiffResult } from '@shared/git';
-import type { RepoSearchResult } from '@shared/ipc';
+import { GitError, type RepoSearchResult } from '@shared/ipc';
 
 export interface OpenedRepo {
   info: RepoInfo;
@@ -166,12 +166,34 @@ export async function getLog(
   if (opts.paths && opts.paths.length > 0) {
     args.push('--', ...opts.paths);
   }
-  const raw = await gitText({
+
+  const result = await gitRun({
     cwd: workTree,
     args,
     channel: 'repo:log',
+    reject: false,
   });
-  const parsed = parseLog(raw, opts.refsBySha, opts.limit);
+
+  if (!result.ok) {
+    const message = `${result.stderr}\n${result.stdout}`.toLowerCase();
+    const emptyRepo =
+      message.includes('does not have any commits yet')
+      || message.includes('bad default revision')
+      || (message.includes('unknown revision') && message.includes('ambiguous argument'));
+    if (emptyRepo) {
+      return { commits: [], hasMore: false };
+    }
+    throw new GitError({
+      code: 'GitFailed',
+      message: `git log exited ${result.exitCode}`,
+      stdout: result.stdout,
+      stderr: result.stderr,
+      friendly: result.stderr.trim().split('\n')[0] || 'Failed to read commit log.',
+      exitCode: result.exitCode,
+    });
+  }
+
+  const parsed = parseLog(result.stdout, opts.refsBySha, opts.limit);
   // Trim to requested limit.
   return { commits: parsed.commits.slice(0, opts.limit), hasMore: parsed.hasMore };
 }

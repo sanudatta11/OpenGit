@@ -1067,10 +1067,10 @@ marking the UI scenario as out-of-scope) before Layer A is complete.
 | G.2 | ~~`createCommit` has no signing option~~ **Resolved** | — | `CommitOptions.sign` / `CommitCreateInput.sign` supports GPG/SSH or `false`; UI checkbox in composers. |
 | G.3 | ~~No public log-emitter hook~~ **Resolved** | — | `subscribeLog(cb)` exported from `electron/main/log/emitter.ts`. |
 | G.4 | `NotSupported` error code has no provocation path on modern git | B.9 can't run | Either delete the code or add a version-gated path (e.g. rebase `--rebase-merges` on git <2.22). |
-| G.5 | `listSubmodules` does not return `url` (always `''`) | A.11.1 can't assert url | Fix parser to read `.gitmodules` for url. |
+| G.5 | ~~`listSubmodules` does not return `url`~~ **Resolved** | — | `parseGitmodulesUrls` + `listSubmodules` fills `url` from `.gitmodules`; A.11.1 asserts non-empty url. |
 | G.6 | No `branch:setUpstream` UI scenario for remote-tracking branch | A.5.11 covers fn only | Add UI row in 2.5. |
 | G.7 | ~~OperationKind vs undo kinds~~ **Resolved** | — | Documented as separate `UndoActionKind` / `UndoInput.kind` in `shared/ipc.ts` (distinct from `OperationKind`). |
-| G.8 | No test for `gitText` rejection path (e.g. `getLog` on empty repo throws) | A.2.* assumes commits exist | Add A.2.15: `getLog` on a repo with zero commits throws `GitError` (or returns empty — pin the current behavior). |
+| G.8 | ~~No test for empty-repo `getLog`~~ **Resolved** | — | `getLog` returns `{commits:[], hasMore:false}` for zero-commit repos; A.2.15 in `reads.test.ts`. |
 | G.9 | `cancelAll` kills ALL tracked children; no per-call cancel ID at Layer A | C.2 is coarse | Acceptable for now; document. |
 
 ---

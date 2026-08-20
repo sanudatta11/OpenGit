@@ -1,3 +1,5 @@
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import type { WriteResult } from '@shared/ipc';
 import { gitRun, gitText } from '../client';
 import { toWriteResult } from './commandResult';
@@ -90,6 +92,45 @@ export async function pushRemote(
   });
 }
 
+/** Read path → url mappings from `.gitmodules`. */
+export function parseGitmodulesUrls(workTree: string): Map<string, string> {
+  const urls = new Map<string, string>();
+  const gitmodulesPath = join(workTree, '.gitmodules');
+  if (!existsSync(gitmodulesPath)) return urls;
+
+  let content: string;
+  try {
+    content = readFileSync(gitmodulesPath, 'utf8');
+  } catch {
+    return urls;
+  }
+
+  let currentPath: string | null = null;
+  let currentUrl: string | null = null;
+  const flush = () => {
+    if (currentPath) urls.set(currentPath, currentUrl ?? '');
+    currentPath = null;
+    currentUrl = null;
+  };
+
+  for (const rawLine of content.split(/\r?\n/)) {
+    const line = rawLine.trim();
+    if (!line || line.startsWith('#') || line.startsWith(';')) continue;
+    if (line.startsWith('[') && line.endsWith(']')) {
+      flush();
+      continue;
+    }
+    const eq = line.indexOf('=');
+    if (eq < 0) continue;
+    const key = line.slice(0, eq).trim().toLowerCase();
+    const value = line.slice(eq + 1).trim();
+    if (key === 'path') currentPath = value;
+    else if (key === 'url') currentUrl = value;
+  }
+  flush();
+  return urls;
+}
+
 export async function listSubmodules(
   workTree: string,
 ): Promise<{ path: string; url: string; branch: string; sha: string }[]> {
@@ -100,13 +141,14 @@ export async function listSubmodules(
     reject: false,
   });
   if (!result.ok || !result.stdout) return [];
+  const urls = parseGitmodulesUrls(workTree);
   return result.stdout.split('\n').filter(Boolean).flatMap((line) => {
-    const match = line.trim().match(/^[\s+]?([0-9a-f]{40})\s+(\S+)\s+(?:\((.+)\))?/);
+    const match = line.trim().match(/^[\s+-U]?([0-9a-f]{40})\s+(\S+)\s*(?:\((.+)\))?/);
     return match
       ? [{
           path: match[2]!,
-          url: '',
-          branch: match[3]?.replace('heads/', '') ?? '',
+          url: urls.get(match[2]!) ?? '',
+          branch: match[3]?.replace(/^heads\//, '') ?? '',
           sha: match[1]!,
         }]
       : [];
