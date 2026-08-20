@@ -47,6 +47,8 @@ import type {
   StashRefInput,
   StashDiffInput,
   VerifyCommitInput,
+  TagCreateInput,
+  TagDeleteInput,
   MergeResultData,
   RebaseResultData,
   WorktreeCreateInput,
@@ -120,15 +122,15 @@ const api = {
     stage: (paths: string[]): Promise<WriteResult> =>
       ipcRenderer.invoke(IPC.WORKING_TREE_STAGE, { paths }),
     stageAll: (): Promise<WriteResult> =>
-      ipcRenderer.invoke('workingTree:stageAll'),
+      ipcRenderer.invoke(IPC.WORKING_TREE_STAGE_ALL),
     unstage: (paths: string[]): Promise<WriteResult> =>
       ipcRenderer.invoke(IPC.WORKING_TREE_UNSTAGE, { paths }),
     unstageAll: (): Promise<WriteResult> =>
-      ipcRenderer.invoke('workingTree:unstageAll'),
+      ipcRenderer.invoke(IPC.WORKING_TREE_UNSTAGE_ALL),
     discard: (paths: string[]): Promise<WriteResult> =>
       ipcRenderer.invoke(IPC.WORKING_TREE_DISCARD, { paths }),
     discardUntracked: (paths: string[]): Promise<WriteResult> =>
-      ipcRenderer.invoke('workingTree:discardUntracked', { paths }),
+      ipcRenderer.invoke(IPC.WORKING_TREE_DISCARD_UNTRACKED, { paths }),
     discardAllUnstaged: (): Promise<WriteResult> =>
       ipcRenderer.invoke(IPC.WORKING_TREE_DISCARD_ALL_UNSTAGED),
     stageHunks: (path: string, patch: string): Promise<WriteResult> =>
@@ -167,6 +169,13 @@ const api = {
       ipcRenderer.invoke(IPC.BRANCH_SET_UPSTREAM, { branch, upstream }),
     reset: (ref: string, mode: 'soft' | 'mixed' | 'hard' | 'keep'): Promise<WriteResult> =>
       ipcRenderer.invoke(IPC.BRANCH_RESET, { ref, mode }),
+  },
+
+  tag: {
+    create: (input: TagCreateInput): Promise<WriteResult> =>
+      ipcRenderer.invoke(IPC.TAG_CREATE, input),
+    delete: (input: TagDeleteInput): Promise<WriteResult> =>
+      ipcRenderer.invoke(IPC.TAG_DELETE, input),
   },
 
   remote: {
@@ -324,8 +333,8 @@ const api = {
   },
 
   dialog: {
-    pickRepo: (): Promise<string | null> => ipcRenderer.invoke('dialog:pickRepo'),
-    pickDirectory: (): Promise<string | null> => ipcRenderer.invoke('dialog:pickDirectory'),
+    pickRepo: (): Promise<string | null> => ipcRenderer.invoke(IPC.DIALOG_PICK_REPO),
+    pickDirectory: (): Promise<string | null> => ipcRenderer.invoke(IPC.DIALOG_PICK_DIRECTORY),
   },
 
   shell: {

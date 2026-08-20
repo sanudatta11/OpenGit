@@ -1,7 +1,8 @@
 import { create } from 'zustand';
+import type { UndoActionKind } from '@shared/ipc';
 
 export type UndoableAction = {
-  kind: 'commit' | 'merge' | 'rebase' | 'cherry-pick' | 'revert' | 'branch-create' | 'branch-delete' | 'stash-apply' | 'stash-pop';
+  kind: UndoActionKind;
   label: string;
   branch?: string;
   sha?: string;

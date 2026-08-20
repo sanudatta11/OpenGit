@@ -18,7 +18,7 @@ OpenGit is an Electron app with a thin IPC boundary over a git engine in
 | Layer | Tooling | What it exercises | Where | Status |
 |-------|---------|-------------------|-------|--------|
 | **A — Operation-level** | Vitest (node env) | `electron/main/git/*` functions called **directly**, against a **real git binary** and a **real temp repo** | `tests/integration/*.test.ts` | Build now |
-| **B — UI-level (E2E)** | Playwright + Electron | Renderer React components, IPC round-trip, clicks/keyboard/right-clicks | `tests/e2e/*.spec.ts` (future) | Spec only |
+| **B — UI-level (E2E)** | Playwright + Electron | Renderer React components, IPC round-trip, clicks/keyboard/right-clicks | `tests/e2e/*.spec.ts` | Smoke present (`npm run test:e2e` after build) |
 
 Layer A is what the existing tests (`writes.test.ts`, `worktree.test.ts`,
 `advanced.test.ts`) already do: import the operation function and call it with a
@@ -1063,14 +1063,14 @@ marking the UI scenario as out-of-scope) before Layer A is complete.
 
 | # | Gap | Impact | Recommendation |
 |---|-----|--------|----------------|
-| G.1 | No `createTag` / `deleteTag` backend or IPC channel | UI 10.2/10.3 untestable; A.10 only covers reads | Add `tagOperations.ts` with `createTag(workTree, name, start, annotated?, message?)` and `deleteTag(workTree, name)`, wire `TAG_CREATE`/`TAG_DELETE` IPC, then add A.10.3–4. |
-| G.2 | `createCommit` has no `gpgSign` / SSH signing option (only `signoff`, which is different) | UI 4.4 "Sign commit" cannot be backed | Add `sign?: { method: 'gpg' \| 'ssh'; key?: string }` to `CommitOptions`, pass `-S` + `commit.gpgsign`/`gpg.format`. Until then, mark A.4.8 as the only sign path (via repo config, not per-commit). |
-| G.3 | No public log-emitter hook for Layer A | Section 2.D can't subscribe | Export `subscribeLog(cb): () => void` from `client.ts` (the IPC layer already pushes `LogEntry`; just expose the same emitter). |
+| G.1 | ~~No `createTag` / `deleteTag`~~ **Resolved** | — | `createTag`/`deleteTag` in `operations/refs.ts`, IPC `TAG_CREATE`/`TAG_DELETE`, graph UI + `tests/integration/tags.test.ts`. |
+| G.2 | ~~`createCommit` has no signing option~~ **Resolved** | — | `CommitOptions.sign` / `CommitCreateInput.sign` supports GPG/SSH or `false`; UI checkbox in composers. |
+| G.3 | ~~No public log-emitter hook~~ **Resolved** | — | `subscribeLog(cb)` exported from `electron/main/log/emitter.ts`. |
 | G.4 | `NotSupported` error code has no provocation path on modern git | B.9 can't run | Either delete the code or add a version-gated path (e.g. rebase `--rebase-merges` on git <2.22). |
-| G.5 | `listSubmodules` does not return `url` (always `''`) | A.11.1 can't assert url | Fix parser to read `.gitmodules` for url. |
+| G.5 | ~~`listSubmodules` does not return `url`~~ **Resolved** | — | `parseGitmodulesUrls` + `listSubmodules` fills `url` from `.gitmodules`; A.11.1 asserts non-empty url. |
 | G.6 | No `branch:setUpstream` UI scenario for remote-tracking branch | A.5.11 covers fn only | Add UI row in 2.5. |
-| G.7 | `OperationKind` enum is `'merge' \| 'rebase' \| 'cherry-pick' \| 'revert'` but `undoAction` switch has `case 'branch-create'/'branch-delete'/'stash-apply'/'stash-pop'` not in that enum | A.18 uses kinds outside the IPC enum | Either widen `OperationKind` or document `undoAction`'s `kind` as a separate string union and type it in `shared/ipc.ts`. |
-| G.8 | No test for `gitText` rejection path (e.g. `getLog` on empty repo throws) | A.2.* assumes commits exist | Add A.2.15: `getLog` on a repo with zero commits throws `GitError` (or returns empty — pin the current behavior). |
+| G.7 | ~~OperationKind vs undo kinds~~ **Resolved** | — | Documented as separate `UndoActionKind` / `UndoInput.kind` in `shared/ipc.ts` (distinct from `OperationKind`). |
+| G.8 | ~~No test for empty-repo `getLog`~~ **Resolved** | — | `getLog` returns `{commits:[], hasMore:false}` for zero-commit repos; A.2.15 in `reads.test.ts`. |
 | G.9 | `cancelAll` kills ALL tracked children; no per-call cancel ID at Layer A | C.2 is coarse | Acceptable for now; document. |
 
 ---

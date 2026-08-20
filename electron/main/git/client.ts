@@ -6,6 +6,7 @@ import { existsSync } from 'node:fs';
 import { nanoid } from 'nanoid/non-secure';
 import { GitError, type GitErrorShape, type GitErrorCode } from '@shared/ipc';
 import { logStore } from '../log/emitter';
+import { classifyCommandFailure, friendlyForGitError } from './operations/commandResult';
 
 export interface GitRunOptions {
   cwd: string;
@@ -214,7 +215,9 @@ export async function gitRun(opts: GitRunOptions): Promise<GitRunResult> {
 
   if (!ok && opts.reject !== false) {
     // Caller asked to throw on failure (default). Map common failures to codes.
-    const code = isCancelled ? 'Cancelled' : classifyFailure(stderr, exitCode ?? 1);
+    const code = isCancelled
+      ? 'Cancelled'
+      : classifyCommandFailure({ stdout, stderr, exitCode: exitCode ?? 1 });
     const shape: GitErrorShape = {
       code,
       message: isCancelled
@@ -222,7 +225,7 @@ export async function gitRun(opts: GitRunOptions): Promise<GitRunResult> {
         : `git ${opts.args[0] ?? ''} exited ${exitCode}`,
       stdout,
       stderr,
-      friendly: friendlyFor(code, stderr),
+      friendly: friendlyForGitError(code, stderr),
       command: argv.join(' '),
       exitCode: exitCode ?? undefined,
     };
@@ -230,51 +233,6 @@ export async function gitRun(opts: GitRunOptions): Promise<GitRunResult> {
   }
 
   return { stdout, stderr, exitCode: exitCode ?? (isCancelled ? 1 : 0), ok };
-}
-
-function classifyFailure(stderr: string, _exitCode: number): GitErrorCode {
-  const s = stderr.toLowerCase();
-  if (s.includes('not a git repository') || s.includes('does not have a commit checked out')) {
-    return 'NotARepo';
-  }
-  if (s.includes('dubious ownership') || s.includes('detected dubious ownership')) {
-    return 'NotARepo';
-  }
-  if (s.includes('conflict') || s.includes('merge conflict') || s.includes('could not apply')) {
-    return 'Conflicts';
-  }
-  if (s.includes('your local changes') || s.includes('would be overwritten') || s.includes('please commit your changes')) {
-    return 'UncommittedChanges';
-  }
-  if (s.includes('![rejected]') || s.includes('non-fast-forward') || s.includes('failed to push')) {
-    return 'Rejected';
-  }
-  if (_exitCode === 128 && s.includes('not found')) return 'NotSupported';
-  return 'GitFailed';
-}
-
-function friendlyFor(code: GitErrorCode, stderr: string): string {
-  switch (code) {
-    case 'NotARepo':
-      if (stderr.toLowerCase().includes('dubious ownership')) {
-        return 'This repository is owned by another user. Git refused to read it for security. Add a safe.directory exception in Settings, or run: git config --global --add safe.directory <path>';
-      }
-      return 'This path is not inside a Git repository.';
-    case 'Conflicts':
-      return 'Git stopped because of conflicts. Resolve them, then continue the operation.';
-    case 'UncommittedChanges':
-      return 'Git refused because there are uncommitted changes. Stash or commit first.';
-    case 'Rejected':
-      return 'The remote rejected the push (non-fast-forward). Fetch and rebase or merge first.';
-    case 'Cancelled':
-      return 'The operation was cancelled.';
-    case 'NotSupported':
-      return 'This Git operation is not supported by your installed git version.';
-    case 'GitNotFound':
-      return 'OpenGit could not find the git executable.';
-    default:
-      return stderr.trim().split('\n')[0] || 'Git reported an error.';
-  }
 }
 
 function toGitErrorShape(
@@ -289,7 +247,7 @@ function toGitErrorShape(
     message: e?.message ?? String(err),
     stdout: e?.stdout ?? '',
     stderr: e?.stderr ?? '',
-    friendly: friendlyFor(code, e?.stderr ?? ''),
+    friendly: friendlyForGitError(code, e?.stderr ?? ''),
     command: argv.join(' '),
     exitCode: e?.exitCode,
   };

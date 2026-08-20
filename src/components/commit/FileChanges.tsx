@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useStatus } from '../../queries/useRepo';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import {
   AlertTriangle,
   ArrowDownAZ,
@@ -17,15 +17,16 @@ import {
   Trees,
 } from 'lucide-react';
 import type { StatusEntry } from '@shared/git';
-import type { SettingsData } from '@shared/ipc';
 import { api } from '../../ipc/api';
 import { useDiscard, useStageAll, useUnstageAll } from '../../queries/useMutations';
 import { ConfirmDialog } from '../ConfirmDialog';
 import { FileRow } from './FileRow';
 import { useRepoStore } from '../../stores/repo';
+import { useSettings, useSetSettings } from '../../queries/useSettings';
 import {
   buildPathTree,
   comparePaths,
+  partitionStatusEntries,
   type CommitPanelSort,
   type CommitPanelView,
   type FileListContext,
@@ -34,12 +35,8 @@ import {
 
 export function FileChanges({ entries }: { entries: readonly StatusEntry[] }) {
   const status = useStatus();
-  const qc = useQueryClient();
-  const settings = useQuery({ queryKey: ['settings'], queryFn: () => api.settings.get() });
-  const saveSettings = useMutation({
-    mutationFn: (input: Partial<SettingsData>) => api.settings.set(input),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['settings'] }),
-  });
+  const settings = useSettings();
+  const saveSettings = useSetSettings();
   const [view, setView] = useState<CommitPanelView>('path');
   const [sort, setSort] = useState<CommitPanelSort>('asc');
   const [unstagedOpen, setUnstagedOpen] = useState(true);
@@ -70,9 +67,9 @@ export function FileChanges({ entries }: { entries: readonly StatusEntry[] }) {
     setStagedOpen(settings.data.commitPanelStagedExpanded);
   }, [settings.data]);
 
-  const conflicts = entries.filter((entry) => entry.kind === 'unmerged');
-  const unstaged = entries.filter((entry) => entry.unstaged && entry.kind !== 'unmerged');
-  const staged = entries.filter((entry) => entry.staged && entry.kind !== 'unmerged');
+  const { staged, unstaged, conflicts } = partitionStatusEntries(entries, {
+    excludeConflictsFromLists: true,
+  });
 
   const updateView = (next: CommitPanelView) => {
     setView(next);

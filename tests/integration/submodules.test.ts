@@ -24,6 +24,8 @@ describe('submodules', () => {
     expect(subs.length).toBe(1);
     expect(subs[0]!.path).toBe('libs/submodule-lib');
     expect(subs[0]!.sha).toMatch(/^[0-9a-f]{40}$/);
+    expect(subs[0]!.url.length).toBeGreaterThan(0);
+    expect(subs[0]!.url).toMatch(/submodule-lib/);
   });
 
   it('A.11.2 initializes the submodule', async () => {

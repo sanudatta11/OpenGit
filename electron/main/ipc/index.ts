@@ -6,6 +6,7 @@ import { registerDiffHandlers } from './diff';
 import { registerWorkingTreeHandlers } from './workingTree';
 import { registerCommitHandlers } from './commit';
 import { registerBranchHandlers } from './branch';
+import { registerTagHandlers } from './tag';
 import { registerRemoteHandlers } from './remote';
 import { registerStashHandlers } from './stash';
 import { registerOperationsHandlers } from './operations';
@@ -26,6 +27,7 @@ export function registerAllHandlers(): void {
   registerWorkingTreeHandlers();
   registerCommitHandlers();
   registerBranchHandlers();
+  registerTagHandlers();
   registerRemoteHandlers();
   registerStashHandlers();
   registerOperationsHandlers();

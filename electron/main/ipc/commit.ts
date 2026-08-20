@@ -24,6 +24,7 @@ export function registerCommitHandlers(): void {
       signoff: parsed.data.signoff,
       noVerify: parsed.data.noVerify,
       author: parsed.data.author,
+      sign: parsed.data.sign,
     });
   });
 

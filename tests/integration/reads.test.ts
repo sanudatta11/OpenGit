@@ -2,6 +2,9 @@
 // Uses the full fixture repo.
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import {
   setupTestRepo, cleanupTestRepo, git, createQuickRepo, destroyQuickRepo,
   setupConflictBranches,
@@ -39,9 +42,6 @@ describe('getStatus', () => {
     }
   });
 });
-
-// Need join for .git path
-import { join } from 'node:path';
 
 describe('getLog', () => {
   it('A.2.3 paginates with skip/limit', async () => {
@@ -82,6 +82,21 @@ describe('getLog', () => {
     const r = await getLog(repo.main, { skip: 999_999, limit: 10, refsBySha: new Map() });
     expect(r.commits.length).toBe(0);
     expect(r.hasMore).toBe(false);
+  });
+
+  it('A.2.15 returns empty log for a repo with zero commits', async () => {
+    const workTree = mkdtempSync(join(tmpdir(), 'opengit-empty-log-'));
+    try {
+      git(workTree, ['init', '-q', '-b', 'main']);
+      git(workTree, ['config', 'user.email', 't@t.co']);
+      git(workTree, ['config', 'user.name', 'Test']);
+      git(workTree, ['config', 'commit.gpgsign', 'false']);
+      const r = await getLog(workTree, { skip: 0, limit: 50, refsBySha: new Map() });
+      expect(r.commits).toEqual([]);
+      expect(r.hasMore).toBe(false);
+    } finally {
+      rmSync(workTree, { recursive: true, force: true });
+    }
   });
 });
 

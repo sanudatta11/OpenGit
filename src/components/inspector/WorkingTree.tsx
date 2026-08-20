@@ -10,7 +10,6 @@ import { useStatus, useFileContent, useBranches, useLog } from '../../queries/us
 import {
   useStage, useStageAll, useUnstage, useUnstageAll, useDiscard, useCommit, usePush,
 } from '../../queries/useMutations';
-import { useQuery } from '@tanstack/react-query';
 import { api } from '../../ipc/api';
 import type { StatusEntry, EntryKind } from '@shared/git';
 import { DiffViewer } from '../diff/DiffViewer';
@@ -19,6 +18,9 @@ import type { DiffView } from '../diff/DiffViewer';
 import { ConfirmDialog } from '../ConfirmDialog';
 import { useRepoStore } from '../../stores/repo';
 import { PaneErrorState } from '../ErrorBoundary';
+import { buildCommitMessage, partitionStatusEntries } from '../commit/model';
+import { useSettings } from '../../queries/useSettings';
+import { usePersistedPaneHeight } from '../../hooks/usePersistedPaneHeight';
 
 export function WorkingTree() {
   const status = useStatus();
@@ -40,15 +42,19 @@ export function WorkingTree() {
   const discard = useDiscard();
   const branchName = useRepoStore((s) => s.activeRepo)?.currentBranch ?? 'HEAD';
   const selectedFile = useRepoStore((s) => s.selectedFile);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [containerHeight, setContainerHeight] = useState(0);
-  const { data: settings } = useQuery({
-    queryKey: ['settings'],
-    queryFn: () => api.settings.get(),
+  const { data: settings } = useSettings();
+  const {
+    containerRef,
+    height: composerHeight,
+    handleDragStart: handleComposerDragStart,
+  } = usePersistedPaneHeight({
+    initial: settings?.inspectorComposerHeight ?? 210,
+    min: 140,
+    reservedBelow: 180,
+    onPersist: (height) => {
+      void api.settings.set({ inspectorComposerHeight: height });
+    },
   });
-  const [composerHeight, setComposerHeight] = useState(Math.max(settings?.inspectorComposerHeight ?? 210, 140));
-  const composerHeightRef = useRef(composerHeight);
-  composerHeightRef.current = composerHeight;
 
   const [stagedHeight, setStagedHeight] = useState(180);
 
@@ -72,41 +78,6 @@ export function WorkingTree() {
     document.addEventListener('mouseup', handleMouseUp);
   };
 
-  useEffect(() => {
-    if (settings?.inspectorComposerHeight != null) {
-      setComposerHeight(Math.max(settings.inspectorComposerHeight, 140));
-    }
-  }, [settings?.inspectorComposerHeight]);
-
-  useEffect(() => {
-    const element = containerRef.current;
-    if (!element) return;
-
-    const updateHeight = () => setContainerHeight(element.clientHeight);
-    updateHeight();
-
-    const observer = new ResizeObserver(updateHeight);
-    observer.observe(element);
-    return () => observer.disconnect();
-  }, []);
-
-  const minWorkspaceHeight = 180;
-  const minComposerHeight = 140;
-  const maxComposerHeight = containerHeight > 0
-    ? Math.max(minComposerHeight, containerHeight - minWorkspaceHeight)
-    : 420;
-  const clampedComposerHeight = Math.min(
-    Math.max(minComposerHeight, composerHeight),
-    maxComposerHeight,
-  );
-  composerHeightRef.current = clampedComposerHeight;
-
-  useEffect(() => {
-    if (composerHeight !== clampedComposerHeight) {
-      setComposerHeight(clampedComposerHeight);
-    }
-  }, [clampedComposerHeight, composerHeight]);
-
   if (status.isLoading && !status.data) {
     return <div className="p-3 text-xs text-fg-muted">Loading status…</div>;
   }
@@ -115,34 +86,7 @@ export function WorkingTree() {
   }
   if (!status.data) return null;
 
-  const staged = status.data.entries.filter((e) => e.staged);
-  const unstaged = status.data.entries.filter((e) => e.unstaged);
-  const untracked = status.data.entries.filter((e) => e.kind === 'untracked');
-  const conflicts = status.data.entries.filter((e) => e.kind === 'unmerged');
-
-  const handleComposerDragStart = (e: React.MouseEvent) => {
-    e.preventDefault();
-    const rect = containerRef.current?.getBoundingClientRect();
-    if (!rect) return;
-
-    const handleMouseMove = (ev: MouseEvent) => {
-      const nextHeight = rect.bottom - ev.clientY;
-      const clampedHeight = Math.min(
-        Math.max(minComposerHeight, nextHeight),
-        Math.max(minComposerHeight, rect.height - minWorkspaceHeight),
-      );
-      setComposerHeight(clampedHeight);
-    };
-
-    const handleMouseUp = () => {
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-      api.settings.set({ inspectorComposerHeight: Math.round(composerHeightRef.current) });
-    };
-
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
-  };
+  const { staged, unstaged, untracked, conflicts } = partitionStatusEntries(status.data.entries);
 
   return (
     <div ref={containerRef} className="flex flex-col h-full min-h-0 bg-bg-panel">
@@ -224,7 +168,7 @@ export function WorkingTree() {
         title="Drag to resize commit composer"
       />
       <div
-        style={{ height: clampedComposerHeight }}
+        style={{ height: composerHeight }}
         className="shrink-0 min-h-[140px] overflow-hidden"
       >
         <CommitForm />
@@ -289,13 +233,6 @@ function WorkspaceStat({
       <span>{label}</span>
     </span>
   );
-}
-
-export function buildCommitMessage(summary: string, description: string): string {
-  const trimmedSummary = summary.trim();
-  const trimmedDescription = description.trim();
-  if (!trimmedDescription) return trimmedSummary;
-  return `${trimmedSummary}\n\n${trimmedDescription}`;
 }
 
 function StageAllButton({ prominent = false }: { prominent?: boolean }) {
@@ -629,10 +566,7 @@ function CommitForm() {
   const status = useStatus();
   const hasStaged = (status.data?.entries ?? []).some((e) => e.staged);
 
-  const { data: settings } = useQuery({
-    queryKey: ['settings'],
-    queryFn: () => api.settings.get(),
-  });
+  const { data: settings } = useSettings();
 
   const subjectLength = summary.length;
   const maxSubject = settings?.commitSubjectLength ?? 72;
@@ -650,8 +584,14 @@ function CommitForm() {
   const handleCommit = () => {
     const message = buildCommitMessage(summary, description);
     if (!message.trim()) return;
+    const signingMode = settings?.signingMode ?? 'none';
+    const sign = signCommit && signingMode !== 'none'
+      ? { method: signingMode as 'gpg' | 'ssh' }
+      : signCommit
+        ? { method: 'gpg' as const }
+        : undefined;
     void commit.mutate(
-      { message: message.trim(), amend, signoff: signCommit, noVerify },
+      { message: message.trim(), amend, noVerify, sign },
       {
         onSuccess: () => {
           setSummary('');
@@ -762,7 +702,7 @@ function CommitForm() {
               onChange={(e) => setSignCommit(e.target.checked)}
               className="accent-accent"
             />
-            Sign with GPG/SSH
+            Sign commit ({settings?.signingMode === 'ssh' ? 'SSH' : 'GPG'})
           </label>
           <label className="flex items-center gap-1.5 text-xs text-fg-muted cursor-pointer">
             <input type="checkbox" checked={pushAfterCommit} onChange={(e) => setPushAfterCommit(e.target.checked)} className="accent-accent" />
@@ -796,10 +736,7 @@ function ContextMenuOverlay({
   const menuRef = useRef<HTMLDivElement>(null);
   const [activeSubmenuIndex, setActiveSubmenuIndex] = useState<number | null>(null);
 
-  const { data: settings } = useQuery({
-    queryKey: ['settings'],
-    queryFn: () => api.settings.get(),
-  });
+  const { data: settings } = useSettings();
 
   useEffect(() => {
     const handleOutsideClick = (e: MouseEvent) => {
