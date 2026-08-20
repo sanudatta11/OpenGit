@@ -348,6 +348,11 @@ export const ShellOpenPathInput = z.object({
 });
 export type ShellOpenPathInput = z.infer<typeof ShellOpenPathInput>;
 
+export const ShellShowItemInFolderInput = z.object({
+  filePath: z.string().min(1),
+});
+export type ShellShowItemInFolderInput = z.infer<typeof ShellShowItemInFolderInput>;
+
 export const SettingsSetInput = z.object({
   gitBinPath: z.string().nullable().optional(),
   defaultDiffView: z.enum(['side-by-side', 'unified']).optional(),

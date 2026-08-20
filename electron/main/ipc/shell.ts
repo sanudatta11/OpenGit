@@ -1,7 +1,7 @@
 // electron/main/ipc/shell.ts — shell IPC handler (open in file manager, etc.).
 
 import { ipcMain, shell } from 'electron';
-import { IPC, ShellOpenPathInput, GitError } from '@shared/ipc';
+import { IPC, ShellOpenPathInput, ShellShowItemInFolderInput, GitError } from '@shared/ipc';
 
 export function registerShellHandlers(): void {
   ipcMain.handle(IPC.SHELL_OPEN_PATH, async (_e, raw) => {
@@ -29,8 +29,17 @@ export function registerShellHandlers(): void {
   });
 
   ipcMain.handle(IPC.SHELL_SHOW_ITEM_IN_FOLDER, async (_e, raw) => {
-    const { filePath } = require('zod').z.object({ filePath: require('zod').z.string() }).parse(raw);
-    shell.showItemInFolder(filePath);
+    const parsed = ShellShowItemInFolderInput.safeParse(raw);
+    if (!parsed.success) {
+      throw new GitError({
+        code: 'BadInput',
+        message: parsed.error.message,
+        stdout: '',
+        stderr: '',
+        friendly: 'Invalid path.',
+      });
+    }
+    shell.showItemInFolder(parsed.data.filePath);
     return { success: true };
   });
 }
