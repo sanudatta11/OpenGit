@@ -26,8 +26,11 @@ export const IPC = {
   REPO_TRUST: 'repo:trust',
 
   WORKING_TREE_STAGE: 'workingTree:stage',
+  WORKING_TREE_STAGE_ALL: 'workingTree:stageAll',
   WORKING_TREE_UNSTAGE: 'workingTree:unstage',
+  WORKING_TREE_UNSTAGE_ALL: 'workingTree:unstageAll',
   WORKING_TREE_DISCARD: 'workingTree:discard',
+  WORKING_TREE_DISCARD_UNTRACKED: 'workingTree:discardUntracked',
   WORKING_TREE_DISCARD_ALL_UNSTAGED: 'workingTree:discardAllUnstaged',
   WORKING_TREE_STAGE_HUNKS: 'workingTree:stageHunks',
   WORKING_TREE_UNSTAGE_HUNKS: 'workingTree:unstageHunks',
@@ -37,6 +40,8 @@ export const IPC = {
   WORKING_TREE_DELETE_FILE: 'workingTree:deleteFile',
   WORKING_TREE_OPEN_IN_EDITOR: 'workingTree:openInEditor',
   SHELL_SHOW_ITEM_IN_FOLDER: 'shell:showItemInFolder',
+  DIALOG_PICK_REPO: 'dialog:pickRepo',
+  DIALOG_PICK_DIRECTORY: 'dialog:pickDirectory',
 
   COMMIT_CREATE: 'commit:create',
   COMMIT_AMEND: 'commit:amend',
@@ -51,6 +56,9 @@ export const IPC = {
   BRANCH_REBASE: 'branch:rebase',
   BRANCH_SET_UPSTREAM: 'branch:setUpstream',
   BRANCH_RESET: 'branch:reset',
+
+  TAG_CREATE: 'tag:create',
+  TAG_DELETE: 'tag:delete',
 
   STASH_LIST: 'stash:list',
   STASH_CREATE: 'stash:create',
@@ -194,8 +202,29 @@ export const CommitCreateInput = z.object({
   signoff: z.boolean().default(false),
   noVerify: z.boolean().default(false),
   author: z.object({ name: z.string(), email: z.string() }).optional(),
+  sign: z.union([
+    z.literal(false),
+    z.object({
+      method: z.enum(['gpg', 'ssh']),
+      key: z.string().min(1).optional(),
+    }),
+  ]).optional(),
 });
 export type CommitCreateInput = z.infer<typeof CommitCreateInput>;
+
+export const TagCreateInput = z.object({
+  name: z.string().regex(/^[^\s~^:?*\[]+$/),
+  start: z.string().default('HEAD'),
+  annotated: z.boolean().default(false),
+  message: z.string().optional(),
+  force: z.boolean().default(false),
+});
+export type TagCreateInput = z.infer<typeof TagCreateInput>;
+
+export const TagDeleteInput = z.object({
+  name: z.string().min(1),
+});
+export type TagDeleteInput = z.infer<typeof TagDeleteInput>;
 
 export const BranchCheckoutInput = z.object({
   ref: z.string(),
@@ -447,6 +476,8 @@ export const UndoInput = z.object({
   sha: z.string().optional(),
 });
 export type UndoInput = z.infer<typeof UndoInput>;
+/** Distinct from OperationKind (in-progress merge/rebase/...). */
+export type UndoActionKind = UndoInput['kind'];
 
 export const MergePreviewInput = z.object({
   ref: z.string().min(1),

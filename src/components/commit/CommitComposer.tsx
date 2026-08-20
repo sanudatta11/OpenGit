@@ -1,10 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { ChevronDown, Loader2, MoreHorizontal, Sparkles } from 'lucide-react';
-import { useQuery } from '@tanstack/react-query';
-import { api } from '../../ipc/api';
 import { useBranches, useLog } from '../../queries/useRepo';
 import { useCommit, usePush } from '../../queries/useMutations';
 import { useRepoStore } from '../../stores/repo';
+import { useSettings } from '../../queries/useSettings';
 import { buildCommitMessage, canCreateCommit, resolvePushTarget } from './model';
 
 export type CommitGenerationState =
@@ -39,6 +38,7 @@ export function CommitComposer({
   const [amend, setAmend] = useState(false);
   const [noVerify, setNoVerify] = useState(false);
   const [signoff, setSignoff] = useState(false);
+  const [signCommit, setSignCommit] = useState(false);
   const [optionsOpen, setOptionsOpen] = useState(false);
   const [pushMenuOpen, setPushMenuOpen] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
@@ -49,9 +49,15 @@ export function CommitComposer({
   const branches = useBranches();
   const head = useLog(undefined, 0, 1);
   const showGraph = useRepoStore((state) => state.showGraph);
-  const settings = useQuery({ queryKey: ['settings'], queryFn: () => api.settings.get() });
+  const settings = useSettings();
   const maxSubject = settings.data?.commitSubjectLength ?? 72;
   const headCommit = head.data?.commits[0];
+
+  useEffect(() => {
+    if (settings.data?.signingMode && settings.data.signingMode !== 'none') {
+      setSignCommit(true);
+    }
+  }, [settings.data?.signingMode]);
 
   useEffect(() => {
     if (!amend || !headCommit || loadedAmendShaRef.current === headCommit.sha) return;
@@ -90,6 +96,7 @@ export function CommitComposer({
     setAmend(false);
     setNoVerify(false);
     setSignoff(false);
+    setSignCommit(settings.data?.signingMode !== undefined && settings.data.signingMode !== 'none');
     setOptionsOpen(false);
     setPushMenuOpen(false);
     draftRef.current = { summary: '', description: '' };
@@ -99,6 +106,10 @@ export function CommitComposer({
   const submit = async (pushAfterCommit: boolean) => {
     if (!canCommit) return;
     setFailure(null);
+    const signingMode = settings.data?.signingMode ?? 'none';
+    const sign = signCommit
+      ? { method: (signingMode === 'ssh' ? 'ssh' : 'gpg') as 'gpg' | 'ssh' }
+      : undefined;
     let result;
     try {
       result = await commit.mutateAsync({
@@ -106,6 +117,7 @@ export function CommitComposer({
         amend,
         noVerify,
         signoff,
+        sign,
       });
     } catch {
       return;
@@ -207,6 +219,10 @@ export function CommitComposer({
             <label className="flex items-center gap-2 text-xs text-fg-muted cursor-pointer">
               <input type="checkbox" checked={signoff} onChange={(event) => setSignoff(event.target.checked)} className="accent-accent" />
               Add signed-off-by
+            </label>
+            <label className="flex items-center gap-2 text-xs text-fg-muted cursor-pointer">
+              <input type="checkbox" checked={signCommit} onChange={(event) => setSignCommit(event.target.checked)} className="accent-accent" />
+              Sign commit ({settings.data?.signingMode === 'ssh' ? 'SSH' : 'GPG'})
             </label>
           </div>
         )}

@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Commit, RefLabel } from '@shared/git';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../ipc/api';
-import type { SettingsData } from '@shared/ipc';
 import type { GraphRow as GraphLayoutRow } from '../../graph/layout';
 import { useLog, useStatus } from '../../queries/useRepo';
 import { useRepoStore, cacheCommits } from '../../stores/repo';
@@ -11,6 +10,7 @@ import { useGraphFilterStore } from '../../stores/graphFilter';
 import { compileGraphLayout } from '../../graph/layout';
 import { colorWithAlpha, graphColorByKey, laneColorByIndex } from '../../graph/colors';
 import { authorVisual } from '../../graph/authorVisual';
+import { filterCommitsByQuery, parseSearchQuery } from '../../graph/searchQuery';
 import {
   applyPendingGraphWidthShrink,
   computeGraphLeadWidthForLaneCount,
@@ -29,7 +29,8 @@ import {
 } from '../../graph/rowLayout';
 import { GitCommit, Search, X, EyeOff, Eye, Clock, ShieldAlert, GitCompare, ListTree } from 'lucide-react';
 import { GitError } from '@shared/ipc';
-import { useCommit, useCheckout, useCreateBranch, useCherryPick, useRevert, useReset, useRebase, useMerge } from '../../queries/useMutations';
+import { useCommit, useCheckout, useCreateBranch, useCreateTag, useDeleteTag, useCherryPick, useRevert, useReset, useRebase, useMerge } from '../../queries/useMutations';
+import { useSettings, useSetSettings } from '../../queries/useSettings';
 import { ConfirmDialog } from '../ConfirmDialog';
 import { BranchBadge } from './decorations/BranchBadge';
 import { TagBadge } from './decorations/TagBadge';
@@ -41,40 +42,6 @@ type Density = 'compact' | 'comfortable' | 'detailed';
 
 const GRAPH_WIDTH_SHRINK_DELAY_MS = 160;
 const GRAPH_SCROLL_IDLE_MS = 120;
-
-interface ParsedQuery {
-  file?: string;
-  author?: string;
-  branch?: string;
-  hash?: string;
-  message?: string;
-}
-
-function parseSearchQuery(query: string): ParsedQuery {
-  const parts = query.trim().split(/\s+/);
-  const result: ParsedQuery = {};
-  const messageParts: string[] = [];
-
-  for (const part of parts) {
-    if (part.startsWith('author:')) {
-      result.author = part.slice('author:'.length).toLowerCase();
-    } else if (part.startsWith('branch:')) {
-      result.branch = part.slice('branch:'.length).toLowerCase();
-    } else if (part.startsWith('file:')) {
-      result.file = part.slice('file:'.length);
-    } else if (part.startsWith('hash:')) {
-      result.hash = part.slice('hash:'.length).toLowerCase();
-    } else if (part.trim() !== '') {
-      messageParts.push(part);
-    }
-  }
-
-  if (messageParts.length > 0) {
-    result.message = messageParts.join(' ').toLowerCase();
-  }
-
-  return result;
-}
 
 export function GraphPane() {
   const activeRepoPath = useRepoStore((s) => s.activeRepo?.path ?? null);
@@ -90,19 +57,16 @@ export function GraphPane() {
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; commit: Commit } | null>(null);
   const [createBranchAtCommit, setCreateBranchAtCommit] = useState<Commit | null>(null);
   const [newBranchName, setNewBranchName] = useState('');
+  const [createTagAtCommit, setCreateTagAtCommit] = useState<Commit | null>(null);
+  const [newTagName, setNewTagName] = useState('');
+  const [annotatedTag, setAnnotatedTag] = useState(false);
   const [resetConfirmCommit, setResetConfirmCommit] = useState<Commit | null>(null);
   const [resetMode, setResetMode] = useState<'soft' | 'mixed' | 'hard'>('mixed');
   const [mergeConfirmCommit, setMergeConfirmCommit] = useState<Commit | null>(null);
   const [refCtx, setRefCtx] = useState<{ x: number; y: number; ref: RefLabel } | null>(null);
-  const { data: settings } = useQuery({
-    queryKey: ['settings'],
-    queryFn: () => api.settings.get(),
-  });
+  const { data: settings } = useSettings();
+  const setSetting = useSetSettings();
   const qc = useQueryClient();
-  const setSetting = useMutation({
-    mutationFn: (input: Partial<SettingsData>) => api.settings.set(input),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['settings'] }),
-  });
 
   const [zoom, setZoom] = useState(1.0);
 
@@ -135,6 +99,8 @@ export function GraphPane() {
 
   const checkout = useCheckout();
   const createBranch = useCreateBranch();
+  const createTag = useCreateTag();
+  const deleteTag = useDeleteTag();
   const cherryPick = useCherryPick();
   const revert = useRevert();
   const reset = useReset();
@@ -178,6 +144,9 @@ export function GraphPane() {
     setContextMenu(null);
     setCreateBranchAtCommit(null);
     setNewBranchName('');
+    setCreateTagAtCommit(null);
+    setNewTagName('');
+    setAnnotatedTag(false);
     setResetConfirmCommit(null);
     setMergeConfirmCommit(null);
     setRefCtx(null);
@@ -214,31 +183,10 @@ export function GraphPane() {
     return () => ro.disconnect();
   }, []);
 
-  const filteredCommits = useMemo(() => {
-    if (!log.data?.commits) return [];
-    return log.data.commits.filter((commit) => {
-      if (parsed.author && !commit.author.name.toLowerCase().includes(parsed.author) && !commit.author.email.toLowerCase().includes(parsed.author)) {
-        return false;
-      }
-      if (parsed.branch && !commit.refs.some((r) => r.shortName.toLowerCase().includes(parsed.branch!))) {
-        return false;
-      }
-      if (parsed.hash && !commit.sha.toLowerCase().startsWith(parsed.hash)) {
-        return false;
-      }
-      if (parsed.message) {
-        const m = parsed.message;
-        const subjectMatch = commit.subject.toLowerCase().includes(m);
-        const authorMatch = commit.author.name.toLowerCase().includes(m);
-        const shaMatch = commit.sha.toLowerCase().startsWith(m);
-        const refMatch = commit.refs.some((r) => r.shortName.toLowerCase().includes(m));
-        if (!subjectMatch && !authorMatch && !shaMatch && !refMatch) {
-          return false;
-        }
-      }
-      return true;
-    });
-  }, [log.data?.commits, parsed]);
+  const filteredCommits = useMemo(
+    () => (log.data?.commits ? filterCommitsByQuery(log.data.commits, parsed) : []),
+    [log.data?.commits, parsed],
+  );
 
   const layout = useMemo(() => compileGraphLayout(filteredCommits), [filteredCommits]);
   const rows = layout.rows;
@@ -539,6 +487,17 @@ export function GraphPane() {
           <button
             className="w-full text-left px-3 py-1.5 hover:bg-bg-hover text-fg transition-colors"
             onClick={() => {
+              setCreateTagAtCommit(contextMenu.commit);
+              setNewTagName('');
+              setAnnotatedTag(false);
+              setContextMenu(null);
+            }}
+          >
+            Create Tag Here...
+          </button>
+          <button
+            className="w-full text-left px-3 py-1.5 hover:bg-bg-hover text-fg transition-colors"
+            onClick={() => {
               void cherryPick.mutate({ shas: [contextMenu.commit.sha] });
               setContextMenu(null);
             }}
@@ -622,6 +581,17 @@ export function GraphPane() {
           >
             <EyeOff className="w-3 h-3" /> Mute this branch
           </button>
+          {refCtx.ref.kind === 'tag' && (
+            <button
+              className="w-full text-left px-3 py-1.5 hover:bg-bg-hover text-git-deleted flex items-center gap-2"
+              onClick={() => {
+                void deleteTag.mutate({ name: refCtx.ref.shortName });
+                setRefCtx(null);
+              }}
+            >
+              Delete tag
+            </button>
+          )}
         </div>
       )}
 
@@ -649,6 +619,42 @@ export function GraphPane() {
           onChange={(e) => setNewBranchName(e.target.value)}
           autoFocus
         />
+      </ConfirmDialog>
+
+      <ConfirmDialog
+        open={!!createTagAtCommit}
+        title="Create Tag Here"
+        message={`Create a tag pointing at commit ${createTagAtCommit?.sha.slice(0, 7)}?`}
+        confirmLabel="Create Tag"
+        onConfirm={() => {
+          if (createTagAtCommit && newTagName.trim()) {
+            void createTag.mutate({
+              name: newTagName.trim(),
+              start: createTagAtCommit.sha,
+              annotated: annotatedTag,
+              message: annotatedTag ? newTagName.trim() : undefined,
+            });
+            setCreateTagAtCommit(null);
+          }
+        }}
+        onCancel={() => setCreateTagAtCommit(null)}
+      >
+        <input
+          className="input w-full mt-2"
+          placeholder="Enter tag name..."
+          value={newTagName}
+          onChange={(e) => setNewTagName(e.target.value)}
+          autoFocus
+        />
+        <label className="mt-2 flex items-center gap-2 text-xs text-fg-muted cursor-pointer">
+          <input
+            type="checkbox"
+            checked={annotatedTag}
+            onChange={(e) => setAnnotatedTag(e.target.checked)}
+            className="accent-accent"
+          />
+          Annotated tag
+        </label>
       </ConfirmDialog>
 
       <ConfirmDialog

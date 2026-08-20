@@ -26,7 +26,7 @@ import { join, relative, basename } from 'node:path';
 import { exec } from 'node:child_process';
 
 export function registerRepoHandlers(): void {
-  ipcMain.handle('dialog:pickRepo', async () => {
+  ipcMain.handle(IPC.DIALOG_PICK_REPO, async () => {
     const result = await dialog.showOpenDialog({
       title: 'Open Repository',
       properties: ['openDirectory'],
@@ -35,7 +35,7 @@ export function registerRepoHandlers(): void {
     return result.filePaths[0]!;
   });
 
-  ipcMain.handle('dialog:pickDirectory', async () => {
+  ipcMain.handle(IPC.DIALOG_PICK_DIRECTORY, async () => {
     const result = await dialog.showOpenDialog({
       title: 'Choose Directory',
       properties: ['openDirectory', 'createDirectory'],

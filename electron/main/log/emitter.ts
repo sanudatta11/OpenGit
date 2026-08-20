@@ -20,3 +20,11 @@ class LogStore extends EventEmitter {
 }
 
 export const logStore = new LogStore();
+
+/** Layer A / tests can subscribe to the same operation log the IPC bridge uses. */
+export function subscribeLog(cb: (entry: LogEntry) => void): () => void {
+  logStore.on('entry', cb);
+  return () => {
+    logStore.off('entry', cb);
+  };
+}

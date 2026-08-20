@@ -2,11 +2,11 @@
 
 import { useEffect, useState } from 'react';
 import { Settings, X, FolderOpen, Trash2, Loader2, Check, RefreshCw } from 'lucide-react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../ipc/api';
-import type { SettingsData } from '@shared/ipc';
 import { useThemeStore } from '../stores/theme';
 import { useCheckForUpdates } from '../queries/useUpdater';
+import { useSettings, useSetSettings } from '../queries/useSettings';
 
 export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () => void }) {
   useEffect(() => {
@@ -51,11 +51,8 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
 }
 
 function GitPathSection() {
-  const { data, isLoading } = useQuery({
-    queryKey: ['settings'],
-    queryFn: () => api.settings.get(),
-  });
-  const qc = useQueryClient();
+  const { data, isLoading } = useSettings();
+  const setSetting = useSetSettings();
   const [path, setPath] = useState('');
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -64,18 +61,18 @@ function GitPathSection() {
     if (data) setPath(data.gitBinPath ?? '');
   }, [data]);
 
-  const save = useMutation({
-    mutationFn: (gitBinPath: string | null) => api.settings.set({ gitBinPath }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['settings'] });
-      setSaved(true);
-      setTimeout(() => setSaved(false), 1500);
-    },
-  });
-
   const handleSave = () => {
     setSaving(true);
-    void save.mutate(path.trim() || null, { onSettled: () => setSaving(false) });
+    void setSetting.mutate(
+      { gitBinPath: path.trim() || null },
+      {
+        onSuccess: () => {
+          setSaved(true);
+          setTimeout(() => setSaved(false), 1500);
+        },
+        onSettled: () => setSaving(false),
+      },
+    );
   };
 
   return (
@@ -96,21 +93,14 @@ function GitPathSection() {
           {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : saved ? <Check className="w-3.5 h-3.5 text-git-added" /> : 'Save'}
         </button>
       </div>
-      {save.error && <div className="mt-1 text-xs text-git-deleted">{(save.error as Error).message}</div>}
+      {setSetting.error && <div className="mt-1 text-xs text-git-deleted">{(setSetting.error as Error).message}</div>}
     </section>
   );
 }
 
 function DiffSection() {
-  const { data } = useQuery({
-    queryKey: ['settings'],
-    queryFn: () => api.settings.get(),
-  });
-  const qc = useQueryClient();
-  const setSetting = useMutation({
-    mutationFn: (input: Partial<SettingsData>) => api.settings.set(input),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['settings'] }),
-  });
+  const { data } = useSettings();
+  const setSetting = useSetSettings();
 
   return (
     <section>
@@ -156,15 +146,8 @@ function DiffSection() {
 }
 
 function ThemeSection() {
-  const { data } = useQuery({
-    queryKey: ['settings'],
-    queryFn: () => api.settings.get(),
-  });
-  const qc = useQueryClient();
-  const setSetting = useMutation({
-    mutationFn: (input: Partial<SettingsData>) => api.settings.set(input),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['settings'] }),
-  });
+  const { data } = useSettings();
+  const setSetting = useSetSettings();
 
   return (
     <section>
@@ -185,15 +168,8 @@ function ThemeSection() {
 }
 
 function FontSizeSection() {
-  const { data } = useQuery({
-    queryKey: ['settings'],
-    queryFn: () => api.settings.get(),
-  });
-  const qc = useQueryClient();
-  const setSetting = useMutation({
-    mutationFn: (input: Partial<SettingsData>) => api.settings.set(input),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['settings'] }),
-  });
+  const { data } = useSettings();
+  const setSetting = useSetSettings();
 
   return (
     <section>
@@ -211,15 +187,8 @@ function FontSizeSection() {
 }
 
 function DefaultBranchSection() {
-  const { data } = useQuery({
-    queryKey: ['settings'],
-    queryFn: () => api.settings.get(),
-  });
-  const qc = useQueryClient();
-  const setSetting = useMutation({
-    mutationFn: (input: Partial<SettingsData>) => api.settings.set(input),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['settings'] }),
-  });
+  const { data } = useSettings();
+  const setSetting = useSetSettings();
   const [branch, setBranch] = useState('');
   const [saved, setSaved] = useState(false);
 
@@ -251,15 +220,8 @@ function DefaultBranchSection() {
 }
 
 function PullStrategySection() {
-  const { data } = useQuery({
-    queryKey: ['settings'],
-    queryFn: () => api.settings.get(),
-  });
-  const qc = useQueryClient();
-  const setSetting = useMutation({
-    mutationFn: (input: Partial<SettingsData>) => api.settings.set(input),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['settings'] }),
-  });
+  const { data } = useSettings();
+  const setSetting = useSetSettings();
 
   return (
     <section>
@@ -283,15 +245,8 @@ function PullStrategySection() {
 }
 
 function CommitSection() {
-  const { data } = useQuery({
-    queryKey: ['settings'],
-    queryFn: () => api.settings.get(),
-  });
-  const qc = useQueryClient();
-  const setSetting = useMutation({
-    mutationFn: (input: Partial<SettingsData>) => api.settings.set(input),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['settings'] }),
-  });
+  const { data } = useSettings();
+  const setSetting = useSetSettings();
 
   return (
     <section>
@@ -323,15 +278,8 @@ function CommitSection() {
 }
 
 function SigningSection() {
-  const { data } = useQuery({
-    queryKey: ['settings'],
-    queryFn: () => api.settings.get(),
-  });
-  const qc = useQueryClient();
-  const setSetting = useMutation({
-    mutationFn: (input: Partial<SettingsData>) => api.settings.set(input),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['settings'] }),
-  });
+  const { data } = useSettings();
+  const setSetting = useSetSettings();
 
   return (
     <section>
@@ -355,15 +303,8 @@ function SigningSection() {
 }
 
 function AutoFetchSection() {
-  const { data } = useQuery({
-    queryKey: ['settings'],
-    queryFn: () => api.settings.get(),
-  });
-  const qc = useQueryClient();
-  const setSetting = useMutation({
-    mutationFn: (input: Partial<SettingsData>) => api.settings.set(input),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['settings'] }),
-  });
+  const { data } = useSettings();
+  const setSetting = useSetSettings();
 
   const intervals = [0, 5, 15, 30, 60];
 
@@ -387,15 +328,8 @@ function AutoFetchSection() {
 }
 
 function ExternalEditorSection() {
-  const { data } = useQuery({
-    queryKey: ['settings'],
-    queryFn: () => api.settings.get(),
-  });
-  const qc = useQueryClient();
-  const setSetting = useMutation({
-    mutationFn: (input: Partial<SettingsData>) => api.settings.set(input),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['settings'] }),
-  });
+  const { data } = useSettings();
+  const setSetting = useSetSettings();
   const [editor, setEditor] = useState('');
   const [saved, setSaved] = useState(false);
 
@@ -428,15 +362,8 @@ function ExternalEditorSection() {
 }
 
 function UpdatesSection() {
-  const { data } = useQuery({
-    queryKey: ['settings'],
-    queryFn: () => api.settings.get(),
-  });
-  const qc = useQueryClient();
-  const setSetting = useMutation({
-    mutationFn: (input: Partial<SettingsData>) => api.settings.set(input),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['settings'] }),
-  });
+  const { data } = useSettings();
+  const setSetting = useSetSettings();
   const checkForUpdates = useCheckForUpdates();
   const [checking, setChecking] = useState(false);
 

@@ -18,7 +18,7 @@ export function registerWorkingTreeHandlers(): void {
     return stagePaths(r.workTreeRoot, parsed.data.paths);
   });
 
-  ipcMain.handle('workingTree:stageAll', async () => {
+  ipcMain.handle(IPC.WORKING_TREE_STAGE_ALL, async () => {
     const r = requireCurrentRepo();
     return stageAll(r.workTreeRoot);
   });
@@ -30,7 +30,7 @@ export function registerWorkingTreeHandlers(): void {
     return unstagePaths(r.workTreeRoot, parsed.data.paths);
   });
 
-  ipcMain.handle('workingTree:unstageAll', async () => {
+  ipcMain.handle(IPC.WORKING_TREE_UNSTAGE_ALL, async () => {
     const r = requireCurrentRepo();
     return unstageAll(r.workTreeRoot);
   });
@@ -42,7 +42,7 @@ export function registerWorkingTreeHandlers(): void {
     return discardPaths(r.workTreeRoot, parsed.data.paths);
   });
 
-  ipcMain.handle('workingTree:discardUntracked', async (_e, raw) => {
+  ipcMain.handle(IPC.WORKING_TREE_DISCARD_UNTRACKED, async (_e, raw) => {
     const parsed = PathListInput.safeParse(raw);
     if (!parsed.success) throw badInput(parsed.error.message, 'Invalid discard request.');
     const r = requireCurrentRepo();

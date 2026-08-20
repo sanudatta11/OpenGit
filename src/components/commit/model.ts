@@ -67,6 +67,36 @@ export function buildPathTree(entries: readonly StatusEntry[], direction: Commit
   return materializeFolder(root, direction);
 }
 
+export interface StatusPartitions {
+  staged: StatusEntry[];
+  unstaged: StatusEntry[];
+  untracked: StatusEntry[];
+  conflicts: StatusEntry[];
+}
+
+/** Partition working-tree status entries for inspector / commit panels. */
+export function partitionStatusEntries(
+  entries: readonly StatusEntry[],
+  opts: { excludeConflictsFromLists?: boolean } = {},
+): StatusPartitions {
+  const conflicts = entries.filter((e) => e.kind === 'unmerged');
+  const untracked = entries.filter((e) => e.kind === 'untracked');
+  if (opts.excludeConflictsFromLists) {
+    return {
+      conflicts,
+      untracked,
+      unstaged: entries.filter((e) => e.unstaged && e.kind !== 'unmerged'),
+      staged: entries.filter((e) => e.staged && e.kind !== 'unmerged'),
+    };
+  }
+  return {
+    conflicts,
+    untracked,
+    staged: entries.filter((e) => e.staged),
+    unstaged: entries.filter((e) => e.unstaged),
+  };
+}
+
 export function summarizeWip(entries: readonly StatusEntry[]): {
   files: number;
   additions: number;
